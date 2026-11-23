@@ -943,3 +943,25 @@ untime.completed)
 - `f55eb8a` pushed to `origin/main`.
 - Typecheck PASS: shared build, api, temporal-worker.
 
+## Session: 2026-11-23 - P5-D Temporal stub routing test + loop guard
+**Time:** 2026-11-23T19:46:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Added `HELM_TEMPORAL_TEST_MODE=stub` in `backend/api/src/lib/temporal.ts`: idempotent in-memory workflow start/signal by workflowId, test reset/introspection helpers.
+- [x] Added internal activity loop guard: `x-helm-temporal-activity-secret` (or dev `x-helm-temporal-activity`) bypasses Temporal routing in Gmail/Calendar routes so Temporal activities can call guarded direct execution paths safely.
+- [x] Added env-gated integration test `tests/integration/src/temporal-routing-api.test.ts` (`HELM_TEMPORAL_ROUTING_TEST=1`): seeds task/connector account/approved approval, posts Gmail send twice, asserts 202 + `routed:"temporal"` + stable workflowId.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `HELM_TEMPORAL_ROUTING_TEST=1 pnpm --filter @helm/integration-tests test -- temporal-routing-api` PASS (1/1).
+- [x] Commit/push: `7497b0c`.
+
+### Active / Next (not completed)
+- [ ] Real Temporal server E2E (not stub): worker kill/restart mid-execution, no duplicate external side effect, uncertain receipt reconciliation.
+- [ ] Wire `browser.external_action` into Temporal routing/activity.
+- [ ] Approval decision signal wiring for workflows that wait for approval (current route pre-approves and signals immediately).
+- [ ] Rollback/disable-flag proof and operator runbook.
+
+### Evidence
+- `7497b0c` pushed to `origin/main`.
+- Integration: `temporal-routing-api` PASS 1/1.
+
