@@ -1,45 +1,45 @@
-# Decisions & Assumptions — Helm
+﻿# Decisions & Assumptions â€” Helm
 
 > Record decisions so future sessions don't re-litigate or guess. Include date, context, decision, alternatives, consequences.
 
-## 2026-11-22 — Project name: Helm
+## 2026-11-22 â€” Project name: Helm
 - **Context:** User asked to name the project and implement blueprint from scratch.
 - **Decision:** Name = **Helm**. Package scope `@helm/*`.
 - **Alternatives:** PAP (blueprint working name), other names.
 - **Consequences:** All packages/apps named `@helm/*`; can rename later via codemod if user prefers.
 
-## 2026-11-22 — Hermes is external, not built here
+## 2026-11-22 â€” Hermes is external, not built here
 - **Context:** User asked "you are building my agent right not hermes?"
 - **Decision:** Build Helm platform; integrate Hermes later behind `AgentRuntime` adapter contract per `05-Hermes-Agent-Runtime.md`. Do not reimplement Hermes.
 - **Consequences:** Phase 2 requires adapter/sidecar integration; control plane remains authoritative.
 
-## 2026-11-22 — Phase 0 scaffold before verification
+## 2026-11-22 â€” Phase 0 scaffold before verification
 - **Decision:** Created minimal Phase 0 vertical slice skeleton; marked unverified until smoke pass. Smoke later passed.
 - **Consequences:** Continue hardening (bootstrap, CI, real tests, transition/idempotency).
 
-## 2026-11-22 — Dev auth skeleton
+## 2026-11-22 â€” Dev auth skeleton
 - **Decision:** API uses `x-user-id` header or falls back to `usr_local_dev` for Phase 0. No real OIDC/session.
 - **Consequences:** Replace in later phase with proper auth; never expose beyond local dev.
 
-## 2026-11-22 — Event sequence allocation
+## 2026-11-22 â€” Event sequence allocation
 - **Decision:** Phase 0 uses `max(sequence)+1` read per task event insert. Acceptable for single-worker/dev.
 - **Risk:** Concurrent writers can race; fix with DB sequence/transactional counter in Phase 1 hardening.
 
-## 2026-11-22 — Replaceable technology by contract
+## 2026-11-22 â€” Replaceable technology by contract
 - **Context:** User asked if underlying technology can be changed later.
 - **Decision:** All major components must sit behind contracts/adapters in `packages/shared` or package boundaries. Swaps require ADR + migration + rollback + verification. Stable: event envelope, task/approval/receipt/error schemas, audit semantics. Swappable: model/provider, Hermes mode, browser backend, connectors, queue/durable engine, UI libs, ORM where isolated.
 - **Consequences:** No vendor SDK types leak outside adapters; add ADRs before major swaps.
 
-## 2026-11-22 — Observability/debug/trace/fix-audit are mandatory
+## 2026-11-22 â€” Observability/debug/trace/fix-audit are mandatory
 - **Context:** User requested print/debug statements, agent trace, stress/error root-cause reporting, agent-assisted fix workflow, and tracking/auditing fixes.
 - **Decision:** Adopt `changes/REPLACEABILITY_OBSERVABILITY_AUDIT_PLAN.md`. Structured Pino logs with redaction; debug flags for verbose dev trace; no ad-hoc prod console.log. Stable `HelmError` codes; cause chains; redacted context. Agent trace events in task timeline. Every non-trivial fix recorded in `changes/FIX_LOG.md` and audit/event metadata.
 - **Consequences:** Add observability package/helpers, error taxonomy, debug bundle, fault injection, and regression-test requirement for fixes.
 
 ## Open Decisions
 - [ ] Confirm product display name/branding (Helm vs other).
-- [ ] ADR-001 Hermes integration mode (sidecar/service/embedded) — Phase 2.
-- [ ] ADR-002 Temporal scope (all tasks vs long-running only) — Phase 5.
-- [ ] ADR-003 Browser primary backend (BrowserOS vs Playwright first) — Phase 3/6.
+- [ ] ADR-001 Hermes integration mode (sidecar/service/embedded) â€” Phase 2.
+- [ ] ADR-002 Temporal scope (all tasks vs long-running only) â€” Phase 5.
+- [ ] ADR-003 Browser primary backend (BrowserOS vs Playwright first) â€” Phase 3/6.
 - [ ] ADR-004 Canonical event schema (AG-UI extension vs custom).
 - [ ] ADR-005 Secret vault implementation.
 - [ ] ADR-006 Observability stack (Pino+OTel now; later Loki/Tempo/Prometheus/Grafana?).
@@ -80,3 +80,9 @@
 - **Decision:** Helm will implement BrowserOS/Hermes/Obscura-like capabilities as original Helm-owned code and contracts. No third-party project source code is copied/vendored into Helm. External runtimes, if ever used, must be optional isolated adapters/services with license/compliance review; no AGPL/copyleft vendoring.
 - **Rationale:** User explicitly requested similar/better features, not copied proprietary/third-party code, for Dubai competition.
 - **Impact:** AGENTS/README/phase plans updated; all future implementation must follow original-code + adapter-boundary rule.
+
+## DEC-20261123-self-improvement-design
+- **Date:** 2026-11-23
+- **Decision:** Record Helm-owned, Hermes-inspired self-improvement as a gated design, not autonomous self-modification. Design doc: `changes/DESIGN-self-improvement-loop.md`.
+- **Rationale:** User requested Hermes-like self-improvement. Helm invariants require model-proposes/policy-decides, approval for high-impact activation, versioned/rollbackable artifacts, no secrets/PII leakage, and reproducible eval evidence.
+- **Impact:** Creates P7 implementation track (feedback capture, memory provenance, skill/playbook proposals, bounded prompt/routing tuning). No runtime behavior changed yet; implementation requires separate approved slices.

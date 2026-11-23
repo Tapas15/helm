@@ -1,8 +1,8 @@
-# Current State — Helm
+﻿# Current State â€” Helm
 
 **Last updated:** 2026-11-23T05:15:00Z (session: blueprint loaded, gap/binding audit, navigate guard)  
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
-**Next move:** Complete binding audit remaining gaps (approval resolve idempotency/conflict, session ownership/audit for screenshot/snapshot/close/create), add regression tests for navigate guard and approval replay, then continue browser recovery hardening.
+**Next move:** Complete binding audit remaining gaps (approval resolve idempotency/conflict, session ownership/audit for screenshot/snapshot/close/create), add regression tests for navigate guard and approval replay, then continue browser recovery hardening. See `changes/PLANNING_MISSING_ITEMS.md` for full blueprint-parity checklist and `changes/DESIGN-self-improvement-loop.md` for proposed self-improvement design.
 
 ## Project Identity
 - **Name:** Helm (`@helm/*`)
@@ -19,12 +19,20 @@
 - **Phase 4 - Approvals/Vault/Connectors:** `[~]` 47%. Approval flow, `action_receipts`, guarded external-action API, runtime wired through guarded path, dedupe/audit/event; worker receipt hardening prevents false executed receipts for browser/external approvals; browser click/fill/navigate(non-allowlisted)/external-action routes guarded. Binding audit doc added. Pending: approval resolve idempotency/conflict hardening, session ownership/audit, vault/policy boundaries.
 - **Phase 5-8:** `[ ]` 0-5%.
 
+
+## User Directives (do not override without asking)
+- **2026-11-23:** Use local Ollama (installed, no external API key). Add model/tool guardrails; pick strongest local tool-capable model; run browser-tool E2E smoke with approvals. Only ask if user wants hosted model/API key or all local models unreliable for tool calls.
+- **2026-11-23:** Hermes-like self-improvement requested; design doc created (changes/DESIGN-self-improvement-loop.md) - not implemented. Ask before implementing/activating autonomous behavior.
+- **2026-11-23:** If planning conflicts with explicit user conversation directives, record conflict in changes/ and ask before major changes. Keep continuation/summary chunk in changes/.
+- **Standing:** Do not use/touch local PG17 postgresql-x64-17 panic service.
 ## Usable Prototype Definition
 - [~] Create browser task -> see preview/session status.
 - [x] Request takeover/resume from UI; control state persisted/emitted; agent pauses and resumes.
 - [x] Risky browser action pauses for approval; approved action executes once via guarded `actionHash`+idempotency path; reject blocks.
 - [x] Evidence artifacts/receipts persisted and visible in UI/API.
 - [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).`n- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; in-memory browser sessions do not.
+
+
 
 
 

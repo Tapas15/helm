@@ -662,3 +662,32 @@
 1. Add navigate guard regression tests.
 2. Harden approvals resolve with idempotent replay/conflict on mismatched decision.
 3. Update CURRENT_STATE and push.
+
+## Session: 2026-11-23 - Self-improvement design + continuation chunk
+**Time:** 2026-11-23T05:35:00Z  
+**Agent:** Kilo  
+**Phase:** P2/P7 planning
+
+### Completed
+- Created `changes/DESIGN-self-improvement-loop.md`: Helm-owned, Hermes-inspired gated self-improvement design (feedback/proposal/eval gate/activation/rollback; no policy/code self-modification).
+- Created `changes/CONTINUATION_CHUNK.md`: resume handoff with objective, read-first files, state, invariants, next actions, blockers, verification commands.
+- Created `changes/PLANNING_MISSING_ITEMS.md`: blueprint-parity missing-items checklist derived from Planning 00-13/MASTER-TECHNICAL-BLUEPRINT.
+- Updated `changes/CURRENT_STATE.md` next move to reference missing-items and self-improvement design docs.
+- Appended `DEC-20261123-self-improvement-design` to `changes/DECISIONS.md`.
+
+### Files Changed
+- `changes/DESIGN-self-improvement-loop.md` - new design doc.
+- `changes/CONTINUATION_CHUNK.md` - new handoff doc.
+- `changes/PLANNING_MISSING_ITEMS.md` - new blueprint gap checklist.
+- `changes/CURRENT_STATE.md` - next move references.
+- `changes/DECISIONS.md` - decision record.
+- `changes/SESSION_LOG.md` - this entry.
+
+### Next Steps
+- Live UI E2E smoke with Ollama (assistant + browser approval flow).
+- Binding-audit regression tests (navigate, approval resolve, session ownership/authz).
+- Browser recovery hardening and WS interactive smoke.
+- Begin P4 vault/connector contract slice; P5 Temporal design.
+
+### Evidence
+- Files present in `helm/changes/`; `git status` shows untracked new docs before commit.
