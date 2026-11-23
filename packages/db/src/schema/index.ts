@@ -1,4 +1,4 @@
-﻿import { pgTable, text, timestamp, integer, jsonb, bigint, uniqueIndex, index } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, timestamp, integer, jsonb, bigint, uniqueIndex, index, boolean } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -202,6 +202,21 @@ export const identities = pgTable("identities", {
 }, (t) => [
   index("identities_user_class_idx").on(t.userId, t.class),
   index("identities_user_status_idx").on(t.userId, t.status),
+]);
+
+export const identityPolicies = pgTable("identity_policies", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  identityId: text("identity_id").notNull().references(() => identities.id),
+  allowedDomains: jsonb("allowed_domains").notNull().default(sql`'[]'::jsonb`),
+  allowedRecipients: jsonb("allowed_recipients").notNull().default(sql`'[]'::jsonb`),
+  allowExternalWrites: boolean("allow_external_writes").notNull().default(false),
+  requireApproval: boolean("require_approval").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("identity_policies_user_idx").on(t.userId),
+  index("identity_policies_identity_idx").on(t.identityId),
 ]);
 
 export const memoryNotes = pgTable("memory_notes", {
