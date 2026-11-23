@@ -187,6 +187,37 @@ export const oauthStates = pgTable("oauth_states", {
   index("oauth_states_expires_idx").on(t.expiresAt),
 ]);
 
+export const identities = pgTable("identities", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  class: text("class").notNull().default("helm-owned"),
+  label: text("label").notNull(),
+  email: text("email"),
+  provider: text("provider"),
+  scopes: jsonb("scopes").notNull().default(sql`'[]'::jsonb`),
+  status: text("status").notNull().default("pending"),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("identities_user_class_idx").on(t.userId, t.class),
+  index("identities_user_status_idx").on(t.userId, t.status),
+]);
+
+export const memoryNotes = pgTable("memory_notes", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  identityId: text("identity_id").references(() => identities.id),
+  kind: text("kind").notNull().default("note"),
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("memory_notes_user_kind_idx").on(t.userId, t.kind),
+  index("memory_notes_user_created_idx").on(t.userId, t.createdAt),
+]);
+
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
