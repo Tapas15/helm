@@ -1193,3 +1193,25 @@ untime.completed)
 - [ ] P6 real BrowserOS endpoint/protocol/parity tests.
 - [ ] P7 identity vault linkage/policy enforcement/UI, skills/proactivity; self-improvement activation requires explicit user approval.
 - [ ] P8 backup/restore drill execution, security scan/threat model, PII retention/export/delete, compliance/provenance signoff.
+## Session: 2026-11-23 - Auto-continue P5-P8 (unblocked complete)
+**Time:** 2026-11-23T21:41:00Z  
+**Agent:** Kilo  
+**Phase:** P5-P8
+
+### Completed (unblocked)
+- [x] P6: adapter-aware browser session lookup; dispatch flag/request/requestBinary wiring retained (`4bfc19c`).
+- [x] P7: `identity_policies` schema + restrictive default policy on helm-owned identity creation (`f4eb64a`,`08eb681`).
+- [x] P8: backup/restore PowerShell scripts + completion snapshot/checklists/runbooks (`4bfc19c`,`73cd8ea`).
+- [x] Docs synced: README, CURRENT_STATE, SESSION_LOG (`3b22451`,`395c8bd`).
+
+### Verification
+- `pnpm --filter @helm/db typecheck` PASS
+- `pnpm --filter @helm/api typecheck` PASS
+- Prior P5 env-gated proofs previously PASS (stub routing, real dedupe E2E, mock side-effect E2E, rollback E2E).
+
+### Blocked (not completed; needs external input/ops)
+- [ ] Real Google OAuth E2E - needs `GOOGLE_CLIENT_ID/SECRET`.
+- [ ] Real-provider Temporal no-duplicate proof - needs provider sandbox/creds.
+- [ ] BrowserOS real endpoint/protocol/parity tests - needs BrowserOS runtime/protocol decision.
+- [ ] Backup/restore drill execution, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff - manual/ops/legal.
+- [ ] Self-improvement activation - requires explicit user approval before implementation/activation.
