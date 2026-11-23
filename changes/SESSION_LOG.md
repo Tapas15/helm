@@ -1156,3 +1156,15 @@ untime.completed)
 
 ### Remaining
 - [ ] Full browser route migration to typed adapter methods, BrowserOS real endpoint, parity/security tests.
+
+## Session: 2026-11-23 - P6 binary adapter dispatch
+**Time:** 2026-11-23T21:27:00Z  
+**Agent:** Kilo  
+**Phase:** P6
+
+### Completed
+- [x] Added `requestBinary()` to browser adapter and routed screenshot.png through adapter when dispatch flag enabled.
+- [x] API typecheck PASS. Commit `9dc78e6`.
+
+### Remaining
+- [ ] Full typed route migration, real BrowserOS endpoint/parity tests.
