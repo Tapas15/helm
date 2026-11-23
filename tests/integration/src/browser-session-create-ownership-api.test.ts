@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 const base = process.env.HELM_API_URL ?? "http://127.0.0.1:8787";
-const run = process.env.HELM_INTEGRATION_API !== "0";
+const run = process.env.HELM_INTEGRATION_API === "1";
 
 async function api(path: string, init?: RequestInit, userId = "usr_local_dev") {
   const res = await fetch(`${base}${path}`, { ...init, headers: { "content-type": "application/json", "x-user-id": userId, ...(init?.headers ?? {}) } });
