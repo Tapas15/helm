@@ -6,6 +6,7 @@ export * from "./browser.js";
 export * from "./agent-runtime.js";
 export * from "./approval.js";
 export * from "./auth.js";
+export * from "./connectors.js";
 export * from "./temporal.js";
 
 

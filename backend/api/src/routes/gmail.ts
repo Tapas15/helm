@@ -1,7 +1,8 @@
 ﻿import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, connectorAccounts, type Database } from "@helm/db";
-import { GmailSendInput, HELM_ERROR_CODES } from "@helm/shared";
+import { GmailSendInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
+import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { getValidGoogleAccessToken } from "./connector-accounts.js";
@@ -89,6 +90,23 @@ export function gmailRoutes(db: Database) {
     }
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-gmail" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Gmail account not active"), 409);
+
+    const temporalCfg = readTemporalConfig(process.env);
+    if (shouldUseTemporalForAction(temporalCfg, "gmail.send")) {
+      try {
+        const started = await maybeStartExternalActionWorkflow({
+          taskId: approval.taskId ?? input.accountId, userId, actionKind: "gmail.send", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,
+          approvalId: approval.id, payload: { accountId: input.accountId, to: input.to, subject: input.subject, bodyText: input.bodyText },
+        });
+        if (started.started) {
+          await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "gmail.send.temporal_started", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
+          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+        }
+      } catch (e) {
+        return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
+      }
+    }
+
     const token = await getValidGoogleAccessToken(vault, userId, input.accountId);
     if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Gmail token not found"), 404);
 

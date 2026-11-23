@@ -16,6 +16,7 @@
     "@helm/observability": "workspace:*",
     "@helm/shared": "workspace:*",
     "@hono/node-server": "^1.14.3",
+    "@temporalio/client": "^1.11.7",
     "@types/ws": "^8.18.2",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
