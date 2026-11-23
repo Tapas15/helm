@@ -1,4 +1,4 @@
-﻿# Helm
+# Helm
 
 [![CI](https://github.com/Tapas15/helm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tapas15/helm/actions/workflows/ci.yml)
 
@@ -22,16 +22,16 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~90%** | Usable prototype baseline; P5 Temporal proofs/routing, P6 adapter boundary, P7 memory/identity design slices added |
+| **Overall** | **~90%** | Usable prototype baseline; P5 proofs strong, P6 adapter dispatch wired behind flag, P7 flagged identity/memory DB slices, P8 evidence/checklists added |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added |
 | Phase 2 Agent Runtime | 56% | Local Ollama streaming + basic tool-calling; guardrails present, richer policy pending |
 | Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
-| Phase 4 Approvals/Vault/Connectors | 87% | Receipts/resolve hardening, session-token scaffold, vault/connector contracts, Gmail read/send+uncertain reconcile, Calendar read/create approval-gated |
+| Phase 4 Approvals/Vault/Connectors | 88% | Vault/connector contracts, Gmail read/send, Calendar read/create/update/delete approval-gated with uncertain reconcile; real OAuth E2E blocked on external creds |
 | Phase 5 Temporal Reliability | 50% | Feature-flagged routing for Gmail/Calendar/browser external actions; stub/real-dedupe/mock-side-effect/rollback E2E proofs; runbook added |
-| Phase 6 BrowserOS Upgrade | 12% | Adapter interface + Playwright default + BrowserOS stub behind flag; route wiring prep |
-| Phase 7 Memory/Skills/Proactivity | 5% | Memory status endpoint (flagged, design-only) + agent-owned identity differentiator design; self-improvement approval-gated |
-| Phase 8 Hardening/Release | 5% | Minimal hardening checklist added; evidence incomplete |
+| Phase 6 BrowserOS Upgrade | 20% | Adapter interface + Playwright default + BrowserOS stub; adapter status/request/binary dispatch behind HELM_BROWSER_ADAPTER_DISPATCH flag; real BrowserOS endpoint pending |
+| Phase 7 Memory/Skills/Proactivity | 15% | Identity contracts/status/create (helm-owned default), DB-backed memory notes behind HELM_MEMORY_ENABLED; proactivity/skills/self-improvement still gated/design-only |
+| Phase 8 Hardening/Release | 15% | Backup/restore/security-privacy/release-evidence docs added; drills, threat model, PII lifecycle, and compliance signoff still pending |
 
 > Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
