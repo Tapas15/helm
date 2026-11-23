@@ -10,7 +10,7 @@ async function nextSequence(db: Database, taskId: string) { const rows = await d
 
 export function approvalRoutes(db: Database) {
   const app = new Hono<AppEnv>();
-  app.get("/", async (c) => { const userId = c.get("userId"); const status = c.req.query("status"); const where = status ? and(eq(approvals.userId, userId), eq(approvals.status, status)) : eq(approvals.userId, userId); const rows = await db.select().from(approvals).where(where).orderBy(desc(approvals.requestedAt)).limit(100); return c.json({ approvals: rows }); });
+  app.get("/", async (c) => { const userId = c.get("userId"); const status = c.req.query("status"); const taskId = c.req.query("taskId"); const filters = [eq(approvals.userId, userId)]; if (status) filters.push(eq(approvals.status, status)); if (taskId) filters.push(eq(approvals.taskId, taskId)); const rows = await db.select().from(approvals).where(and(...filters)).orderBy(desc(approvals.requestedAt)).limit(100); return c.json({ approvals: rows }); });
   app.post("/:id/resolve", async (c) => {
     const userId = c.get("userId"); const requestId = c.get("requestId"); const correlationId = c.get("correlationId"); const id = c.req.param("id");
     const body = await c.req.json().catch(() => null); const parsed = ResolveApprovalInput.safeParse(body);

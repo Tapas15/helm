@@ -40,18 +40,24 @@ async function pollApproval(taskId: string) {
 
     const createApprovalTask = await api("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: "buy something now", kind: "browser" }) });
     expect(createApprovalTask.status).toBe(201);
-    const approval = await pollApproval(createApprovalTask.json.task.id);
+    const approvalTaskId = createApprovalTask.json.task.id as string;
+    const approval = await pollApproval(approvalTaskId);
     expect(approval?.actionHash).toBeTruthy();
 
     const resolve = await api(`/v1/approvals/${approval.id}/resolve`, { method: "POST", body: JSON.stringify({ decision: "approve", actionHash: approval.actionHash }) });
     expect(resolve.status).toBe(200);
 
+    const createGuardedSession = await api("/v1/browser/sessions", { method: "POST", body: JSON.stringify({ taskId: approvalTaskId, provider: "playwright", headless: true, initialUrl: "https://example.com" }) });
+    expect([200,201]).toContain(createGuardedSession.status);
+    const guardedSessionId = createGuardedSession.json?.session?.id;
+    expect(guardedSessionId).toBeTruthy();
+
     const idempotencyKey = `itest:${approval.actionHash}`;
-    const guarded = await api(`/v1/browser/sessions/${sessionId}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com/", approvalId: approval.id, actionHash: approval.actionHash, idempotencyKey }) });
+    const guarded = await api(`/v1/browser/sessions/${guardedSessionId}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com/", approvalId: approval.id, actionHash: approval.actionHash, idempotencyKey }) });
     expect(guarded.status).toBe(200);
     expect(guarded.json?.ok).toBe(true);
 
-    const deduped = await api(`/v1/browser/sessions/${sessionId}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com/", approvalId: approval.id, actionHash: approval.actionHash, idempotencyKey }) });
+    const deduped = await api(`/v1/browser/sessions/${guardedSessionId}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com/", approvalId: approval.id, actionHash: approval.actionHash, idempotencyKey }) });
     expect(deduped.status).toBe(200);
     expect(deduped.json?.deduped).toBe(true);
   }, 90000);
