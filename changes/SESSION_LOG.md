@@ -1042,3 +1042,20 @@ untime.completed)
 
 ### Evidence
 - `1748e15` pushed to `origin/main`.
+## Session: 2026-11-23 - P6/P7 thin slices + identity differentiator
+**Time:** 2026-11-23T20:54:00Z  
+**Agent:** Kilo  
+**Phase:** P6/P7
+
+### Completed
+- [x] P6: instantiated browser adapter in API browser route module (prep, no behavior change) (`46f58cc`).
+- [x] P7: added `/v1/memory/status` read-only endpoint behind `HELM_MEMORY_ENABLED` (default off), write stub 501 (`6e60d10`); API typecheck PASS.
+- [x] Differentiator design: `changes/DESIGN-agent-owned-identity.md` - Helm-owned identity default, no personal credential sharing, delegated bridge constraints, approval/receipt/audit invariants (`2abe5b4`).
+
+### Active / Next
+- [ ] P6: wire browser routes through adapter interface; BrowserOS real endpoint/parity tests.
+- [ ] P7: identity schema/policy/UI, DB-backed memory/skills/proactivity; self-improvement remains design-only pending explicit approval.
+- [ ] P4/P5 external blockers: real Google OAuth creds; real provider no-duplicate proof.
+
+### Evidence
+- Commits `46f58cc`, `6e60d10`, `2abe5b4`, `552867a` pushed.
