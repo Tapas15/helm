@@ -1,6 +1,6 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { identities, type Database } from "@helm/db";
+import { identities, identityPolicies, type Database } from "@helm/db";
 import { HELM_ERROR_CODES, IdentityClass } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
@@ -28,7 +28,8 @@ export function identityRoutes(db: Database) {
     const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim().slice(0, 200) : "Helm Agent";
     const email = typeof body?.email === "string" && body.email.includes("@") ? body.email.trim().slice(0, 320) : null;
     const now = new Date();
-    const [row] = await db.insert(identities).values({ id: uid("idn"), userId, class: "helm-owned", label, email, provider: "helm", scopes: [], status: "active", metadata: { createdBy: "api" }, createdAt: now, updatedAt: now }).returning();
+        const [row] = await db.insert(identities).values({ id: uid("idn"), userId, class: "helm-owned", label, email, provider: "helm", scopes: [], status: "active", metadata: { createdBy: "api" }, createdAt: now, updatedAt: now }).returning();
+    if (row) await db.insert(identityPolicies).values({ id: uid("idp"), userId, identityId: row.id, allowedDomains: [], allowedRecipients: [], allowExternalWrites: false, requireApproval: true, createdAt: now, updatedAt: now }).onConflictDoNothing();
     return c.json({ ok: true, identity: row }, 201);
   });
   return app;
