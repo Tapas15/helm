@@ -965,3 +965,24 @@ untime.completed)
 - `7497b0c` pushed to `origin/main`.
 - Integration: `temporal-routing-api` PASS 1/1.
 
+## Session: 2026-11-23 - P5 real Temporal E2E proof
+**Time:** 2026-11-23T20:00:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Fixed Temporal compose startup: added `infra/temporal/dynamicconfig.yaml` and mounted to `/etc/temporal/config/dynamicconfig/development-sql.yaml`; `docker compose --profile temporal up -d` healthy (postgres, temporal, temporal-ui, redis).
+- [x] Added env-gated real Temporal E2E test `tests/integration/src/temporal-e2e.test.ts` (`HELM_TEMPORAL_E2E=1`): starts real `@helm/temporal-worker`, starts `helmExternalActionWorkflow`, signals approve, asserts duplicate workflowId start is rejected (idempotency/dedupe), verifies workflow description.
+- [x] Verification: `HELM_TEMPORAL_E2E=1 TEMPORAL_ADDRESS=localhost:7233 pnpm --filter @helm/integration-tests test -- temporal-e2e` PASS (1/1).
+- [x] Commit/push: `528551c`.
+
+### Active / Next (not completed)
+- [ ] Full real E2E for external side effects (worker kill/restart mid-activity, uncertain receipt reconciliation, no duplicate provider side effect) - needs controlled mock provider or test double.
+- [ ] Wire `browser.external_action` and reconciliation workflow; approval-signal wait path.
+- [ ] Disable-flag rollback proof; operator runbook.
+
+### Evidence
+- `528551c` pushed to `origin/main`.
+- Docker: temporal stack healthy on 7233/8233.
+- Integration: `temporal-e2e` PASS 1/1.
+
