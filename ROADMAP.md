@@ -4,7 +4,7 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-~83%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-~84%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Prototype_Baseline-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Focus](https://img.shields.io/badge/Current_Focus-Local_Ollama_E2E-238636?style=for-the-badge)](#-present--what-were-building-now)
 [![Blueprint](https://img.shields.io/badge/Blueprint-Phases_0--8-6e7781?style=for-the-badge)](Planning/MASTER-TECHNICAL-BLUEPRINT.md)
@@ -61,10 +61,10 @@ timeline
 
 ### Overall
 
-**`~83%`** complete (Phases 0–8, equal weight)
+**`~84%`** complete (Phases 0–8, equal weight)
 
 ```text
-[█████████████████████] 83%
+[█████████████████████] 84%
 ```
 
 **Prototype baseline usable.** Major reliability, security, connector, and release gaps remain.
@@ -88,7 +88,7 @@ timeline
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
 | **P0 Foundation / Repo** | 91% | Past / stabilizing | `██████████████████░░` |
-| **P1 UI / Task Core** | 88% | Past / polishing | `██████████████████░░` |
+| **P1 UI / Task Core** | 89% | Past / polishing | `██████████████████░░` |
 | **P2 Agent Runtime** | 53% | **Present** | `███████████░░░░░░░░░` |
 | **P3 Browser Execution** | 91% | **Present** | `██████████████████░░` |
 | **P4 Approvals / Vault / Connectors** | 57% | **Present** | `███████████░░░░░░░░░` |
@@ -120,7 +120,7 @@ timeline
 <td width="33%" valign="top">
 
 ### 💬 P1 — UI / Task Core
-**88%**
+**89%**
 
 - Chat-first task UI
 - Live SSE timeline
@@ -339,6 +339,7 @@ flowchart TB
 **Helm is being built to be useful, inspectable, and safe — not just impressive.**
 
 </div>
+
 
 
 
