@@ -58,15 +58,26 @@ async function main() {
       const userId = url.searchParams.get("userId") ?? "usr_local_dev"; // dev auth parity; real auth pending
       if (!userId) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
       const sessionId = decodeURIComponent(m[1] ?? "");
-      const upstreamUrl = browserUrl.replace(/^http/, "ws") + `/v1/sessions/${encodeURIComponent(sessionId)}/stream`;
-      wss.handleUpgrade(req, socket, head, (client) => {
-        const upstream = new WebSocket(upstreamUrl, { headers: { authorization: `Bearer ${browserToken}` } });
-        upstream.on("message", (data) => { if (client.readyState === client.OPEN) client.send(data.toString()); });
-        upstream.on("close", () => { if (client.readyState === client.OPEN) client.close(); });
-        upstream.on("error", () => { if (client.readyState === client.OPEN) client.close(); });
-        client.on("close", () => { if (upstream.readyState === upstream.OPEN || upstream.readyState === upstream.CONNECTING) upstream.close(); });
-        client.on("error", () => { if (upstream.readyState === upstream.OPEN || upstream.readyState === upstream.CONNECTING) upstream.close(); });
-      });
+      void (async () => {
+        const sessionRes = await fetch(`${browserUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, { headers: { authorization: `Bearer ${browserToken}` } });
+        if (!sessionRes.ok) { socket.write("HTTP/1.1 404 Not Found\r\n\r\n"); socket.destroy(); return; }
+        const sessionJson = await sessionRes.json().catch(() => null);
+        const taskId = sessionJson?.session?.taskId;
+        if (taskId) {
+          const [task] = await db.select({ id: (await import("@helm/db")).tasks.id }).from((await import("@helm/db")).tasks).where((await import("drizzle-orm")).and((await import("drizzle-orm")).eq((await import("@helm/db")).tasks.id, taskId), (await import("drizzle-orm")).eq((await import("@helm/db")).tasks.userId, userId))).limit(1);
+          if (!task) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+        }
+        const upstreamUrl = browserUrl.replace(/^http/, "ws") + `/v1/sessions/${encodeURIComponent(sessionId)}/stream`;
+        wss.handleUpgrade(req, socket, head, (client) => {
+          const upstream = new WebSocket(upstreamUrl, { headers: { authorization: `Bearer ${browserToken}` } });
+          upstream.on("message", (data) => { if (client.readyState === client.OPEN) client.send(data.toString()); });
+          upstream.on("close", () => { if (client.readyState === client.OPEN) client.close(); });
+          upstream.on("error", () => { if (client.readyState === client.OPEN) client.close(); });
+          client.on("close", () => { if (upstream.readyState === upstream.OPEN || upstream.readyState === upstream.CONNECTING) upstream.close(); });
+          client.on("error", () => { if (upstream.readyState === upstream.OPEN || upstream.readyState === upstream.CONNECTING) upstream.close(); });
+        });
+      })().catch((e) => { log.error({ err: e }, "browser ws proxy failed"); socket.destroy(); });
+      return;
     } catch (e) {
       log.error({ err: e }, "browser ws proxy failed");
       socket.destroy();
