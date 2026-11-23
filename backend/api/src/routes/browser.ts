@@ -172,16 +172,16 @@ export function browserRoutes(db: Database) {
     const body = await c.req.json().catch(() => ({}));
     const parsed = BrowserTakeoverInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid takeover input", false, parsed.error.flatten()), 400);
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/request`, { method: "POST", body: JSON.stringify(parsed.data) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
-      const { task } = await resolveTaskForSession(db, c.get("userId"), sessionId);
-      if (task) {
-        await db.update(tasks).set({ status: "waiting_input", updatedAt: new Date(), state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: true, reason: parsed.data.reason, requestedAt: new Date().toISOString() } } }).where(eq(tasks.id, task.id));
-        await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.requested", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, reason: parsed.data.reason, control: json.data?.control ?? null } });
-        await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.requested", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.reason, metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
-      }
+      const task = owned.task;
+      await db.update(tasks).set({ status: "waiting_input", updatedAt: new Date(), state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: true, reason: parsed.data.reason, requestedAt: new Date().toISOString() } } }).where(eq(tasks.id, task.id));
+      await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.requested", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, reason: parsed.data.reason, control: json.data?.control ?? null } });
+      await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.requested", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.reason, metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
     }
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
@@ -190,16 +190,16 @@ export function browserRoutes(db: Database) {
     const body = await c.req.json().catch(() => ({}));
     const parsed = BrowserResumeInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid resume input", false, parsed.error.flatten()), 400);
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/resume`, { method: "POST", body: JSON.stringify(parsed.data) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
-      const { task } = await resolveTaskForSession(db, c.get("userId"), sessionId);
-      if (task) {
-        await db.update(tasks).set({ status: "queued", updatedAt: new Date(), leaseOwner: null, leaseUntil: null, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { ...(((task.state as any)?.takeover) ?? {}), active: false, resumedAt: new Date().toISOString(), note: parsed.data.note ?? null } } }).where(eq(tasks.id, task.id));
-        await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.resumed", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, note: parsed.data.note ?? null, control: json.data?.control ?? null } });
-        await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.resumed", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.note ?? "resumed", metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
-      }
+      const task = owned.task;
+      await db.update(tasks).set({ status: "queued", updatedAt: new Date(), leaseOwner: null, leaseUntil: null, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { ...(((task.state as any)?.takeover) ?? {}), active: false, resumedAt: new Date().toISOString(), note: parsed.data.note ?? null } } }).where(eq(tasks.id, task.id));
+      await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.resumed", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, note: parsed.data.note ?? null, control: json.data?.control ?? null } });
+      await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.resumed", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.note ?? "resumed", metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
     }
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
