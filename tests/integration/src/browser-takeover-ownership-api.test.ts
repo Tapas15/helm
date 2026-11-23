@@ -16,9 +16,9 @@ async function api(path: string, init?: RequestInit, userId = "usr_local_dev") {
     expect(sessions.status).toBe(200);
     const id = sessions.json?.sessions?.[0]?.id;
     if (!id) return;
-    const req = await api(`/v1/browser/sessions/${id}/takeover/request`, { method: 'POST', body: JSON.stringify({ reason: 'test' }) }, 'usr_other');
-    expect([403,404]).toContain(req.status);
-    const res = await api(`/v1/browser/sessions/${id}/takeover/resume`, { method: 'POST', body: JSON.stringify({ note: 'test' }) }, 'usr_other');
-    expect([403,404]).toContain(res.status);
+    for (const path of [`/v1/browser/sessions/${id}/takeover/request`, `/v1/browser/sessions/${id}/takeover/resume`]) {
+      const res = await api(path, { method: 'POST', body: JSON.stringify({ reason: 'test', note: 'test' }) }, 'usr_other');
+      expect([403,404]).toContain(res.status);
+    }
   }, 30000);
 });
