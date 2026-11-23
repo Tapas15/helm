@@ -1144,3 +1144,15 @@ untime.completed)
 
 ### Remaining
 - [ ] Route action dispatch through adapter interface; BrowserOS real endpoint/parity tests.
+
+## Session: 2026-11-23 - P6 adapter dispatch wiring
+**Time:** 2026-11-23T21:24:00Z  
+**Agent:** Kilo  
+**Phase:** P6
+
+### Completed
+- [x] Added `BrowserOSAdapter.request()` and routed browser `proxy()` through adapter when `HELM_BROWSER_ADAPTER_DISPATCH=1`; default off preserves existing behavior.
+- [x] API typecheck PASS. Commit `a91885a`.
+
+### Remaining
+- [ ] Full browser route migration to typed adapter methods, BrowserOS real endpoint, parity/security tests.
