@@ -608,3 +608,26 @@
 ### Next move
 1. Add provider/model selection fields (env/UI) and smoke with configured model.
 2. Add thread abstraction.
+
+## 2026-11-23T04:35:00Z - Ollama tool-calling smoke
+
+**Agent:** Kilo (Glyph Cluster)
+**Phase:** Phase 2
+
+### Commands run
+- Ollama /api/tags - PASS (local models listed)
+- Ollama /v1/chat/completions llama3.2:latest simple prompt - PASS (HELM_OLLAMA_OK)
+- Helm runtime smoke via tsx with mocked browser fetch, OLLAMA_BASE_URL=http://127.0.0.1:11434, HELM_MODEL=llama3.2:latest - PASS for tool events (untime.tool.started/completed for rowser_navigate, rowser_snapshot, then untime.completed)
+
+### Completed
+- [x] Verified Ollama OpenAI-compatible endpoint works with Helm model config.
+- [x] Verified HelmNativeRuntime tool-calling loop executes browser tools against Ollama llama3.2:latest.
+
+### Remaining
+- [ ] Live end-to-end UI smoke with real Ollama-backed worker/API.
+- [ ] Model selection/policy for tool-capable models; small models can leak tool schema/refuse.
+- [ ] Expand tool registry and approvals UI cards.
+
+### Next move
+1. Add HELM_MODEL=llama3.2:latest to .env.example guidance and expose model config in UI/settings.
+2. Run end-to-end task smoke through running API/worker with Ollama.
