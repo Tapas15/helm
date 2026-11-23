@@ -16,8 +16,16 @@ export function authRoutes(db: Database) {
     const body = await c.req.json().catch(() => ({}));
     const parsed = CreateAuthSessionInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid session input", false, parsed.error.flatten()), 400);
-    const userId = parsed.data.userId;
-    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+    const requireAuth = process.env.HELM_REQUIRE_AUTH === "1";
+    const allowDev = process.env.HELM_ALLOW_DEV_AUTH === "1";
+    const authUserId = c.get("userId");
+    const authMethod = c.get("authMethod");
+    const requestedUserId = parsed.data.userId;
+    const canCreate = authMethod === "session_token"
+      ? authUserId === requestedUserId
+      : (!requireAuth && allowDev && (requestedUserId === (process.env.HELM_AUTH_DEV_USER_ID ?? "usr_local_dev") || requestedUserId === authUserId));
+    if (!canCreate) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Cannot create session for requested user"), 403);
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, requestedUserId)).limit(1);
     if (!user) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "User not found"), 404);
     const token = randomBytes(32).toString("base64url");
     const id = uid("sess");
@@ -25,7 +33,7 @@ export function authRoutes(db: Database) {
     const expiresAt = new Date(now.getTime() + parsed.data.ttlHours * 3600_000);
     await db.insert(sessions).values({
       id,
-      userId,
+      userId: requestedUserId,
       tokenHash: hashToken(token),
       userAgent: parsed.data.userAgent ?? c.req.header("user-agent") ?? null,
       ipHash: parsed.data.ipHash ?? null,
@@ -34,7 +42,7 @@ export function authRoutes(db: Database) {
       expiresAt,
       revokedAt: null,
     });
-    return c.json({ session: { id, userId, createdAt: now.toISOString(), expiresAt: expiresAt.toISOString() }, token }, 201);
+    return c.json({ session: { id, userId: requestedUserId, createdAt: now.toISOString(), expiresAt: expiresAt.toISOString() }, token }, 201);
   });
 
   app.get("/me", async (c) => {

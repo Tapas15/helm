@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTaskEventStream } from "./useTaskEventStream";
 
@@ -8,11 +8,21 @@ type BrowserSession = { id: string; provider: string; status: string; taskId: st
 type Artifact = { id: string; taskId: string; sessionId: string; kind: string; path: string; mime: string; sha256: string; sizeBytes: number; createdAt: string; metadata: unknown };
 type Receipt = { id: string; taskId: string; actionKind: string; actionHash: string; idempotencyKey: string; status: string; createdAt: string; approvalId: string | null; evidence: unknown };
 type Msg = { id: string; taskId: string; role: "user" | "assistant" | "system" | "tool"; content: string; createdAt: string; metadata?: unknown };
+type Me = { auth: { userId: string; method: string; sessionId: string | null } };
 
-const api = async <T,>(path: string, init?: RequestInit): Promise<T> => { const res = await fetch(path, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } }); if (!res.ok) throw new Error(await res.text()); return res.json() as Promise<T>; };
+const TOKEN_KEY = "helm_auth_token";
+const DEV_USER_KEY = "helm_dev_user_id";
+const getToken = () => localStorage.getItem(TOKEN_KEY) ?? "";
+const setToken = (t: string) => { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); };
+const getDevUser = () => localStorage.getItem(DEV_USER_KEY) ?? "usr_local_dev";
+const setDevUser = (v: string) => localStorage.setItem(DEV_USER_KEY, v);
 
 export function App() {
   const qc = useQueryClient();
+  const [token, setTokenState] = useState(getToken());
+  const [devUser, setDevUserState] = useState(getDevUser());
+  const [loginUser, setLoginUser] = useState(getDevUser());
+  const [authError, setAuthError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<"assistant" | "browser">("assistant");
@@ -25,13 +35,51 @@ export function App() {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  const tasksQ = useQuery({ queryKey: ["tasks"], queryFn: () => api<{ tasks: Task[] }>("/v1/tasks"), refetchInterval: 5000 });
-  const approvalsQ = useQuery({ queryKey: ["approvals"], queryFn: () => api<{ approvals: Approval[] }>("/v1/approvals?status=pending"), refetchInterval: 5000 });
-  const browserQ = useQuery({ queryKey: ["browser-sessions"], queryFn: () => api<{ sessions: BrowserSession[] }>("/v1/browser/sessions"), refetchInterval: 3000 });
-  const artifactsQ = useQuery({ queryKey: ["artifacts", selected], queryFn: () => api<{ artifacts: Artifact[] }>(selected ? `/v1/artifacts?taskId=${selected}` : "/v1/artifacts"), refetchInterval: 5000 });
-  const receiptsQ = useQuery({ queryKey: ["receipts", selected], queryFn: () => api<{ receipts: Receipt[] }>(selected ? `/v1/receipts?taskId=${selected}` : "/v1/receipts"), refetchInterval: 5000 });
-  const messagesQ = useQuery({ queryKey: ["messages", selected], queryFn: () => api<{ messages: Msg[] }>(`/v1/tasks/${selected}/messages`), enabled: !!selected, refetchInterval: 4000 });
-  const { events, stale, lastSequence } = useTaskEventStream(selected);
+  const authHeaders = useCallback((): Record<string, string> => {
+    const h: Record<string, string> = {};
+    if (token) h.authorization = `Bearer ${token}`;
+    else if (devUser) h["x-user-id"] = devUser;
+    return h;
+  }, [token, devUser]);
+
+  const api = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
+    const res = await fetch(path, { ...init, headers: { "content-type": "application/json", ...authHeaders(), ...(init?.headers ?? {}) } });
+    if (res.status === 401) {
+      setToken("");
+      setTokenState("");
+      qc.clear();
+      throw new Error("Authentication required");
+    }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<T>;
+  }, [authHeaders, qc]);
+
+  const meQ = useQuery({ queryKey: ["me", token, devUser], queryFn: () => api<Me>("/v1/auth/me"), retry: false });
+
+  const login = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/v1/auth/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(devUser ? { "x-user-id": devUser } : {}) },
+        body: JSON.stringify({ userId: loginUser || devUser, ttlHours: 24 * 7 }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? `Login failed (${res.status})`);
+      return json as { token: string };
+    },
+    onSuccess: (d) => { setToken(d.token); setTokenState(d.token); setAuthError(null); qc.invalidateQueries(); },
+    onError: (e) => setAuthError(e instanceof Error ? e.message : String(e)),
+  });
+
+  const logout = () => { setToken(""); setTokenState(""); qc.clear(); setSelected(null); };
+
+  const tasksQ = useQuery({ queryKey: ["tasks", token, devUser], queryFn: () => api<{ tasks: Task[] }>("/v1/tasks"), enabled: meQ.isSuccess, refetchInterval: 5000 });
+  const approvalsQ = useQuery({ queryKey: ["approvals", token, devUser], queryFn: () => api<{ approvals: Approval[] }>("/v1/approvals?status=pending"), enabled: meQ.isSuccess, refetchInterval: 5000 });
+  const browserQ = useQuery({ queryKey: ["browser-sessions", token, devUser], queryFn: () => api<{ sessions: BrowserSession[] }>("/v1/browser/sessions"), enabled: meQ.isSuccess, refetchInterval: 3000 });
+  const artifactsQ = useQuery({ queryKey: ["artifacts", selected, token, devUser], queryFn: () => api<{ artifacts: Artifact[] }>(selected ? `/v1/artifacts?taskId=${selected}` : "/v1/artifacts"), enabled: meQ.isSuccess, refetchInterval: 5000 });
+  const receiptsQ = useQuery({ queryKey: ["receipts", selected, token, devUser], queryFn: () => api<{ receipts: Receipt[] }>(selected ? `/v1/receipts?taskId=${selected}` : "/v1/receipts"), enabled: meQ.isSuccess, refetchInterval: 5000 });
+  const messagesQ = useQuery({ queryKey: ["messages", selected, token, devUser], queryFn: () => api<{ messages: Msg[] }>(`/v1/tasks/${selected}/messages`), enabled: !!selected && meQ.isSuccess, refetchInterval: 4000 });
+  const { events, stale, lastSequence } = useTaskEventStream(meQ.isSuccess ? selected : null, token);
   useEffect(() => { const t = window.setInterval(() => setPreviewTick((n) => n + 1), 2500); return () => window.clearInterval(t); }, []);
 
   const send = useMutation({
@@ -70,16 +118,18 @@ export function App() {
     wsRef.current?.close(); setLiveFrame(null);
     if (!currentSession?.id) { setStreamStatus("idle"); return; }
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${window.location.host}/v1/browser/sessions/${currentSession.id}/stream`);
+    const wsUrl = new URL(`${proto}://${window.location.host}/v1/browser/sessions/${currentSession.id}/stream`);
+    if (token) wsUrl.searchParams.set("token", token);
+    const ws = new WebSocket(wsUrl.toString());
     wsRef.current = ws; setStreamStatus("connecting");
     ws.onopen = () => setStreamStatus("live");
     ws.onmessage = (ev) => { try { const msg = JSON.parse(String(ev.data)); if (msg?.type === "frame" && typeof msg.data === "string") { setLiveFrame(`data:image/png;base64,${msg.data}`); setStreamStatus("live"); } } catch {} };
     ws.onerror = () => setStreamStatus("offline");
     ws.onclose = () => setStreamStatus((s) => s === "live" ? "offline" : s);
     return () => { ws.close(); };
-  }, [currentSession?.id]);
+  }, [currentSession?.id, token]);
 
-  const previewSrc = liveFrame ?? (currentSession ? `/v1/browser/sessions/${currentSession.id}/screenshot.png?t=${previewTick}` : null);
+  const previewSrc = liveFrame ?? (currentSession ? `/v1/browser/sessions/${currentSession.id}/screenshot.png?t=${previewTick}${token ? `&token=${encodeURIComponent(token)}` : ""}` : null);
   const canControl = currentSession?.control?.owner === "user" && streamStatus === "live";
   const sendInput = (input: Record<string, unknown>) => { if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ type: "input", input })); };
   const onPreviewClick = (e: React.MouseEvent<HTMLImageElement>) => {
@@ -89,6 +139,24 @@ export function App() {
     const y = ((e.clientY - rect.top) / rect.height) * 720;
     sendInput({ type: "click", x: Math.round(x), y: Math.round(y) });
   };
+
+  if (meQ.isLoading) return <div className="app"><main className="main"><div className="card">Loading...</div></main></div>;
+  if (meQ.isError) return (
+    <div className="app"><main className="main"><div className="card" style={{ maxWidth: 520 }}>
+      <h2 style={{ marginTop: 0 }}>Helm sign in</h2>
+      <p className="muted">Create a local session token for web/API/WS access.</p>
+      <label className="muted">User ID</label>
+      <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} />
+      <div className="row" style={{ marginTop: 10 }}>
+        <button className="primary" disabled={login.isPending || !loginUser.trim()} onClick={() => login.mutate()}>Create session</button>
+      </div>
+      <div className="muted" style={{ marginTop: 10 }}>Dev fallback user (when HELM_ALLOW_DEV_AUTH=1 and HELM_REQUIRE_AUTH=0):</div>
+      <input value={devUser} onChange={(e) => { setDevUser(e.target.value); setDevUserState(e.target.value); }} />
+      <button style={{ marginTop: 8 }} onClick={() => { setDevUser(devUser); qc.invalidateQueries({ queryKey: ["me"] }); }}>Use dev header</button>
+      {authError && <div style={{ color: "var(--danger)", marginTop: 10 }}>{authError}</div>}
+      <div className="muted" style={{ marginTop: 10 }}>{String((meQ.error as Error)?.message ?? "")}</div>
+    </div></main></div>
+  );
 
   return (
     <div className="app">
@@ -105,6 +173,12 @@ export function App() {
           </div>
         </div>
         <div className="muted" style={{ marginBottom: 8 }}>Tasks</div>
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="row"><span className="pill">{meQ.data?.auth.method ?? "?"}</span><span className="muted">{meQ.data?.auth.userId}</span></div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button onClick={logout}>Sign out</button>
+          </div>
+        </div>
         <div>{tasks.map((t) => (<div key={t.id} className={`task ${selected === t.id ? "active" : ""}`} onClick={() => setSelected(t.id)}><div style={{ fontSize: 14 }}>{t.title}</div><div className="row"><span className="pill">{t.status}</span><span className="muted">{t.kind}</span></div></div>))}{tasks.length === 0 && <div className="muted">No tasks yet.</div>}</div>
       </aside>
       <main className="main">

@@ -11,8 +11,9 @@ export const VaultSecretRef = z.object({
 export type VaultSecretRef = z.infer<typeof VaultSecretRef>;
 
 export interface CredentialBroker {
-  putSecret(input: { ownerUserId: string; provider: string; name: string; value: string }): Promise<VaultSecretRef>;
+  putSecret(input: { ownerUserId: string; provider: string; name: string; value: string; metadata?: Record<string, unknown> }): Promise<VaultSecretRef>;
   getSecretRef(input: { ownerUserId: string; provider: string; name: string }): Promise<VaultSecretRef | null>;
+  getSecretValue(input: { ownerUserId: string; provider: string; name: string }): Promise<string | null>;
   revokeSecret(input: { ownerUserId: string; secretId: string; reason?: string }): Promise<{ ok: boolean }>;
 }
 
@@ -24,6 +25,7 @@ export const ConnectorDefinition = z.object({
   kind: ConnectorKind,
   displayName: z.string(),
   capabilities: z.array(z.string()).default([]),
+  scopes: z.array(z.string()).default([]),
   enabled: z.boolean().default(false),
 });
 export type ConnectorDefinition = z.infer<typeof ConnectorDefinition>;
@@ -39,3 +41,21 @@ export const ConnectorAccount = z.object({
   updatedAt: z.string().datetime(),
 });
 export type ConnectorAccount = z.infer<typeof ConnectorAccount>;
+
+export const OAuthStartInput = z.object({
+  connectorId: z.string().min(1),
+  scopes: z.array(z.string().min(1)).default([]),
+  redirectUri: z.string().url().optional(),
+});
+export type OAuthStartInput = z.infer<typeof OAuthStartInput>;
+
+export const GmailSendInput = z.object({
+  accountId: z.string().min(1),
+  to: z.array(z.string().email()).min(1),
+  subject: z.string().min(1).max(500),
+  bodyText: z.string().min(1).max(20000),
+  idempotencyKey: z.string().min(1).max(200),
+  approvalId: z.string().min(1),
+  actionHash: z.string().min(1),
+});
+export type GmailSendInput = z.infer<typeof GmailSendInput>;

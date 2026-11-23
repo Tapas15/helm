@@ -139,6 +139,54 @@ export const browserArtifacts = pgTable("browser_artifacts", {
   index("browser_artifacts_session_idx").on(t.sessionId, t.createdAt),
 ]);
 
+export const vaultSecrets = pgTable("vault_secrets", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  provider: text("provider").notNull(),
+  name: text("name").notNull(),
+  version: integer("version").notNull().default(1),
+  encryptedValue: text("encrypted_value").notNull(),
+  keyId: text("key_id").notNull().default("local-master-v1"),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (t) => [
+  index("vault_secrets_user_provider_idx").on(t.userId, t.provider),
+  index("vault_secrets_user_name_idx").on(t.userId, t.name),
+]);
+
+export const connectorAccounts = pgTable("connector_accounts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  connectorId: text("connector_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  secretRefId: text("secret_ref_id"),
+  scopes: jsonb("scopes").notNull().default(sql`'[]'::jsonb`),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("connector_accounts_user_connector_idx").on(t.userId, t.connectorId),
+  index("connector_accounts_user_status_idx").on(t.userId, t.status),
+]);
+
+export const oauthStates = pgTable("oauth_states", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  connectorId: text("connector_id").notNull(),
+  stateHash: text("state_hash").notNull(),
+  pkceVerifierEncrypted: text("pkce_verifier_encrypted").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  scopes: jsonb("scopes").notNull().default(sql`'[]'::jsonb`),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("oauth_states_user_connector_idx").on(t.userId, t.connectorId),
+  index("oauth_states_expires_idx").on(t.expiresAt),
+]);
+
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),

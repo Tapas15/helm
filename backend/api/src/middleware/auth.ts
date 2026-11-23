@@ -6,7 +6,12 @@ import type { AppEnv } from "../types.js";
 
 export function authMiddleware(db: Database): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    const resolved = await resolveAuth(db, { authorization: c.req.header("authorization"), xUserId: c.req.header("x-user-id") });
+    const url = new URL(c.req.url, "http://local");
+    const resolved = await resolveAuth(db, {
+      authorization: c.req.header("authorization"),
+      xUserId: c.req.header("x-user-id"),
+      token: url.searchParams.get("token"),
+    });
     if (!resolved.ok) return c.json({ error: { code: HELM_ERROR_CODES.UNAUTHORIZED, message: resolved.message, retryable: false } }, 401);
     c.set("userId", resolved.userId);
     c.set("authMethod", resolved.method);

@@ -13,6 +13,8 @@ import { approvalRoutes } from "./routes/approvals.js";
 import { browserRoutes } from "./routes/browser.js";
 import { artifactRoutes, receiptRoutes } from "./routes/evidence.js";
 import { authRoutes } from "./routes/auth.js";
+import { connectorRoutes } from "./routes/connectors.js";
+import { gmailRoutes } from "./routes/gmail.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
 import { resolveAuth } from "./lib/auth.js";
@@ -32,6 +34,8 @@ app.get("/health", (c) => c.json({ ok: true, service: "helm-api", ts: new Date()
 
 app.use("/v1/*", authMiddleware(db));
 app.route("/v1/auth", authRoutes(db));
+app.route("/v1/connectors", connectorRoutes(db));
+app.route("/v1/connectors/gmail", gmailRoutes(db));
 app.route("/v1/tasks", taskRoutes(db));
 app.route("/v1/events", eventRoutes(db));
 app.route("/v1/approvals", approvalRoutes(db));
@@ -59,7 +63,8 @@ async function main() {
       const m = url.pathname.match(/^\/v1\/browser\/sessions\/([^/]+)\/stream$/);
       if (!m) { socket.destroy(); return; }
       void (async () => {
-        const resolved = await resolveAuth(db, { authorization: req.headers.authorization, xUserId: Array.isArray(req.headers["x-user-id"]) ? req.headers["x-user-id"][0] : req.headers["x-user-id"] });
+        const token = url.searchParams.get("token");
+        const resolved = await resolveAuth(db, { authorization: req.headers.authorization, xUserId: Array.isArray(req.headers["x-user-id"]) ? req.headers["x-user-id"][0] : req.headers["x-user-id"], token });
         if (!resolved.ok) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
         const userId = resolved.userId;
         const sessionId = decodeURIComponent(m[1] ?? "");
