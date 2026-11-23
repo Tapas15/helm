@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, taskEvents, tasks, type Database } from "@helm/db";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
@@ -8,6 +8,7 @@ import type { AppEnv } from "../types.js";
 import { createBrowserAdapter } from "../lib/browser-adapter.js";
 
 const browserAdapter = createBrowserAdapter(process.env);
+const browserAdapterEnabled = process.env.HELM_BROWSER_ADAPTER_DISPATCH === "1";
 const browserUrl = process.env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790";
 const browserToken = process.env.BROWSER_WORKER_TOKEN ?? "dev-browser-token";
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -114,6 +115,8 @@ export function browserRoutes(db: Database) {
     if (r.status < 400) await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.stream.status", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "observe", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
+
+  app.get("/adapter/status", (c) => c.json({ ok: true, adapter: browserAdapter.kind, dispatchEnabled: browserAdapterEnabled }));
 
   async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); }
   async function guardedAct(c: any, schema: any, action: string, path: string) {
