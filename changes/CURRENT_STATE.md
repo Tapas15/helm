@@ -1,6 +1,6 @@
 # Current State â€” Helm
 
-**Last updated:** 2026-11-23T21:33:00Z (P5-P8 focused slices: identity/memory DB, browser adapter dispatch, P8 evidence docs)
+**Last updated:** 2026-11-23T21:40:00Z (auto-continued P5-P8 slices; unblocked work completed, blockers documented)
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
 **Next move:** Real session/OIDC UX and web token flow; encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation. Keep live UI E2E evidence when browser automation surface is available.
 
@@ -18,9 +18,9 @@
 - **Phase 3 - Browser Execution:** `[~]` 93%. Guarded ownership/authz, takeover, stale-session restart recovery + direct and API-observable integration coverage, WS bearer session-token authz via shared resolver. Pending: real session/OIDC UX polish, WS stability/interactive-input live smoke, richer remote control.
 - **Phase 4 - Approvals/Vault/Connectors:** `[~]` 88%. Approval/receipts hardened; auth session scaffold; local vault/CredentialBroker; Gmail read/send and Calendar read/create/update/delete approval-gated with actionHash+idempotency+receipts+uncertain reconcile; web connector UI. Pending: real Google OAuth E2E (external creds), diagnostics/sync UX, token refresh/revoke hardening against real provider.
 - **Phase 5 - Temporal Reliability:** `[~]` 55%. ADR-002, compose profile healthy, shared flags, `@helm/temporal-worker` scaffold, guarded Gmail/Calendar/browser external-action activities, API feature-flag routing, stub integration PASS (`7497b0c`), real Temporal workflowId-dedupe E2E PASS (`528551c`), mock-provider side-effect E2E PASS (`1ecca7b`), runtime rollback E2E PASS (`1748e15`), runbook. Pending: real provider no-duplicate proof (external sandbox), reconciliation workflow/schedules/monitors.
-- **Phase 6 - BrowserOS Adapter:** `[~]` 20%. Adapter interface + Playwright default + BrowserOS stub (`1aa0218`); adapter status endpoint, `HELM_BROWSER_ADAPTER_DISPATCH` flag, request/requestBinary dispatch wiring for proxy/screenshot (`e5391c1`,`a91885a`,`9dc78e6`). Pending: full typed route migration, real BrowserOS endpoint/protocol, parity/security tests.
-- **Phase 7 - Memory/Skills/Proactivity:** `[~]` 15%. Agent-owned identity contracts + `/v1/identity/status|create` (helm-owned default, delegated disabled) and DB-backed memory notes behind `HELM_MEMORY_ENABLED` (`9f2494f`,`5fafda0`); self-improvement remains design-only and approval-gated. Pending: identity vault linkage/policy enforcement/UI, skills/proactivity, autonomous behavior activation (requires explicit approval).
-- **Phase 8 - Hardening/Compliance:** `[~]` 15%. Added backup/restore runbook, security/privacy checklist, release-evidence doc (`740aec1`,`e22f979`,`e08c2d0`). Pending: backup/restore drill, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff.
+- **Phase 6 - BrowserOS Adapter:** `[~]` 25%. Adapter interface + Playwright default + BrowserOS stub; adapter status endpoint, `HELM_BROWSER_ADAPTER_DISPATCH` flag, request/requestBinary dispatch, adapter-aware session lookup (`e5391c1`,`a91885a`,`9dc78e6`,`4bfc19c`). Pending: full typed route migration, real BrowserOS endpoint/protocol, parity/security tests.
+- **Phase 7 - Memory/Skills/Proactivity:** `[~]` 20%. Agent-owned identity contracts + status/create (helm-owned default, delegated disabled), restrictive default identity policy, `identities/identity_policies/memory_notes` schema, DB-backed memory notes behind `HELM_MEMORY_ENABLED` (`9f2494f`,`5fafda0`,`f4eb64a`,`08eb681`). Pending: identity vault linkage/policy enforcement/UI, skills/proactivity; self-improvement activation requires explicit approval.
+- **Phase 8 - Hardening/Compliance:** `[~]` 20%. Backup/restore scripts+runbooks, security/privacy checklist, release-evidence doc (`740aec1`,`e22f979`,`e08c2d0`,`4bfc19c`,`73cd8ea`). Pending: backup/restore drill execution, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff.
 
 
 ## User Directives (do not override without asking)
