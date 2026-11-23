@@ -1,7 +1,8 @@
 ﻿import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, taskEvents, tasks, type Database } from "@helm/db";
-import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES } from "@helm/shared";
+import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
+import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
 
 const browserUrl = process.env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790";
@@ -230,6 +231,25 @@ export function browserRoutes(db: Database) {
     const auth = await requireApprovedAction(db, userId, input);
     if (!auth.ok) return c.json(auth.body as any, auth.status as any);
     const approval = auth.approval;
+
+    const temporalCfg = readTemporalConfig(process.env);
+    const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+    const temporalInternal = temporalSecret ? c.req.header("x-helm-temporal-activity-secret") === temporalSecret : c.req.header("x-helm-temporal-activity") === "1";
+    if (!temporalInternal && shouldUseTemporalForAction(temporalCfg, "browser.external_action")) {
+      try {
+        const started = await maybeStartExternalActionWorkflow({
+          taskId: approval.taskId, userId, actionKind: "browser.external_action", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,
+          approvalId: approval.id, payload: { sessionId: c.req.param("id"), action: input.action, params: (input as any).params ?? {} },
+        });
+        if (started.started) {
+          await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "browser.external_action.temporal_started", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
+          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+        }
+      } catch (e) {
+        return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
+      }
+    }
+
     if (!auth.receipt) {
       const ts = new Date();
       await db.insert(actionReceipts).values({ id: uid("rcpt"), userId, taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: approval.actionKind, actionHash: approval.actionHash, idempotencyKey: input.idempotencyKey, status: "executing", evidence: { requestId, correlationId, sessionId: c.req.param("id"), action: input.action }, createdAt: ts }).onConflictDoNothing();

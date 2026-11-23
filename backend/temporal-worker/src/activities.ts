@@ -56,6 +56,20 @@ export function createActivities() {
         }
         return { receiptId: String(r.json?.receiptId ?? ""), status: "executed", externalRef: r.json?.calendarEventId ?? null, raw: r.json };
       }
+      if (input.actionKind === "browser.external_action") {
+        const p = input.payload as any;
+        const sessionId = String(p.sessionId ?? "");
+        const r = await postApi(`/v1/browser/sessions/${encodeURIComponent(sessionId)}/external-action`, {
+          approvalId: input.approvalId, actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,
+          action: p.action, params: p.params ?? {},
+        }, input.userId);
+        if (!r.ok) {
+          const uncertain = r.status >= 500 || r.status === 429 || r.status === 503;
+          if (uncertain) return { receiptId: String(r.json?.error?.details?.receiptId ?? `rcpt_unknown`), status: "uncertain", raw: r.json };
+          throw new Error(`browser.external_action failed: ${r.status} ${JSON.stringify(r.json?.error ?? r.json).slice(0, 300)}`);
+        }
+        return { receiptId: String(r.json?.data?.receiptId ?? r.json?.receiptId ?? ""), status: "executed", externalRef: r.json?.data?.artifact?.artifactId ?? null, raw: r.json };
+      }
       throw new Error(`Unsupported temporal actionKind: ${input.actionKind}`);
     },
   };
