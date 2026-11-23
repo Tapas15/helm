@@ -74,3 +74,12 @@ export const CalendarCreateEventInput = z.object({
   actionHash: z.string().min(1),
 });
 export type CalendarCreateEventInput = z.infer<typeof CalendarCreateEventInput>;
+export const CalendarDeleteEventInput = z.object({
+  accountId: z.string().min(1),
+  calendarId: z.string().min(1).default("primary"),
+  eventId: z.string().min(1).max(500),
+  idempotencyKey: z.string().min(1).max(200),
+  approvalId: z.string().min(1),
+  actionHash: z.string().min(1),
+});
+export type CalendarDeleteEventInput = z.infer<typeof CalendarDeleteEventInput>;

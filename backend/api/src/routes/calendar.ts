@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, connectorAccounts, type Database } from "@helm/db";
 import { CalendarCreateEventInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";

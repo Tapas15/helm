@@ -1,4 +1,4 @@
-﻿import { createDb } from "@helm/db";
+import { createDb } from "@helm/db";
 import { createLogger } from "@helm/observability";
 
 type ExecuteInput = {
@@ -53,6 +53,19 @@ export function createActivities() {
           const uncertain = r.status >= 500 || r.status === 429 || r.status === 503;
           if (uncertain) return { receiptId: String(r.json?.error?.details?.receiptId ?? `rcpt_unknown`), status: "uncertain", raw: r.json };
           throw new Error(`calendar.create_event failed: ${r.status} ${JSON.stringify(r.json?.error ?? r.json).slice(0, 300)}`);
+        }
+        return { receiptId: String(r.json?.receiptId ?? ""), status: "executed", externalRef: r.json?.calendarEventId ?? null, raw: r.json };
+      }
+      if (input.actionKind === "calendar.delete_event") {
+        const p = input.payload as any;
+        const r = await postApi("/v1/connectors/calendar/events/delete", {
+          accountId: p.accountId, calendarId: p.calendarId ?? "primary", eventId: p.eventId,
+          idempotencyKey: input.idempotencyKey, approvalId: input.approvalId, actionHash: input.actionHash,
+        }, input.userId);
+        if (!r.ok) {
+          const uncertain = r.status >= 500 || r.status === 429 || r.status === 503;
+          if (uncertain) return { receiptId: String(r.json?.error?.details?.receiptId ?? `rcpt_unknown`), status: "uncertain", raw: r.json };
+          throw new Error(`calendar.delete_event failed: ${r.status} ${JSON.stringify(r.json?.error ?? r.json).slice(0, 300)}`);
         }
         return { receiptId: String(r.json?.receiptId ?? ""), status: "executed", externalRef: r.json?.calendarEventId ?? null, raw: r.json };
       }
