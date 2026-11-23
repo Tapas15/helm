@@ -872,21 +872,24 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - SSE cursor resume regression
-**Time:** 2026-11-23T20:53:10Z  
+## Session: 2026-11-23 - SSE/events cursor validation hardening
+**Time:** 2026-11-23T21:07:18Z  
 **Agent:** Kilo  
 **Phase:** P1 task/event hardening
 
 ### Completed
-- [x] Extended `tests/integration/src/events-sse-api.test.ts` with `after` cursor coverage: create task, read max sequence, post follow-up, reconnect SSE with `after=maxSeq`, assert `task.followup` received, no `task.created` replay, and SSE `id` values are greater than cursor.
-- [x] Verification: `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_INTEGRATION_API='1'; pnpm --filter @helm/integration-tests test -- events-sse-api` PASS (2/2).
+- [x] Hardened event cursor validation: `GET /v1/events/stream` and `GET /v1/tasks/:id/events` reject invalid `after` with `400 VALIDATION_ERROR`; task events also validate `limit >= 1` and cap at 500.
+- [x] Added integration coverage in `tests/integration/src/events-sse-api.test.ts` for invalid `after` on both endpoints.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_INTEGRATION_API='1'; pnpm --filter @helm/integration-tests test -- events-sse-api` PASS (3/3).
 
 ### Active / Next (not completed)
-- [ ] Full interactive UI E2E click-through at `http://localhost:5173` - blocked in this shell (no browser automation surface).
+- [ ] Full interactive UI E2E click-through at `http://localhost:5173` - blocked in this shell.
 - [ ] Real session/OIDC UX and web token flow; replace dev `x-user-id` dependence across web/API/WS.
 - [ ] Encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation (P4).
 
 ### Evidence
-- `tests/integration/src/events-sse-api.test.ts` - cursor resume regression.
+- `backend/api/src/routes/events.ts`, `backend/api/src/routes/tasks.ts`, `tests/integration/src/events-sse-api.test.ts`.
+
+
 
 

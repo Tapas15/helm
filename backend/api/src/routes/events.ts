@@ -11,8 +11,10 @@ export function eventRoutes(db: Database) {
   app.get("/stream", async (c) => {
     const userId = c.get("userId");
     const taskId = c.req.query("taskId");
-    const after = Number(c.req.query("after") ?? -1);
+    const afterRaw = c.req.query("after");
+    const after = afterRaw === undefined ? -1 : Number(afterRaw);
     if (!taskId) return c.json({ error: { code: "VALIDATION_ERROR", message: "taskId required", retryable: false } }, 400);
+    if (!Number.isInteger(after) || after < -1) return c.json({ error: { code: "VALIDATION_ERROR", message: "after must be an integer >= -1", retryable: false } }, 400);
     const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
     if (!task) return c.json({ error: { code: "NOT_FOUND", message: "Task not found", retryable: false } }, 404);
 

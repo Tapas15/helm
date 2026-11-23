@@ -200,8 +200,13 @@ export function taskRoutes(db: Database) {
   app.get("/:id/events", async (c) => {
     const userId = c.get("userId");
     const id = c.req.param("id");
-    const after = Number(c.req.query("after") ?? -1);
-    const limit = Math.min(Number(c.req.query("limit") ?? 200), 500);
+    const afterRaw = c.req.query("after");
+    const after = afterRaw === undefined ? -1 : Number(afterRaw);
+    const limitRaw = c.req.query("limit");
+    const limitNum = limitRaw === undefined ? 200 : Number(limitRaw);
+    if (!Number.isInteger(after) || after < -1) return c.json(errorBody(HELM_ERROR_CODES.VALIDATION_ERROR, "after must be an integer >= -1", false), 400);
+    if (!Number.isInteger(limitNum) || limitNum < 1) return c.json(errorBody(HELM_ERROR_CODES.VALIDATION_ERROR, "limit must be an integer >= 1", false), 400);
+    const limit = Math.min(limitNum, 500);
     const [task] = await db
       .select({ id: tasks.id })
       .from(tasks)

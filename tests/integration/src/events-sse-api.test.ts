@@ -82,4 +82,22 @@ async function readSSE(url: string, headers: Record<string, string>, stop: (buf:
     const idMatches = Array.from(buf.matchAll(/^id: (\d+)$/gm)).map((m) => Number(m[1]));
     for (const id of idMatches) expect(id).toBeGreaterThan(maxSeq);
   }, 30000);
+
+  it("rejects invalid after cursor", async () => {
+    const create = await api("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: "sse bad cursor", kind: "assistant" }) });
+    expect(create.status).toBe(201);
+    const taskId = create.json?.task?.id as string;
+    expect(taskId).toBeTruthy();
+
+    const badEvents = await api(`/v1/tasks/${encodeURIComponent(taskId)}/events?after=abc`);
+    expect(badEvents.status).toBe(400);
+    expect(badEvents.json?.error?.code).toBe("VALIDATION_ERROR");
+
+    const badStream = await fetch(`${base}/v1/events/stream?taskId=${encodeURIComponent(taskId)}&after=abc`, {
+      headers: { "x-user-id": "usr_local_dev" },
+    });
+    expect(badStream.status).toBe(400);
+    const body = await badStream.json().catch(() => null);
+    expect(body?.error?.code).toBe("VALIDATION_ERROR");
+  }, 20000);
 });
