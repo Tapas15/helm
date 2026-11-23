@@ -106,9 +106,12 @@ export function browserRoutes(db: Database) {
     const base = schema.safeParse(body);
     const guard = BrowserActionGuard.safeParse(body);
     if (!base.success || !guard.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input; approvalId/actionHash/idempotencyKey required", false, { action: base.error?.flatten(), guard: guard.error?.flatten() }), 400);
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const auth = await requireApprovedAction(db, c.get("userId"), guard.data);
     if (!auth.ok) return c.json(auth.body as any, auth.status as any);
     const approval = auth.approval;
+    if (owned.task.id !== approval.taskId) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Approval task does not match browser session task", false), 403);
     if (!auth.receipt) {
       await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: `browser.${action}`, actionHash: approval.actionHash, idempotencyKey: guard.data.idempotencyKey, status: "executing", evidence: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), sessionId: c.req.param("id"), action }, createdAt: new Date() }).onConflictDoNothing();
     } else {
