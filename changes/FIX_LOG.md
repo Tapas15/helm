@@ -165,10 +165,10 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Symptom:** Browser sessions could become unusable after browser-worker restart or stale Playwright target/browser closure; in-memory session loss made active session recovery unreliable.
 - **Root cause:** `ensure()` only returned in-memory session or attempted restore when absent; stale/closed targets were not detected/discarded before action, and action failures did not attempt deterministic restore+retry.
 - **Evidence:** Manual restart smoke: created `bs_88700b403efa4387ae811ca809fc6eca`, navigated to example.com, stopped browser-worker tsx process, restarted worker, `GET /v1/sessions/:id` restored session with `status=ready` and `control.owner=agent`, navigate+screenshot succeeded.
-- **Fix applied:** Added `isStaleTargetError()` export; detect stale closed/disconnected sessions in `ensure()`; discard stale sessions; on stale-target action/input failure, discard+restore and retry action once (mark `recovered:true` on successful retry); allow `streamStatus` during takeover for observability.
-- **Verification:** `pnpm --filter @helm/browser-worker typecheck` PASS; `pnpm --filter @helm/browser-worker test` PASS (1/1); manual restart smoke PASS (session restored, navigate PASS, screenshot PASS).
-- **Regression test:** `backend/browser-worker/src/playwrightExecutor.test.ts` (stale error matcher). TODO: add integration test that kills/restarts browser-worker and exercises restored session through API.
+- **Fix applied:** Added `isStaleTargetError()` export; detect stale closed/disconnected sessions in `ensure()`; discard stale sessions; on stale-target action/input failure, discard+restore and retry action once (mark `recovered:true` on successful retry); allow `streamStatus` during takeover for observability. Added env-gated restart recovery integration test.
+- **Verification:** `pnpm --filter @helm/browser-worker typecheck` PASS; `pnpm --filter @helm/browser-worker test` PASS (1/1); manual restart smoke PASS (session restored, navigate PASS, screenshot PASS); `HELM_BROWSER_RECOVERY_TEST=1 pnpm --filter @helm/browser-worker test -- playwrightExecutor.recovery` PASS (1/1) on 2026-11-23.
+- **Regression test:** `backend/browser-worker/src/playwrightExecutor.test.ts`, `backend/browser-worker/src/playwrightExecutor.recovery.test.ts`.
 - **Risk/rollback:** Medium; restore retries may mask persistent browser corruption. Rollback by removing stale detection/retry and keeping restore-on-missing only.
-- **Audit/event IDs:** `4045ce3`.
+- **Audit/event IDs:** `4045ce3`, `4ad4820`.
 - **Status:** verified
 

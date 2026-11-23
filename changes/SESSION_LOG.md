@@ -824,6 +824,7 @@ untime.completed)
 - [x] Marked task-lifecycle FIX_LOG entries verified with regression evidence (`550c83c`).
 - [x] Browser-worker stale session recovery (`4045ce3`): exported `isStaleTargetError`; `ensure()` discards closed/disconnected stale in-memory sessions and restores from persisted state; `withSession`/`sendInput` retry once after stale-target discard+restore; `streamStatus` allowed during takeover. Unit test `backend/browser-worker/src/playwrightExecutor.test.ts` PASS 1/1; browser-worker typecheck PASS.
 - [x] Manual restart smoke PASS: created `bs_88700b403efa4387ae811ca809fc6eca`, navigated, stopped browser-worker, restarted, `GET /v1/sessions/:id` restored `ready/agent`, navigate and screenshot succeeded.
+- [x] Added env-gated restart recovery integration test `backend/browser-worker/src/playwrightExecutor.recovery.test.ts` (`4ad4820`, `HELM_BROWSER_RECOVERY_TEST=1` PASS 1/1).
 - [x] API smokes verified: assistant `task_6b922aee05304cfbb81c986ba5d960d4` -> `HELM_SMOKE_OK`; browser high-risk `task_31e477068d3741b7bd811617e4034fec` -> waiting_approval -> approved -> succeeded, `browser.external_action.executed`, receipt executed, artifacts captured.
 - [x] Reverified `browser-takeover-ownership-api` with `HELM_INTEGRATION_API=1` PASS 1/1.
 
@@ -835,7 +836,6 @@ untime.completed)
 
 ### Active / Next (not completed)
 - [ ] Full interactive UI E2E click-through at `http://localhost:5173` (chat stream, tool cards, approve/reject, receipts/evidence/preview) - blocked in this shell: no BrowserOS CLI/MCP.
-- [ ] Add integration test for browser-worker restart recovery through API path (kill/restart worker, assert restored session usable).
 - [ ] Real auth/session/OIDC prep replacing dev `x-user-id` for API + WS.
 - [ ] Legacy unbound browser session migration/rebind policy.
 - [ ] Blueprint gaps: P4 vault/credential broker/OAuth/connectors/reconciliation; P5 Temporal; P6 BrowserOS adapter; P7 memory/skills/proactivity/self-improvement implementation; P8 hardening/compliance/release evidence.
