@@ -67,4 +67,18 @@ async function api(path: string, init?: RequestInit) {
     expect(replay.headers.get("idempotency-replayed")).toBe("true");
     expect(replay.json?.task?.id).toBe(taskId);
   }, 30000);
+
+  it("returns 409 INVALID_TRANSITION for unsupported control action", async () => {
+    const create = await api("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: "pause test", kind: "assistant" }) });
+    expect(create.status).toBe(201);
+    const taskId = create.json?.task?.id as string;
+
+    const pause = await api(`/v1/tasks/${taskId}/control`, { method: "POST", body: JSON.stringify({ action: "pause" }) });
+    expect(pause.status).toBe(200);
+    expect(pause.json?.task?.status).toBe("paused");
+
+    const bad = await api(`/v1/tasks/${taskId}/control`, { method: "POST", body: JSON.stringify({ action: "pause" }) });
+    expect(bad.status).toBe(409);
+    expect(bad.json?.error?.code).toBe("INVALID_TRANSITION");
+  }, 30000);
 });
