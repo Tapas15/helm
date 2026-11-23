@@ -1,0 +1,176 @@
+﻿# Third-Party Notices
+
+This file lists third-party software dependencies used by Helm. Helm source code in this repository is original work by the Helm project author(s), except where explicitly noted.
+
+Generated: 2026-11-22. Regenerate with `pnpm licenses list --json` from `helm/`.
+
+## License Compliance Notes
+
+- **No GPL/AGPL/LGPL/SSPL/BUSL dependencies detected** in installed pnpm dependencies at generation time.
+- **BrowserOS** (`AGPL-3.0`, inspected externally, not vendored into Helm): do not copy into this repository; if ever used, isolate as an external service/adapter and complete legal/compliance review.
+- **Obscura** (`Apache-2.0`, inspected externally, not vendored): if integrated/distributed, retain upstream license/notice files.
+- **Hermes Agent** (`MIT`, upstream): if integrated/forked, retain upstream copyright/license notice. Helm plan uses adapter/external integration, no code copy.
+- **Playwright browser binaries** are downloaded separately by Playwright and have their own license terms; review before redistributing binaries.
+
+## Dependencies by License
+
+## Apache-2.0 (7)
+- @drizzle-team/brocli@0.10.2 - https://github.com/drizzle-team/brocli
+- baseline-browser-mapping@2.11.39 - https://github.com/web-platform-dx/baseline-browser-mapping#readme
+- drizzle-orm@0.44.7 - https://orm.drizzle.team
+- expect-type@1.4.0 - https://github.com/mmkal/expect-type#readme
+- playwright@1.65.1 - https://playwright.dev
+- playwright-core@1.65.1 - https://playwright.dev
+- typescript@5.9.3 - https://www.typescriptlang.org/
+## BSD-2-Clause (1)
+- dotenv@16.6.1 - https://github.com/motdotla/dotenv#readme
+## BSD-3-Clause (2)
+- source-map@0.6.1 - https://github.com/mozilla/source-map
+- source-map-js@1.2.4 - https://github.com/7rulnik/source-map-js
+## CC-BY-4.0 (1)
+- caniuse-lite@1.0.30001826 - https://github.com/browserslist/caniuse-lite#readme
+## ISC (8)
+- electron-to-chromium@1.5.492 - https://github.com/Kilian/electron-to-chromium#readme
+- lru-cache@5.1.1 - https://github.com/isaacs/node-lru-cache#readme
+- pg-int8@1.0.1 - https://github.com/charmander/pg-int8#readme
+- picocolors@1.1.1 - https://github.com/alexeyraspopov/picocolors#readme
+- semver@6.3.2 - https://github.com/npm/node-semver#readme
+- siginfo@2.0.0 - https://github.com/emilbayes/siginfo#readme
+- split2@4.2.0 - https://github.com/mcollina/split2#readme
+- yallist@3.1.1 - https://github.com/isaacs/yallist#readme
+## MIT (135)
+- @babel/code-frame@7.29.7 - https://babel.dev/docs/en/next/babel-code-frame
+- @babel/compat-data@7.29.7 - https://github.com/babel/babel#readme
+- @babel/core@7.29.13 - https://babel.dev/docs/en/next/babel-core
+- @babel/generator@7.29.15 - https://babel.dev/docs/en/next/babel-generator
+- @babel/helper-compilation-targets@7.29.13 - https://github.com/babel/babel#readme
+- @babel/helper-globals@7.29.7 - https://github.com/babel/babel#readme
+- @babel/helper-module-imports@7.29.7 - https://babel.dev/docs/en/next/babel-helper-module-imports
+- @babel/helper-module-transforms@7.29.14 - https://babel.dev/docs/en/next/babel-helper-module-transforms
+- @babel/helper-plugin-utils@7.29.7 - https://babel.dev/docs/en/next/babel-helper-plugin-utils
+- @babel/helper-string-parser@7.29.15 - https://babel.dev/docs/en/next/babel-helper-string-parser
+- @babel/helper-validator-identifier@7.29.7 - https://github.com/babel/babel#readme
+- @babel/helper-validator-option@7.29.7 - https://github.com/babel/babel#readme
+- @babel/helpers@7.29.15 - https://babel.dev/docs/en/next/babel-helpers
+- @babel/parser@7.29.15 - https://babel.dev/docs/en/next/babel-parser
+- @babel/plugin-transform-react-jsx-self@7.29.7 - https://babel.dev/docs/en/next/babel-plugin-transform-react-jsx-self
+- @babel/plugin-transform-react-jsx-source@7.29.7 - https://babel.dev/docs/en/next/babel-plugin-transform-react-jsx-source
+- @babel/template@7.29.7 - https://babel.dev/docs/en/next/babel-template
+- @babel/traverse@7.29.15 - https://babel.dev/docs/en/next/babel-traverse
+- @babel/types@7.29.15 - https://babel.dev/docs/en/next/babel-types
+- @esbuild-kit/core-utils@3.3.2 - https://github.com/esbuild-kit/core-utils#readme
+- @esbuild-kit/esm-loader@2.6.5 - https://github.com/esbuild-kit/esm-loader#readme
+- @esbuild/win32-x64@0.18.20 - https://github.com/evanw/esbuild#readme
+- @hono/node-server@1.19.19 - https://github.com/honojs/node-server
+- @jridgewell/gen-mapping@0.3.13 - https://github.com/jridgewell/sourcemaps/tree/main/packages/gen-mapping
+- @jridgewell/remapping@2.3.5 - https://github.com/jridgewell/sourcemaps/tree/main/packages/remapping
+- @jridgewell/resolve-uri@3.1.3 - https://github.com/jridgewell/resolve-uri#readme
+- @jridgewell/sourcemap-codec@1.6.0 - https://github.com/jridgewell/sourcemaps/tree/main/packages/sourcemap-codec
+- @jridgewell/trace-mapping@0.3.31 - https://github.com/jridgewell/sourcemaps/tree/main/packages/trace-mapping
+- @pinojs/redact@0.4.0 - https://github.com/pinojs/redact#readme
+- @rolldown/pluginutils@1.0.0-beta.27 - https://github.com/rolldown/rolldown#readme
+- @rollup/rollup-win32-x64-gnu@4.68.8 - https://rollupjs.org/
+- @rollup/rollup-win32-x64-msvc@4.68.8 - https://rollupjs.org/
+- @tanstack/query-core@5.108.2 - https://tanstack.com/query
+- @tanstack/react-query@5.108.2 - https://tanstack.com/query
+- @turbo/windows-64@2.11.13 - https://turborepo.dev
+- @types/babel__core@7.20.5 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/babel__core
+- @types/babel__generator@7.27.0 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/babel__generator
+- @types/babel__template@7.4.4 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/babel__template
+- @types/babel__traverse@7.28.0 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/babel__traverse
+- @types/chai@5.2.3 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/chai
+- @types/deep-eql@4.0.2 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/deep-eql
+- @types/estree@1.0.10 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/estree
+- @types/node@22.20.5 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node
+- @types/pg@8.23.1 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/pg
+- @types/react@19.3.0 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react
+- @types/react-dom@19.3.0 - https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom
+- @vitejs/plugin-react@4.7.0 - https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#readme
+- @vitest/expect@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/expect#readme
+- @vitest/mocker@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/mocker#readme
+- @vitest/pretty-format@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/utils#readme
+- @vitest/runner@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/runner#readme
+- @vitest/snapshot@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/snapshot#readme
+- @vitest/spy@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/spy#readme
+- @vitest/utils@3.2.7 - https://github.com/vitest-dev/vitest/tree/main/packages/utils#readme
+- assertion-error@2.0.1 - https://github.com/chaijs/assertion-error#readme
+- atomic-sleep@1.0.0 - https://github.com/davidmarkclements/atomic-sleep#readme
+- browserslist@4.29.6 - https://github.com/browserslist/browserslist#readme
+- buffer-from@1.1.2 - https://github.com/LinusU/buffer-from#readme
+- cac@6.7.14 - https://github.com/egoist/cac#readme
+- chai@5.3.3 - http://chaijs.com
+- check-error@2.1.3 - https://github.com/chaijs/check-error#readme
+- convert-source-map@2.0.0 - https://github.com/thlorenz/convert-source-map
+- csstype@3.2.4 - https://github.com/frenic/csstype#readme
+- debug@4.4.3 - https://github.com/debug-js/debug#readme
+- deep-eql@5.0.2 - https://github.com/chaijs/deep-eql#readme
+- drizzle-kit@0.31.11 - https://orm.drizzle.team
+- es-module-lexer@1.7.0 - https://github.com/guybedford/es-module-lexer#readme
+- esbuild@0.18.20 - https://github.com/evanw/esbuild#readme
+- escalade@3.2.0 - https://github.com/lukeed/escalade#readme
+- estree-walker@3.0.3 - https://github.com/Rich-Harris/estree-walker#readme
+- fdir@6.5.0 - https://github.com/thecodrr/fdir#readme
+- gensync@1.0.0-beta.2 - https://github.com/loganfsmyth/gensync
+- get-tsconfig@4.14.3 - https://github.com/privatenumber/get-tsconfig#readme
+- hono@4.13.20 - https://hono.dev
+- js-tokens@4.0.0 - https://github.com/lydell/js-tokens#readme
+- jsesc@3.1.0 - https://mths.be/jsesc
+- json5@2.2.3 - http://json5.org/
+- loupe@3.2.1 - https://github.com/chaijs/loupe
+- magic-string@0.30.21 - https://github.com/Rich-Harris/magic-string#readme
+- ms@2.1.3 - https://github.com/vercel/ms#readme
+- nanoid@3.3.20 - https://github.com/ai/nanoid#readme
+- node-releases@2.0.65 - https://github.com/chicoxyzzy/node-releases#readme
+- on-exit-leak-free@2.1.2 - https://github.com/mcollina/on-exit-or-gc#readme
+- pathe@2.0.3 - https://github.com/unjs/pathe#readme
+- pathval@2.0.1 - https://github.com/chaijs/pathval
+- pg@8.23.1 - https://github.com/brianc/node-postgres
+- pg-cloudflare@1.4.1 - https://github.com/brianc/node-postgres#readme
+- pg-connection-string@2.14.1 - https://github.com/brianc/node-postgres/tree/master/packages/pg-connection-string
+- pg-pool@3.14.0 - https://github.com/brianc/node-postgres/tree/master/packages/pg-pool#readme
+- pg-protocol@1.16.1 - https://github.com/brianc/node-postgres#readme
+- pg-types@2.2.0 - https://github.com/brianc/node-pg-types
+- pgpass@1.0.5 - https://github.com/hoegaarden/pgpass#readme
+- picomatch@4.0.7 - https://github.com/micromatch/picomatch
+- pino@9.14.0 - https://getpino.io
+- pino-abstract-transport@2.0.0 - https://github.com/pinojs/pino-abstract-transport#readme
+- pino-std-serializers@7.1.0 - https://github.com/pinojs/pino-std-serializers#readme
+- postcss@8.5.33 - https://postcss.org/
+- postgres-array@2.0.0 - https://github.com/bendrucker/postgres-array#readme
+- postgres-bytea@1.0.1 - https://github.com/bendrucker/postgres-bytea#readme
+- postgres-date@1.0.7 - https://github.com/bendrucker/postgres-date#readme
+- postgres-interval@1.2.0 - https://github.com/bendrucker/postgres-interval#readme
+- prettier@3.10.1 - https://prettier.io
+- process-warning@5.1.1 - https://github.com/fastify/fastify-warning#readme
+- quick-format-unescaped@4.0.4 - https://github.com/davidmarkclements/quick-format#readme
+- react@19.3.1 - https://react.dev/
+- react-dom@19.3.1 - https://react.dev/
+- react-refresh@0.17.0 - https://react.dev/
+- real-require@0.2.0 - https://github.com/pinojs/real-require
+- resolve-pkg-maps@1.0.0 - https://github.com/privatenumber/resolve-pkg-maps#readme
+- rollup@4.68.8 - https://rollupjs.org/
+- safe-stable-stringify@2.5.0 - https://github.com/BridgeAR/safe-stable-stringify#readme
+- scheduler@0.28.0 - https://react.dev/
+- sonic-boom@4.2.1 - https://github.com/pinojs/sonic-boom#readme
+- source-map-support@0.5.21 - https://github.com/evanw/node-source-map-support#readme
+- stackback@0.0.2 - https://github.com/shtylman/node-stackback#readme
+- std-env@3.10.0 - https://github.com/unjs/std-env#readme
+- strip-literal@3.1.0 - https://github.com/antfu/strip-literal#readme
+- thread-stream@3.2.0 - https://github.com/mcollina/thread-stream#readme
+- tinybench@2.9.0 - https://github.com/tinylibs/tinybench#readme
+- tinyexec@0.3.2 - https://github.com/tinylibs/tinyexec#readme
+- tinyglobby@0.2.17 - https://superchupu.dev/tinyglobby
+- tinypool@1.1.1 - https://github.com/tinylibs/tinypool#readme
+- tinyrainbow@2.0.0 - https://github.com/tinylibs/tinyrainbow#readme
+- tinyspy@4.0.6 - https://github.com/tinylibs/tinyspy#readme
+- tsx@4.23.15 - https://tsx.hirok.io
+- turbo@2.11.13 - https://turborepo.dev
+- undici-types@6.21.0 - https://undici.nodejs.org
+- update-browserslist-db@1.4.0 - https://github.com/browserslist/update-db#readme
+- vite@6.4.6 - https://vite.dev
+- vite-node@3.2.4 - https://github.com/vitest-dev/vitest/blob/main/packages/vite-node#readme
+- vitest@3.2.7 - https://github.com/vitest-dev/vitest#readme
+- why-is-node-running@2.3.0 - https://github.com/mafintosh/why-is-node-running
+- xtend@4.0.2 - https://github.com/Raynos/xtend
+- zod@3.25.76 - https://zod.dev
+- zustand@5.1.0 - https://github.com/pmndrs/zustand

@@ -1,0 +1,151 @@
+﻿import { pgTable, text, timestamp, integer, jsonb, bigint, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  deviceId: text("device_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (t) => [index("sessions_user_idx").on(t.userId)]);
+
+export const tasks = pgTable("tasks", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  threadId: text("thread_id"),
+  goalId: text("goal_id"),
+  title: text("title").notNull(),
+  prompt: text("prompt").notNull(),
+  kind: text("kind").notNull().default("assistant"),
+  status: text("status").notNull().default("queued"),
+  priority: integer("priority").notNull().default(0),
+  plan: jsonb("plan"),
+  checkpoint: jsonb("checkpoint"),
+  state: jsonb("state").notNull().default(sql`'{}'::jsonb`),
+  currentStepId: text("current_step_id"),
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  leaseOwner: text("lease_owner"),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  result: jsonb("result"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (t) => [
+  index("tasks_user_status_updated_idx").on(t.userId, t.status, t.updatedAt),
+  index("tasks_lease_idx").on(t.status, t.leaseUntil),
+]);
+
+export const taskMessages = pgTable("task_messages", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  role: text("role").notNull(), // user | assistant | system | tool
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("task_messages_task_created_idx").on(t.taskId, t.createdAt),
+  index("task_messages_user_created_idx").on(t.userId, t.createdAt),
+]);
+
+export const taskEvents = pgTable("task_events", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  runId: text("run_id"),
+  sessionId: text("session_id"),
+  sequence: bigint("sequence", { mode: "number" }).notNull(),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  ts: timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
+  source: text("source").notNull(),
+  type: text("type").notNull(),
+  correlationId: text("correlation_id"),
+  causationId: text("causation_id"),
+  payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+}, (t) => [
+  uniqueIndex("task_events_task_seq_uidx").on(t.taskId, t.sequence),
+  index("task_events_task_ts_idx").on(t.taskId, t.ts),
+]);
+
+export const approvals = pgTable("approvals", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  runId: text("run_id"),
+  actionKind: text("action_kind").notNull(),
+  actionHash: text("action_hash").notNull(),
+  status: text("status").notNull().default("pending"),
+  summary: text("summary").notNull(),
+  evidence: jsonb("evidence").notNull().default(sql`'{}'::jsonb`),
+  decisionReason: text("decision_reason"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+}, (t) => [
+  index("approvals_task_status_idx").on(t.taskId, t.status),
+  index("approvals_user_status_idx").on(t.userId, t.status),
+]);
+
+export const actionReceipts = pgTable("action_receipts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  runId: text("run_id"),
+  approvalId: text("approval_id"),
+  actionKind: text("action_kind").notNull(),
+  actionHash: text("action_hash").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  status: text("status").notNull().default("recorded"),
+  externalRef: text("external_ref"),
+  evidence: jsonb("evidence").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("action_receipts_idempotency_uidx").on(t.idempotencyKey),
+  index("action_receipts_task_idx").on(t.taskId, t.createdAt),
+  index("action_receipts_action_hash_idx").on(t.actionHash),
+]);
+
+export const browserArtifacts = pgTable("browser_artifacts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  runId: text("run_id"),
+  sessionId: text("session_id").notNull(),
+  kind: text("kind").notNull(),
+  path: text("path").notNull(),
+  mime: text("mime").notNull(),
+  sha256: text("sha256").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("browser_artifacts_task_idx").on(t.taskId, t.createdAt),
+  index("browser_artifacts_session_idx").on(t.sessionId, t.createdAt),
+]);
+
+export const auditLog = pgTable("audit_log", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  ts: timestamp("ts", { withTimezone: true }).notNull().defaultNow(),
+  actorType: text("actor_type").notNull(),
+  actorId: text("actor_id").notNull(),
+  taskId: text("task_id"),
+  action: text("action").notNull(),
+  resourceType: text("resource_type").notNull(),
+  resourceId: text("resource_id"),
+  decision: text("decision"),
+  reason: text("reason"),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+}, (t) => [index("audit_user_ts_idx").on(t.userId, t.ts)]);

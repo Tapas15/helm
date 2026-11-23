@@ -1,0 +1,16 @@
+﻿node_modules
+dist
+.turbo
+.env
+*.log
+coverage
+drizzle/meta
+
+.tmp-*.log
+.tmp-*.pid
+
+
+# browser worker local runtime data
+backend/browser-worker/.data/
+.data/
+

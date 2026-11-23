@@ -1,0 +1,9 @@
+﻿# License
+
+Copyright (c) 2026 Helm contributors.
+
+All rights reserved unless a separate written license is granted by the copyright holder.
+
+This repository contains Helm, an original software project developed for the Dubai competition submission context. Third-party dependencies remain under their own licenses; see `THIRD_PARTY_NOTICES.md`.
+
+BrowserOS (AGPL-3.0) and other externally inspected projects are not vendored into this repository unless explicitly stated with their required notices.
