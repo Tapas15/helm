@@ -4,9 +4,9 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-~84%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-~86%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Prototype_Baseline-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-Local_Ollama_E2E-238636?style=for-the-badge)](#-present--what-were-building-now)
+[![Focus](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Recovery-238636?style=for-the-badge)](#-present--what-were-building-now)
 [![Blueprint](https://img.shields.io/badge/Blueprint-Phases_0--8-6e7781?style=for-the-badge)](Planning/MASTER-TECHNICAL-BLUEPRINT.md)
 
 <br/>
@@ -61,10 +61,10 @@ timeline
 
 ### Overall
 
-**`~84%`** complete (Phases 0–8, equal weight)
+**`~86%`** complete (Phases 0–8, equal weight)
 
 ```text
-[█████████████████████] 84%
+[█████████████████████░] 86%
 ```
 
 **Prototype baseline usable.** Major reliability, security, connector, and release gaps remain.
@@ -89,9 +89,9 @@ timeline
 |---|---:|:---:|---|
 | **P0 Foundation / Repo** | 91% | Past / stabilizing | `██████████████████░░` |
 | **P1 UI / Task Core** | 89% | Past / polishing | `██████████████████░░` |
-| **P2 Agent Runtime** | 53% | **Present** | `███████████░░░░░░░░░` |
-| **P3 Browser Execution** | 91% | **Present** | `██████████████████░░` |
-| **P4 Approvals / Vault / Connectors** | 57% | **Present** | `███████████░░░░░░░░░` |
+| **P2 Agent Runtime** | 56% | **Present** | `███████████░░░░░░░░░` |
+| **P3 Browser Execution** | 93% | **Present** | `███████████████████░` |
+| **P4 Approvals / Vault / Connectors** | 59% | **Present** | `████████████░░░░░░░░` |
 | **P5 Temporal / Reliability** | 5% | Future | `█░░░░░░░░░░░░░░░░░░░` |
 | **P6 BrowserOS Deterministic Upgrade** | 0% | Future | `░░░░░░░░░░░░░░░░░░░░` |
 | **P7 Memory / Skills / Proactivity** | 0% | Future | `░░░░░░░░░░░░░░░░░░░░` |
@@ -180,7 +180,7 @@ flowchart LR
 <td width="33%" valign="top">
 
 ### 🤖 P2 — Agent Runtime
-**53% · Active**
+**56% · Active**
 
 **Delivered**
 - HelmNativeRuntime
@@ -188,6 +188,7 @@ flowchart LR
 - OpenAI-compatible streaming
 - Basic tool-calling: navigate/snapshot/click
 - Ollama smoke pass (`llama3.2:latest`)
+- Browser-intent gating + model guardrails
 
 **Next**
 - Tool-capable model guardrails/selection
@@ -199,7 +200,7 @@ flowchart LR
 <td width="33%" valign="top">
 
 ### 🌐 P3 — Browser Execution
-**91% · Active**
+**93% · Active**
 
 **Delivered**
 - Playwright browser worker
@@ -208,10 +209,12 @@ flowchart LR
 - DOM/screenshot artifacts
 - Guarded mutating routes
 - Session metadata/storageState restore
+- Stale-session restart recovery + integration coverage
+- WS bearer session-token authz
 
 **Next**
-- Crash/reconnect/WS stability
-- Session ownership/authz audit
+- Crash/reconnect/WS stability smoke
+- Real session/OIDC UX
 - Deterministic recreate contract
 - Richer remote control
 
@@ -219,17 +222,20 @@ flowchart LR
 <td width="33%" valign="top">
 
 ### 🛡️ P4 — Approvals / Safety
-**57% · Active**
+**59% · Active**
 
 **Delivered**
 - Approval resolve/requeue/cancel
 - Action receipts
 - `approvalId + actionHash + idempotency`
 - Binding audit started
+- Session-token auth scaffold + WS auth resolver
+- Legacy unbound browser-session rebind endpoint + audit/event
+- P4 vault/connector contract scaffolds
 
 **Next**
-- Binding-audit regression tests
-- Vault/credential broker
+- Real session/OIDC UX
+- Encrypted vault/credential broker
 - Connector registry/OAuth
 - Gmail/Calendar + reconciliation
 

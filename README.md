@@ -12,8 +12,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~84%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-Local_Ollama_Browser_E2E-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~86%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Browser_Recovery-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
 **[Explore the full visual roadmap →](ROADMAP.md)**
@@ -22,12 +22,12 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~84%** | Prototype baseline; ownership hardening, idempotent recovery, task lifecycle guards |
+| **Overall** | **~86%** | Prototype baseline; session-token/WS auth hardening, browser recovery, legacy rebind, P4 scaffolds |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
 | Phase 1 UI/Task Core | 89% | Chat/SSE/approvals/preview usable; idempotency/follow-up guards added |
-| Phase 2 Agent Runtime | 53% | Streaming + basic tool-calling; hardening pending |
-| Phase 3 Browser Execution | 91% | Expanded ownership integration coverage, idempotent takeover, recovery state |
-| Phase 4 Approvals/Vault/Connectors | 57% | Resolve/task binding + strict-auth prep; vault/connectors pending |
+| Phase 2 Agent Runtime | 56% | Local Ollama streaming + basic tool-calling; guardrails present, richer policy pending |
+| Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
+| Phase 4 Approvals/Vault/Connectors | 59% | Receipts/resolve hardening, session-token scaffold, legacy rebind, vault/connector contracts |
 | Phase 5 Temporal Reliability | 5% | Primitives only |
 | Phase 6 BrowserOS Upgrade | 0% | Planned |
 | Phase 7 Memory/Skills/Proactivity | 0% | Design/proposed only |
