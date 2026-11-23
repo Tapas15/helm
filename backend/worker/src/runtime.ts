@@ -30,11 +30,18 @@ function redactModelError(text: string): string {
   return text.replace(/Bearer\s+[A-Za-z0-9._\-]+/g, "Bearer [redacted]").slice(0, 300);
 }
 
-const TOOLS = [
+const BROWSER_TOOLS = [
   { type: "function", function: { name: "browser_navigate", description: "Navigate an existing browser session to a URL. Low-risk observation/navigation.", parameters: { type: "object", properties: { sessionId: { type: "string" }, url: { type: "string" } }, required: ["sessionId", "url"] } } },
   { type: "function", function: { name: "browser_snapshot", description: "Capture a text snapshot of current browser page.", parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] } } },
   { type: "function", function: { name: "browser_click", description: "Click selector in browser. High-risk side effect: requires approved approvalId/actionHash/idempotencyKey.", parameters: { type: "object", properties: { sessionId: { type: "string" }, selector: { type: "string" }, approvalId: { type: "string" }, actionHash: { type: "string" }, idempotencyKey: { type: "string" } }, required: ["sessionId", "selector", "approvalId", "actionHash", "idempotencyKey"] } } },
 ];
+
+function shouldExposeBrowserTools(input: AgentRuntimeInput): boolean {
+  const ctx = (input.context ?? {}) as any;
+  if (input.kind === "browser") return true;
+  if (ctx.activeBrowserSessionId) return true;
+  return /\b(browser|navigate|website|url|click|page|screenshot|snapshot|tab|dom|web)\b/i.test(input.prompt);
+}
 
 async function apiPost(path: string, body: unknown): Promise<any> {
   const apiUrl = process.env.API_URL ?? "http://127.0.0.1:8787";
@@ -44,14 +51,23 @@ async function apiPost(path: string, body: unknown): Promise<any> {
 }
 
 async function runTool(name: string, args: any): Promise<string> {
-  if (name === "browser_navigate") { const r = await apiPost(`/v1/browser/sessions/${args.sessionId}/navigate`, { url: args.url }); return JSON.stringify(r.json).slice(0, 4000); }
-  if (name === "browser_snapshot") { const r = await apiPost(`/v1/browser/sessions/${args.sessionId}/snapshot`, {}); return JSON.stringify(r.json).slice(0, 4000); }
+  if (name === "browser_navigate") {
+    const sessionId = String(args.sessionId ?? "").trim(); const url = String(args.url ?? "").trim();
+    if (!sessionId) return JSON.stringify({ error: "sessionId required for browser_navigate; no active browser session" });
+    if (!url) return JSON.stringify({ error: "url required for browser_navigate" });
+    const r = await apiPost(`/v1/browser/sessions/${sessionId}/navigate`, { url }); return JSON.stringify(r.json).slice(0, 4000);
+  }
+  if (name === "browser_snapshot") {
+    const sessionId = String(args.sessionId ?? "").trim();
+    if (!sessionId) return JSON.stringify({ error: "sessionId required for browser_snapshot; no active browser session" });
+    const r = await apiPost(`/v1/browser/sessions/${sessionId}/snapshot`, {}); return JSON.stringify(r.json).slice(0, 4000);
+  }
   if (name === "browser_click") {
-    const approvalId = String(args.approvalId ?? "");
-    const actionHash = String(args.actionHash ?? "");
-    const idempotencyKey = String(args.idempotencyKey ?? "");
+    const sessionId = String(args.sessionId ?? "").trim();
+    const approvalId = String(args.approvalId ?? ""); const actionHash = String(args.actionHash ?? ""); const idempotencyKey = String(args.idempotencyKey ?? "");
+    if (!sessionId) return JSON.stringify({ error: "sessionId required for browser_click" });
     if (!approvalId || !actionHash || !idempotencyKey) return JSON.stringify({ error: "approvalId, actionHash, and idempotencyKey are required for browser_click" });
-    const r = await apiPost(`/v1/browser/sessions/${args.sessionId}/click`, { selector: args.selector, approvalId, actionHash, idempotencyKey });
+    const r = await apiPost(`/v1/browser/sessions/${sessionId}/click`, { selector: args.selector, approvalId, actionHash, idempotencyKey });
     return JSON.stringify(r.json).slice(0, 4000);
   }
   return JSON.stringify({ error: `unknown tool ${name}` });
@@ -63,7 +79,9 @@ function buildSystemPrompt(input: AgentRuntimeInput): string {
   const facts = Array.isArray(ctx.memoryFacts) ? ctx.memoryFacts.slice(-8).map((f: any) => `- ${String(f)}`).join("\n") : "";
   const browser = ctx.activeBrowserSessionId ? `Active browser session: ${ctx.activeBrowserSessionId}.` : "No active browser session.";
   const guardrails = [
-    "Use tools only when needed; answer directly when no tool is required.",
+    "Answer directly when no tool is required; do not use browser tools for normal questions.",
+    "Only use browser tools when the user asks to browse/navigate/click/snapshot or an active browser session is relevant.",
+    "If no active browser session exists and browser action is requested, ask to create a browser task or provide a sessionId; do not call browser tools with missing sessionId.",
     "Do not invent tool results, receipts, approval IDs, action hashes, or idempotency keys.",
     "For browser_click or any high-risk side effect, do not execute unless explicit approvalId, actionHash, and idempotencyKey are provided in context; otherwise explain that approval is required.",
     "Never claim an external action executed without a receipt.",
@@ -88,8 +106,10 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
   const last = messages[messages.length - 1];
   if (!(last?.role === "user" && last.content === input.prompt)) messages.push({ role: "user", content: input.prompt });
   let finalOutput = "";
+  const tools = shouldExposeBrowserTools(input) ? BROWSER_TOOLS : [];
   for (let step = 0; step < 4; step++) {
-    const body = { model: cfg.model, stream: true, messages, tools: TOOLS, tool_choice: "auto", max_tokens: cfg.maxTokens };
+    const body: any = { model: cfg.model, stream: true, messages, max_tokens: cfg.maxTokens };
+    if (tools.length) { body.tools = tools; body.tool_choice = "auto"; }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), cfg.timeoutMs);
     let res: Response;
