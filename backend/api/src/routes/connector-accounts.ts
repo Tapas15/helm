@@ -69,6 +69,12 @@ export function connectorAccountRoutes(db: Database) {
       if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail test failed", res.status >= 500), res.status as any);
       return c.json({ ok: true, connectorId: account.connectorId, profile: { emailAddress: json?.emailAddress ?? null, messagesTotal: json?.messagesTotal ?? null } });
     }
+    if (account.connectorId === "google-calendar") {
+      const res = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1", { headers: { authorization: `Bearer ${token}` } });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar test failed", res.status >= 500), res.status as any);
+      return c.json({ ok: true, connectorId: account.connectorId, profile: { calendars: Array.isArray(json?.items) ? json.items.length : 0 } });
+    }
     return c.json({ ok: true, connectorId: account.connectorId, message: "No test implemented for connector" });
   });
 
