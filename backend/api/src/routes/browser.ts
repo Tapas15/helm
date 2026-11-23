@@ -105,7 +105,12 @@ export function browserRoutes(db: Database) {
   app.get("/sessions/:id/screenshot.png", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
-    const res = await fetch(`${browserUrl}/v1/sessions/${c.req.param("id")}/screenshot.png`, { headers: { authorization: `Bearer ${browserToken}` } });
+    const path = `/v1/sessions/${c.req.param("id")}/screenshot.png`;
+    if (browserAdapterEnabled) {
+      const r = await browserAdapter.requestBinary(path);
+      return c.newResponse(r.body, r.status as any, { "content-type": r.contentType, "cache-control": "no-store" });
+    }
+    const res = await fetch(`${browserUrl}${path}`, { headers: { authorization: `Bearer ${browserToken}` } });
     const bytes = await res.arrayBuffer();
     return c.newResponse(bytes, res.status as any, { "content-type": res.headers.get("content-type") ?? "image/png", "cache-control": "no-store" });
   });
