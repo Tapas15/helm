@@ -986,3 +986,23 @@ untime.completed)
 - Docker: temporal stack healthy on 7233/8233.
 - Integration: `temporal-e2e` PASS 1/1.
 
+## Session: 2026-11-23 - P5 mock-provider side-effect E2E
+**Time:** 2026-11-23T20:22:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Added env-gated mock-provider Temporal side-effect E2E `tests/integration/src/temporal-side-effect-e2e.test.ts` (`HELM_TEMPORAL_SIDE_EFFECT_E2E=1`): mock Gmail send/list/detail server, real API+Temporal worker, worker restart during flow, asserts <=1 action receipt per idempotency key and uncertain receipt reconciliation path.
+- [x] Added test-only guarded hooks: `HELM_GMAIL_API_BASE` and `HELM_TEST_CONNECTOR_HTTP=1` (dev/test token fallback) for deterministic provider-mocked E2E; no production behavior change when unset.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `cmd /c "set HELM_TEMPORAL_SIDE_EFFECT_E2E=1&& set DATABASE_URL=...&& pnpm --filter @helm/integration-tests test -- temporal-side-effect-e2e"` PASS (1/1).
+- [x] Commit/push: `1ecca7b`.
+
+### Active / Next (not completed)
+- [ ] Real provider no-duplicate proof (requires external Google creds/sandbox) and real Temporal uncertain-outcome network fault injection.
+- [ ] `browser.external_action` Temporal routing/activity; reconciliation workflow; schedules/monitors; disable-flag rollback proof; operator runbook.
+- [ ] P6-P8 thin vertical slices for blueprint completion.
+
+### Evidence
+- `1ecca7b` pushed to `origin/main`.
+- Integration: `temporal-side-effect-e2e` PASS 1/1.
+
