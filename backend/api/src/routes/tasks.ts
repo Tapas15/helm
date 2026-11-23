@@ -183,6 +183,7 @@ export function taskRoutes(db: Database) {
     const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId))).limit(1);
     if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
     if (["running", "planning"].includes(task.status)) return c.json(errorBody(HELM_ERROR_CODES.CONFLICT, `Task is ${task.status}; wait before follow-up`, true), 409);
+    if (task.status === "cancelled") return c.json(errorBody(HELM_ERROR_CODES.INVALID_TRANSITION, "Cancelled task cannot accept follow-up; create a new task", false), 409);
     const ts = new Date();
     await db.insert(taskMessages).values({ id: uid("msg"), userId, taskId: id, role: "user", content: parsed.data.content, metadata: { source: "api.followup", requestId, correlationId }, createdAt: ts });
     const [updated] = await db.update(tasks).set({
