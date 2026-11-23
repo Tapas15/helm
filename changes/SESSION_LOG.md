@@ -872,23 +872,25 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - Gmail uncertain-send auto-reconcile lookup
-**Time:** 2026-11-23T23:36:27Z  
+## Session: 2026-11-23 - Connector account UX enrichment
+**Time:** 2026-11-23T23:40:46Z  
 **Agent:** Kilo  
-**Phase:** P4 receipts/connectors
+**Phase:** P4 connectors
 
 ### Completed
-- [x] Added best-effort Gmail send reconciliation lookup (`lookupGmailSend`) using stored account/subject evidence and Gmail message search; `POST /v1/receipts/:id/reconcile` now attempts auto-lookup for `gmail.send` uncertain receipts and marks executed with externalRef when found.
-- [x] Verification: `pnpm --filter @helm/api typecheck` PASS.
+- [x] Enriched `/v1/connectors/accounts` response with `hasRefreshToken`, `expiresAt`, `tokenExpired` derived from stored vault token metadata.
+- [x] Web Connectors panel displays refresh-token presence and expiry/expired indicator.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck/build` PASS.
 
 ### Active / Next (not completed)
 - [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
 - [ ] Strengthen Gmail reconciliation with dedicated idempotency header/message metadata where possible.
-- [ ] Richer connector account UX (errors, last sync, token expiry display).
 - [ ] Calendar connector implementation.
 
 ### Evidence
-- `backend/api/src/routes/gmail.ts`, `backend/api/src/routes/evidence.ts`.
+- `backend/api/src/routes/connectors.ts`, `frontend/web/src/App.tsx`.
+
+
 
 
 

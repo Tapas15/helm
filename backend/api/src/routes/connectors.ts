@@ -41,7 +41,27 @@ export function connectorRoutes(db: Database) {
   app.get("/accounts", async (c) => {
     const userId = c.get("userId");
     const rows = await db.select().from(connectorAccounts).where(eq(connectorAccounts.userId, userId));
-    return c.json({ accounts: rows });
+    const accounts = await Promise.all(rows.map(async (row) => {
+      const raw = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${row.id}` });
+      let hasRefreshToken = false;
+      let expiresAt: string | null = null;
+      let tokenExpired = false;
+      if (raw) {
+        try {
+          const token = JSON.parse(raw) as Record<string, unknown>;
+          hasRefreshToken = !!token.refresh_token;
+          const obtained = Number(token.obtained_at ?? 0);
+          const expiresIn = Number(token.expires_in ?? 0);
+          if (obtained && expiresIn) {
+            const exp = obtained + expiresIn * 1000;
+            expiresAt = new Date(exp).toISOString();
+            tokenExpired = Date.now() + 60_000 >= exp;
+          }
+        } catch {}
+      }
+      return { ...row, hasRefreshToken, expiresAt, tokenExpired };
+    }));
+    return c.json({ accounts });
   });
 
   app.post("/oauth/start", async (c) => {

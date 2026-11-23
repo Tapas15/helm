@@ -18,7 +18,7 @@ const getDevUser = () => localStorage.getItem(DEV_USER_KEY) ?? "usr_local_dev";
 const setDevUser = (v: string) => localStorage.setItem(DEV_USER_KEY, v);
 
 type Connector = { id: string; kind: string; displayName: string; capabilities: string[]; scopes: string[]; enabled: boolean };
-type ConnectorAccount = { id: string; connectorId: string; status: string; scopes: string[]; createdAt: string; updatedAt: string; hasRefreshToken?: boolean; expiresAt?: string | null; scope?: string | null };
+type ConnectorAccount = { id: string; connectorId: string; status: string; scopes: string[]; createdAt: string; updatedAt: string; hasRefreshToken?: boolean; expiresAt?: string | null; tokenExpired?: boolean; scope?: string | null };
 
 export function App() {
   const qc = useQueryClient();
@@ -253,7 +253,7 @@ export function App() {
                 <div className="row"><strong>{c.displayName}</strong><span className="pill">{c.kind}</span>{c.enabled ? <span className="pill">enabled</span> : <span className="pill">disabled</span>}</div>
                 <div className="muted" style={{ margin: "6px 0" }}>Capabilities: {c.capabilities.join(", ") || "none"}</div>
                 <div className="row"><button className="primary" disabled={connectOAuth.isPending || !c.enabled} onClick={() => connectOAuth.mutate(c.id)}>Connect</button></div>
-                {accounts.map((a) => (<div key={a.id} style={{ marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 8 }}><div className="row"><span className="pill">{a.status}</span><span className="muted">{a.id}</span><button disabled={testConnector.isPending || a.status !== "active"} onClick={() => testConnector.mutate(a.id)}>Test</button><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div><div className="muted">Scopes: {(a.scopes ?? []).join(", ") || "none"}</div></div>))}
+                {accounts.map((a) => (<div key={a.id} style={{ marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 8 }}><div className="row"><span className="pill">{a.status}</span><span className="muted">{a.id}</span>{a.tokenExpired ? <span className="pill">token expired</span> : null}<button disabled={testConnector.isPending || a.status !== "active"} onClick={() => testConnector.mutate(a.id)}>Test</button><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div><div className="muted">Scopes: {(a.scopes ?? []).join(", ") || "none"}</div><div className="muted">Refresh token: {a.hasRefreshToken ? "yes" : "no"}{a.expiresAt ? ` · expires: ${new Date(a.expiresAt).toLocaleString()}` : ""}</div></div>))}
                 {accounts.length === 0 && <div className="muted" style={{ marginTop: 8 }}>No accounts connected.</div>}
               </div>
             );
