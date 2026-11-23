@@ -872,23 +872,24 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - Connector account UX enrichment
-**Time:** 2026-11-23T23:40:46Z  
+## Session: 2026-11-23 - Gmail reconciliation idempotency metadata
+**Time:** 2026-11-23T23:44:17Z  
 **Agent:** Kilo  
-**Phase:** P4 connectors
+**Phase:** P4 connectors/receipts
 
 ### Completed
-- [x] Enriched `/v1/connectors/accounts` response with `hasRefreshToken`, `expiresAt`, `tokenExpired` derived from stored vault token metadata.
-- [x] Web Connectors panel displays refresh-token presence and expiry/expired indicator.
-- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck/build` PASS.
+- [x] Gmail send now includes `X-Helm-Idempotency` header. Uncertain-receipt auto-reconcile looks up recent sent messages by subject, fetches metadata headers, and matches `X-Helm-Idempotency`; falls back to subject+recipient when header missing.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS.
 
 ### Active / Next (not completed)
 - [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
-- [ ] Strengthen Gmail reconciliation with dedicated idempotency header/message metadata where possible.
-- [ ] Calendar connector implementation.
+- [ ] Calendar connector implementation (read-first).
+- [ ] Richer connector diagnostics/sync UX.
 
 ### Evidence
-- `backend/api/src/routes/connectors.ts`, `frontend/web/src/App.tsx`.
+- `backend/api/src/routes/gmail.ts`.
+
+
 
 
 
