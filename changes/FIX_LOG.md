@@ -121,11 +121,11 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Root cause:** `POST /v1/tasks` wrote `metadata` with `source/requestId/correlationId` only.
 - **Evidence:** commit `c55dc2e fix(api): record idempotency key on task create message metadata` (`backend/api/src/routes/tasks.ts`).
 - **Fix applied:** Persist `idempotencyKey: idemKey ?? null` in initial task message metadata.
-- **Verification:** Commit pushed on `main`; not re-run in this session (code-path small, covered by existing task flows/typecheck in prior runs).
-- **Regression test:** TODO - add API test asserting initial `task_messages.metadata.idempotencyKey` matches create idempotency key when provided.
+- **Verification:** Commit pushed on `main`; `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api` PASS (2/2) on 2026-11-23 includes metadata assertion.
+- **Regression test:** `tests/integration/src/task-lifecycle-api.test.ts`.
 - **Risk/rollback:** Low; remove metadata field.
 - **Audit/event IDs:** `c55dc2e`.
-- **Status:** fixed
+- **Status:** verified
 
 ## FIX-20261123-cancelled-task-follow-up-guard
 - **Date:** 2026-11-23T10:22:38Z
@@ -136,11 +136,11 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Root cause:** `POST /v1/tasks/:id/messages` checked running/planning conflicts but did not reject `cancelled` status before inserting follow-up and setting `queued`.
 - **Evidence:** commit `d2a83fa fix(api): reject follow-up messages on cancelled tasks` (`backend/api/src/routes/tasks.ts`).
 - **Fix applied:** Return `409 INVALID_TRANSITION` with `"Cancelled task cannot accept follow-up; create a new task"` when task status is `cancelled`.
-- **Verification:** Commit pushed on `main`; not re-run in this session. Prior integration/task-control checks were green in recent sessions.
-- **Regression test:** TODO - add API regression test for cancelled task follow-up returning 409 INVALID_TRANSITION and no queued transition/message side effect beyond expected audit behavior.
+- **Verification:** Commit pushed on `main`; `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api` PASS (2/2) on 2026-11-23 includes cancelled follow-up 409/no-revive assertion.
+- **Regression test:** `tests/integration/src/task-lifecycle-api.test.ts`.
 - **Risk/rollback:** Low; clients relying on revive-by-follow-up (undesired) will receive 409.
 - **Audit/event IDs:** `d2a83fa`.
-- **Status:** fixed
+- **Status:** verified
 
 ## FIX-20261123-browser-takeover-ownership-test-tightening
 - **Date:** 2026-11-23T10:02:42Z
