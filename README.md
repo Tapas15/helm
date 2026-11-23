@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~86%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~87%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Browser_Recovery-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -22,9 +22,9 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~86%** | Prototype baseline; session-token/WS auth hardening, browser recovery, legacy rebind, P4 scaffolds |
+| **Overall** | **~87%** | Prototype baseline; auth/WS hardening, browser recovery, legacy rebind, SSE/control regressions |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
-| Phase 1 UI/Task Core | 89% | Chat/SSE/approvals/preview usable; idempotency/follow-up guards added |
+| Phase 1 UI/Task Core | 90% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added |
 | Phase 2 Agent Runtime | 56% | Local Ollama streaming + basic tool-calling; guardrails present, richer policy pending |
 | Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
 | Phase 4 Approvals/Vault/Connectors | 59% | Receipts/resolve hardening, session-token scaffold, legacy rebind, vault/connector contracts |

@@ -845,3 +845,29 @@ untime.completed)
 - Tests: `pnpm --filter @helm/integration-tests typecheck` PASS; `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api` PASS (2/2); `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- browser-takeover-ownership-api` PASS (1/1); `pnpm --filter @helm/browser-worker typecheck` PASS; `pnpm --filter @helm/browser-worker test` PASS (1/1).
 - Manual restart smoke: restored `bs_88700b403efa4387ae811ca809fc6eca` after browser-worker restart; navigate/screenshot PASS.
 
+
+## Session: 2026-11-23 - Beyond 86%: SSE/control regressions + tracking sync
+**Time:** 2026-11-23T12:05:00Z  
+**Agent:** Kilo  
+**Phase:** P1/P2 hardening
+
+### Completed
+- [x] Added invalid task control transition regression to 	ests/integration/src/task-lifecycle-api.test.ts (pause paused task -> 409 INVALID_TRANSITION); HELM_INTEGRATION_API=1 PASS 3/3 (996421).
+- [x] Added SSE regression 	ests/integration/src/events-sse-api.test.ts verifying /v1/events/stream returns 	ext/event-stream, emits event and heartbeat (c35839e, HELM_INTEGRATION_API=1 PASS 1/1).
+- [x] Synced README/ROADMAP to 86% and pushed (395d1b1); continuing with verified regressions and change-log tracking.
+
+### Files Changed
+- 	ests/integration/src/task-lifecycle-api.test.ts - invalid control transition coverage.
+- 	ests/integration/src/events-sse-api.test.ts - SSE stream/heartbeat coverage.
+- changes/SESSION_LOG.md, changes/CURRENT_STATE.md - progress tracking.
+
+### Active / Next (not completed)
+- [ ] Full interactive UI E2E click-through at http://localhost:5173 - blocked in this shell (no BrowserOS CLI/MCP).
+- [ ] Real session/OIDC UX and web token flow; remove dev-header dependence.
+- [ ] Encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation.
+- [ ] P5-P8 blueprint gaps (Temporal, BrowserOS adapter, memory/skills/proactivity, hardening/compliance/release).
+
+### Evidence
+- HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api PASS (3/3).
+- HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
+- Commits: 996421, c35839e.

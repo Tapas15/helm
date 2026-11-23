@@ -1,8 +1,8 @@
 ﻿# Current State â€” Helm
 
-**Last updated:** 2026-11-23T11:41:00Z (session: WS session-token auth, P4 scaffolds, beyond 85%)
+**Last updated:** 2026-11-23T12:05:00Z (session: SSE/control regression coverage, beyond 86%)
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
-**Next move:** Add real session UX (login/logout/token storage) and remove dev-header dependence in web; implement encrypted vault provider + connector registry persistence; add Gmail/Calendar read-first connectors behind approvals. Keep live UI E2E evidence when browser automation surface is available.
+**Next move:** Real session/OIDC UX and web token flow; encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation. Keep live UI E2E evidence when browser automation surface is available.
 
 ## Project Identity
 - **Name:** Helm (`@helm/*`)
@@ -11,12 +11,12 @@
 
 ## Current Status Snapshot
 
-- **Overall:** ~86% complete (Phases 0-8 equal weight; usable prototype baseline).
+- **Overall:** ~87% complete (Phases 0-8 equal weight; usable prototype baseline).
 - **Phase 0 - Foundation:** `[~]` 91%.
-- **Phase 1 - UI/Task Core:** `[~]` 89%. Chat-first UI (message bubbles, live streaming assistant delta, Enter-to-send, follow-up messages on same task, tool-call/result cards from runtime/browser events), task list/control, SSE timeline, approvals, WS screencast preview with polling fallback, takeover controls + takeover-only click/type/Enter input, evidence/receipts panel. Task create idempotency metadata persisted on initial message (`c55dc2e`); follow-up rejects cancelled tasks with INVALID_TRANSITION (`d2a83fa`); regression covered by `tests/integration/src/task-lifecycle-api.test.ts` (PASS 2026-11-23). Dev web runs at `http://localhost:5173`.
+- **Phase 1 - UI/Task Core:** `[~]` 90%. Chat-first UI, SSE timeline, approvals/evidence/receipts, WS preview + polling fallback, takeover controls, idempotency/follow-up guards. Added SSE stream regression (`events-sse-api` PASS) and invalid control transition regression (`task-lifecycle-api` PASS 3/3). Dev web `http://localhost:5173`.
 - **Phase 2 - Agent Runtime:** `[~]` 56%. Local Ollama streaming + basic tool-calling loop; guardrails/allowlist/timeout/max_tokens/redaction; browser-intent gating; smoke PASS. Pending: richer tool registry/policy, provider/model selection UI, proper thread abstraction.
-- **Phase 3 - Browser Execution:** `[~]` 93%. Guarded browser actions require owned session and approval-task/session-task binding; takeover request/resume require owned session and are idempotent; WS authz covers cross-user denial and now accepts bearer session-token owner auth (`2c9b419`, WS authz PASS); owned stream-status endpoint exposed with audit. Stale-session restart recovery + env-gated restart recovery integration PASS. Pending: real session/OIDC UX, WS stability/interactive-input live smoke, richer remote control.
-- **Phase 4 - Approvals/Vault/Connectors:** `[~]` 59%. Approval flow, `action_receipts`, guarded browser routes, approval resolve ownership/actionHash/dedupe/conflict/CAS/approved receipt insertion. Session-token scaffold (`7ab4e5b`, PASS) and WS upgrade auth resolver (`2c9b419`). Shared P4 scaffold: `CredentialBroker`/vault secret ref + connector definition/account contracts (`39198a8`). Legacy unbound browser sessions hard-blocked with explicit owned-task rebind endpoint + audit/event + integration PASS (`1e29e7b`). Pending: real session/OIDC auth UX, encrypted vault provider, connector registry/OAuth, Gmail/Calendar, uncertain-outcome reconciliation.
+- **Phase 3 - Browser Execution:** `[~]` 93%. Guarded ownership/authz, takeover, stale-session restart recovery + integration coverage, WS bearer session-token authz. Pending: real session/OIDC UX, WS stability/interactive-input live smoke, richer remote control.
+- **Phase 4 - Approvals/Vault/Connectors:** `[~]` 59%. Approval/receipts hardened; session-token scaffold + WS resolver; vault/connector contracts scaffolded; legacy unbound browser sessions hard-blocked with explicit rebind. Pending: real session/OIDC UX, encrypted vault provider, connector registry/OAuth, Gmail/Calendar, uncertain-outcome reconciliation.
 - **Phase 5-8:** `[ ]` 0-5%.
 
 
