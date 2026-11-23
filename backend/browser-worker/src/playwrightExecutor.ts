@@ -27,6 +27,11 @@ async function persistState(state: SessionState) {
   await state.context.storageState({ path: state.storageStatePath }).catch(() => undefined);
 }
 
+export function isStaleTargetError(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Target page, context or browser has been closed|Target closed|browser has been closed|context has been closed|Session closed|Execution context was destroyed/i.test(msg);
+}
+
 export class PlaywrightBrowserExecutor implements BrowserExecutor {
   private sessions = new Map<string, SessionState>();
   private scheduleClose(id: string) { const s = this.sessions.get(id); if (!s) return; if (s.closeTimer) clearTimeout(s.closeTimer); s.closeTimer = setTimeout(() => { void this.closeSession(id); }, PREVIEW_TTL_MS); }
@@ -42,6 +47,16 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       });
       await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 2, maxWidth: 1280, maxHeight: 720 });
     } catch { state.cdp = null; }
+  }
+
+  private async discardSession(sessionId: string) {
+    const state = this.sessions.get(sessionId);
+    if (!state) return;
+    if (state.closeTimer) clearTimeout(state.closeTimer);
+    try { if (state.cdp) await state.cdp.send("Page.stopScreencast").catch(() => {}); } catch {}
+    await state.context.close().catch(() => undefined);
+    await state.browser.close().catch(() => undefined);
+    this.sessions.delete(sessionId);
   }
 
   private async restoreSession(sessionId: string): Promise<SessionState | null> {
@@ -64,7 +79,18 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     } catch { return null; }
   }
 
-  private async ensure(sessionId: string): Promise<SessionState | null> { return this.sessions.get(sessionId) ?? await this.restoreSession(sessionId); }
+  private async ensure(sessionId: string): Promise<SessionState | null> {
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      const stale = existing.page.isClosed?.() || existing.browser.isConnected?.() === false;
+      if (stale) {
+        await this.discardSession(sessionId);
+        return this.restoreSession(sessionId);
+      }
+      return existing;
+    }
+    return this.restoreSession(sessionId);
+  }
 
   async createSession(input: CreateBrowserSessionInput): Promise<BrowserSession> {
     const id = `bs_${randomUUID().replace(/-/g, "")}`;
@@ -104,22 +130,41 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       else return { ok: false, error: "unsupported input type" };
       s.session.updatedAt = new Date().toISOString(); this.scheduleClose(sessionId); await persistState(s);
       return { ok: true };
-    } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    } catch (e) {
+      if (isStaleTargetError(e)) {
+        await this.discardSession(sessionId);
+        const restored = await this.restoreSession(sessionId);
+        if (restored) return { ok: false, error: "session recovered after stale target; retry input" };
+      }
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   private async withSession(sessionId: string, action: string, fn: (s: SessionState) => Promise<Record<string, unknown> | undefined>, allowDuringTakeover = false): Promise<BrowserActionResult> {
-    const state = await this.ensure(sessionId);
-    if (!state) return { ok: false, sessionId, action, error: { code: "NOT_FOUND", message: "Browser session not found or unrecoverable", retryable: false } };
-    if (state.session.control.owner === "user" && !allowDuringTakeover) return { ok: false, sessionId, action, error: { code: "TAKEOVER_ACTIVE", message: "Browser session is under user takeover", retryable: true } };
-    try {
-      const data = await fn(state);
-      state.session.updatedAt = new Date().toISOString(); state.session.currentUrl = state.page.url() || null; state.session.title = (await state.page.title().catch(() => "")) || null;
-      await persistState(state); this.scheduleClose(sessionId);
-      return { ok: true, sessionId, action, url: state.session.currentUrl, title: state.session.title, data };
-    } catch (err) {
-      state.session.status = "error"; state.session.updatedAt = new Date().toISOString(); await persistState(state).catch(() => undefined);
-      return { ok: false, sessionId, action, url: state.page.url() || null, error: { code: "BROWSER_ACTION_FAILED", message: err instanceof Error ? err.message : String(err), retryable: true } };
-    }
+    const run = async (): Promise<BrowserActionResult> => {
+      const state = await this.ensure(sessionId);
+      if (!state) return { ok: false, sessionId, action, error: { code: "NOT_FOUND", message: "Browser session not found or unrecoverable", retryable: false } };
+      if (state.session.control.owner === "user" && !allowDuringTakeover) return { ok: false, sessionId, action, error: { code: "TAKEOVER_ACTIVE", message: "Browser session is under user takeover", retryable: true } };
+      try {
+        const data = await fn(state);
+        state.session.updatedAt = new Date().toISOString(); state.session.currentUrl = state.page.url() || null; state.session.title = (await state.page.title().catch(() => "")) || null;
+        await persistState(state); this.scheduleClose(sessionId);
+        return { ok: true, sessionId, action, url: state.session.currentUrl, title: state.session.title, data };
+      } catch (err) {
+        if (isStaleTargetError(err)) {
+          await this.discardSession(sessionId);
+          const restored = await this.restoreSession(sessionId);
+          if (restored) {
+            const retry = await run();
+            if (retry.ok) return { ...retry, data: { ...(retry.data ?? {}), recovered: true } };
+            return retry;
+          }
+        }
+        state.session.status = "error"; state.session.updatedAt = new Date().toISOString(); await persistState(state).catch(() => undefined);
+        return { ok: false, sessionId, action, url: state.page.url() || null, error: { code: "BROWSER_ACTION_FAILED", message: err instanceof Error ? err.message : String(err), retryable: isStaleTargetError(err) } };
+      }
+    };
+    return run();
   }
 
   async navigate(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserNavigateInput.parse(input); return this.withSession(sessionId, "navigate", async (s) => { await s.page.goto(p.url, { waitUntil: "domcontentloaded" }); return {}; }); }
@@ -127,7 +172,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
   async fill(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserFillInput.parse(input); return this.withSession(sessionId, "fill", async (s) => { await s.page.fill(p.selector, p.value, { timeout: 10_000 }); if (p.submit) await s.page.press(p.selector, "Enter"); return { selector: p.selector, submitted: p.submit }; }); }
   async snapshot(sessionId: string): Promise<BrowserActionResult> { return this.withSession(sessionId, "snapshot", async (s) => { const text = await s.page.locator("body").innerText().catch(() => ""); const buf = Buffer.from(text, "utf8"); const artifact = await saveArtifact(sessionId, "dom_snapshot", "txt", buf, "text/plain; charset=utf-8", { url: s.page.url(), title: await s.page.title().catch(() => "") }); return { text: text.slice(0, 20_000), artifact }; }, true); }
   async streamStatus(sessionId: string): Promise<BrowserActionResult> {
-    return this.withSession(sessionId, "stream_status", async (s) => ({ hasCdp: !!s.cdp, control: s.session.control, status: s.session.status, currentUrl: s.session.currentUrl }));
+    return this.withSession(sessionId, "stream_status", async (s) => ({ hasCdp: !!s.cdp, control: s.session.control, status: s.session.status, currentUrl: s.session.currentUrl }), true);
   }
 
   async screenshot(sessionId: string, input: z.infer<typeof BrowserScreenshotInput>): Promise<BrowserActionResult> { return this.withSession(sessionId, "screenshot", async (s) => { const buf = await s.page.screenshot({ fullPage: input.fullPage, type: "png" }); s.lastScreenshotBase64 = buf.toString("base64"); s.session.lastScreenshotAt = new Date().toISOString(); const artifact = await saveArtifact(sessionId, "screenshot", "png", buf, "image/png", { url: s.page.url(), title: await s.page.title().catch(() => ""), fullPage: input.fullPage }); return { mime: "image/png", base64: s.lastScreenshotBase64, artifact }; }, true); }
@@ -155,3 +200,4 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     return { ok: true, sessionId, action: "close" };
   }
 }
+
