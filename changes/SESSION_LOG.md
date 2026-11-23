@@ -787,3 +787,29 @@ untime.completed)
 - `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- browser-ownership-api` PASS (1/1).
 - Commits pushed: 2624c9e, 3bcff3f, 8ece284, 94a1592, 181408d.
 
+## Session: 2026-11-23 - Task lifecycle traceability guards + changes audit
+**Time:** 2026-11-23T10:43:00Z  
+**Agent:** Kilo  
+**Phase:** P1/P3/P4 hardening
+
+### Completed
+- Audited recent commits for missing `changes/` traceability. Found fixes present in git but missing FIX_LOG entries: `c55dc2e` (task create idempotency metadata), `d2a83fa` (cancelled follow-up guard), `0a3db45` (takeover ownership test tightening).
+- Added missing FIX_LOG entries for those commits with evidence, verification status, and TODO regression tests where needed.
+- Updated CURRENT_STATE with dev-port note (5173 actual) and E2E smoke status.
+- Ran local smoke checks: API health OK, web dev up on `localhost:5173`, assistant task `task_6b922aee05304cfbb81c986ba5d960d4` returned `HELM_SMOKE_OK`.
+
+### Files Changed
+- `changes/FIX_LOG.md` - appended missing fix records.
+- `changes/SESSION_LOG.md` - this entry.
+- `changes/CURRENT_STATE.md` - smoke/port/evidence refresh.
+
+### Next Steps
+- Live UI E2E smoke through web at `http://localhost:5173`: chat stream, tool cards, high-risk browser approval approve/reject, receipts/evidence/preview.
+- Add regression tests for cancelled follow-up 409 and task-create idempotency metadata persistence.
+- Continue browser crash/reconnect deterministic recovery contract and real auth/session/OIDC prep.
+
+### Evidence
+- `git log --oneline -10` includes `c55dc2e`, `d2a83fa`, `0a3db45`.
+- API smoke: `task_6b922aee05304cfbb81c986ba5d960d4` status `succeeded`, output `HELM_SMOKE_OK`.
+- Web dev: Vite ready on `http://localhost:5173/` (bgp_207fcf66b001U5ri0qX1bWAHS5).
+

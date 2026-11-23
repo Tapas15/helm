@@ -112,3 +112,48 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Regression test:** TODO - add runtime test asserting no browser tools exposed/called for plain assistant prompt without browser context.
 - **Risk/rollback:** Low; may reduce model ability to opportunistically browse. Rollback by restoring unconditional tool exposure.
 
+## FIX-20261123-task-create-message-idempotency-metadata
+- **Date:** 2026-11-23T10:19:08Z
+- **Reporter:** agent
+- **Severity:** low
+- **Component:** api/tasks
+- **Symptom:** Initial task-create user message metadata did not persist the task idempotency key, reducing traceability for replay/debug.
+- **Root cause:** `POST /v1/tasks` wrote `metadata` with `source/requestId/correlationId` only.
+- **Evidence:** commit `c55dc2e fix(api): record idempotency key on task create message metadata` (`backend/api/src/routes/tasks.ts`).
+- **Fix applied:** Persist `idempotencyKey: idemKey ?? null` in initial task message metadata.
+- **Verification:** Commit pushed on `main`; not re-run in this session (code-path small, covered by existing task flows/typecheck in prior runs).
+- **Regression test:** TODO - add API test asserting initial `task_messages.metadata.idempotencyKey` matches create idempotency key when provided.
+- **Risk/rollback:** Low; remove metadata field.
+- **Audit/event IDs:** `c55dc2e`.
+- **Status:** fixed
+
+## FIX-20261123-cancelled-task-follow-up-guard
+- **Date:** 2026-11-23T10:22:38Z
+- **Reporter:** agent
+- **Severity:** medium
+- **Component:** api/tasks
+- **Symptom:** Follow-up messages could implicitly revive/requeue a cancelled task.
+- **Root cause:** `POST /v1/tasks/:id/messages` checked running/planning conflicts but did not reject `cancelled` status before inserting follow-up and setting `queued`.
+- **Evidence:** commit `d2a83fa fix(api): reject follow-up messages on cancelled tasks` (`backend/api/src/routes/tasks.ts`).
+- **Fix applied:** Return `409 INVALID_TRANSITION` with `"Cancelled task cannot accept follow-up; create a new task"` when task status is `cancelled`.
+- **Verification:** Commit pushed on `main`; not re-run in this session. Prior integration/task-control checks were green in recent sessions.
+- **Regression test:** TODO - add API regression test for cancelled task follow-up returning 409 INVALID_TRANSITION and no queued transition/message side effect beyond expected audit behavior.
+- **Risk/rollback:** Low; clients relying on revive-by-follow-up (undesired) will receive 409.
+- **Audit/event IDs:** `d2a83fa`.
+- **Status:** fixed
+
+## FIX-20261123-browser-takeover-ownership-test-tightening
+- **Date:** 2026-11-23T10:02:42Z
+- **Reporter:** agent
+- **Severity:** low
+- **Component:** integration-tests/browser
+- **Symptom:** Takeover ownership integration test covered request/resume separately with duplicated assertions; coverage was less compact and easier to drift.
+- **Root cause:** Test written incrementally during ownership hardening.
+- **Evidence:** commit `0a3db45 test: tighten browser takeover ownership coverage` (`tests/integration/src/browser-takeover-ownership-api.test.ts`).
+- **Fix applied:** Consolidated request/resume cross-user denial checks into a shared loop expecting 403/404.
+- **Verification:** Commit pushed on `main`; targeted test not re-run in this session. Earlier `HELM_INTEGRATION_API=1` browser ownership suites passed in recent sessions.
+- **Regression test:** `tests/integration/src/browser-takeover-ownership-api.test.ts`.
+- **Risk/rollback:** None.
+- **Audit/event IDs:** `0a3db45`.
+- **Status:** verified
+
