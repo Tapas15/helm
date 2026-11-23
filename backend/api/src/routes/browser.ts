@@ -28,9 +28,10 @@ async function emitTaskEvent(db: Database, args: { userId: string; taskId: strin
   await db.insert(taskEvents).values({ id: uid("evt"), userId: args.userId, taskId: args.taskId, runId: args.runId ?? null, sequence: seq, schemaVersion: 1, ts: new Date(), source: args.source, type: args.type, correlationId: args.correlationId ?? null, causationId: args.causationId ?? null, payload: args.payload });
 }
 async function getBrowserSession(sessionId: string) {
-  const res = await fetch(`${browserUrl}/v1/sessions/${sessionId}`, { headers: { authorization: `Bearer ${browserToken}` } });
-  if (!res.ok) return null;
-  return (await res.json().catch(() => null))?.session ?? null;
+  const path = `/v1/sessions/${sessionId}`;
+  const r = browserAdapterEnabled ? await browserAdapter.request(path) : await (async () => { const res = await fetch(`${browserUrl}${path}`, { headers: { authorization: `Bearer ${browserToken}` } }); return { status: res.status, text: await res.text() }; })();
+  if (r.status >= 400) return null;
+  return (JSON.parse(r.text || "{}"))?.session ?? null;
 }
 async function resolveTaskForSession(db: Database, userId: string, sessionId: string) {
   const session = await getBrowserSession(sessionId);
