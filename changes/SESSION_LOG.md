@@ -348,7 +348,8 @@
 
 ### Files created/changed
 - packages/shared/src/browser.ts - added BrowserActionGuard schema (approvalId/actionHash/idempotencyKey).
-- ackend/api/src/routes/browser.ts - added equireApprovedAction + guardedAct; guarded click, ill, and external-action with approval+actionHash+idempotency receipt claim/execute/dedupe/audit/event; kept navigate/screenshot/snapshot proxied as low-risk/read-observe.
+- ackend/api/src/routes/browser.ts - added 
+equireApprovedAction + guardedAct; guarded click, ill, and external-action with approval+actionHash+idempotency receipt claim/execute/dedupe/audit/event; kept navigate/screenshot/snapshot proxied as low-risk/read-observe.
 - 	ests/integration/src/browser-external-action.test.ts - added guard schema regression.
 - changes/CURRENT_STATE.md.
 
@@ -409,8 +410,10 @@
 - pnpm --filter @helm/worker test -- runtime - PASS (1/1)
 
 ### Files created/changed
-- ackend/worker/src/runtime.ts - added OpenAI-compatible streaming chat adapter; resolves HELM_MODEL*/OPENAI_*/OLLAMA env; emits untime.response.delta and completed output; keeps approval/browser behavior.
-- ackend/worker/src/index.ts - batches untime.response.delta events (250ms/120 chars) to reduce event spam; flushes on non-delta/completion.
+- ackend/worker/src/runtime.ts - added OpenAI-compatible streaming chat adapter; resolves HELM_MODEL*/OPENAI_*/OLLAMA env; emits 
+untime.response.delta and completed output; keeps approval/browser behavior.
+- ackend/worker/src/index.ts - batches 
+untime.response.delta events (250ms/120 chars) to reduce event spam; flushes on non-delta/completion.
 - ackend/worker/src/runtime.test.ts - fallback test when no model configured.
 - .env.example - added HELM_MODEL_PROVIDER/BASE_URL/MODEL/API_KEY.
 
@@ -437,7 +440,8 @@
 - pnpm --filter @helm/web typecheck - PASS
 
 ### Files created/changed
-- rontend/web/src/App.tsx - added "Assistant output" panel; aggregates untime.response.delta events and falls back to completed output; shows model/provider metadata when present.
+- rontend/web/src/App.tsx - added "Assistant output" panel; aggregates 
+untime.response.delta events and falls back to completed output; shows model/provider metadata when present.
 - changes/CURRENT_STATE.md
 
 ### Completed
@@ -490,7 +494,8 @@
 - pnpm --filter @helm/web typecheck - PASS
 
 ### Files created/changed
-- rontend/web/src/App.tsx - chat-first layout: message history via /v1/tasks/:id/messages, live untime.response.delta assistant bubble, Enter-to-send composer, task controls in chat header.
+- rontend/web/src/App.tsx - chat-first layout: message history via /v1/tasks/:id/messages, live 
+untime.response.delta assistant bubble, Enter-to-send composer, task controls in chat header.
 
 ### Completed
 - [x] Chat-first UI baseline over existing task/event backend.
@@ -617,7 +622,9 @@
 ### Commands run
 - Ollama /api/tags - PASS (local models listed)
 - Ollama /v1/chat/completions llama3.2:latest simple prompt - PASS (HELM_OLLAMA_OK)
-- Helm runtime smoke via tsx with mocked browser fetch, OLLAMA_BASE_URL=http://127.0.0.1:11434, HELM_MODEL=llama3.2:latest - PASS for tool events (untime.tool.started/completed for rowser_navigate, rowser_snapshot, then untime.completed)
+- Helm runtime smoke via tsx with mocked browser fetch, OLLAMA_BASE_URL=http://127.0.0.1:11434, HELM_MODEL=llama3.2:latest - PASS for tool events (
+untime.tool.started/completed for rowser_navigate, rowser_snapshot, then 
+untime.completed)
 
 ### Completed
 - [x] Verified Ollama OpenAI-compatible endpoint works with Helm model config.
@@ -748,3 +755,35 @@
 
 ### Evidence
 - Docs updated in repo; git diff/status to be captured before commit.
+
+## Session: 2026-11-23 - Binding audit hardening + regression tests
+**Time:** 2026-11-23T06:45:00Z  
+**Agent:** Kilo  
+**Phase:** P3/P4 hardening
+
+### Completed
+- Hardened browser API ownership/authz: session list filtered to user-owned task/session IDs; session create with taskId requires owned task and is audited; get/screenshot.png/screenshot/snapshot/close/navigate-low-risk require owned session and emit audit logs; WS browser stream checks session/task ownership before proxying.
+- Added regression/integration coverage: extended `browser-external-action` contract tests (6 PASS), added `approval-resolve-api` invariants (403 mismatch, replay dedupe, 409 conflict; PASS), added `browser-ownership-api` cross-user denial test (PASS with live API).
+- Runtime guardrail follow-ups already pushed earlier: browser tool gating for non-browser prompts and missing-sessionId blocking.
+
+### Files Changed
+- `backend/api/src/routes/browser.ts` - ownership/audit/list/create/navigate hardening.
+- `backend/api/src/index.ts` - WS stream ownership check.
+- `tests/integration/src/browser-external-action.test.ts` - contract coverage.
+- `tests/integration/src/approval-resolve-api.test.ts` - approval resolve invariants.
+- `tests/integration/src/browser-ownership-api.test.ts` - ownership API coverage.
+- `changes/SESSION_LOG.md` - this entry.
+
+### Next Steps
+- Add navigate guard API integration tests (403 non-allowlisted without guard, 200 allowlisted, guarded dedupe/conflict) with owned session fixture.
+- Add WS authz integration/smoke and remove dev userId query parity in favor of real auth/session token.
+- Harden browser recovery: deterministic recreate/reconnect contract, crash/WS stability smoke.
+- Update `CURRENT_STATE.md`/`ROADMAP.md` percentages after evidence bundle.
+
+### Evidence
+- `pnpm --filter @helm/api typecheck` PASS.
+- `pnpm --filter @helm/integration-tests test -- browser-external-action` PASS (6/6).
+- `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- approval-resolve-api` PASS (1/1).
+- `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- browser-ownership-api` PASS (1/1).
+- Commits pushed: 2624c9e, 3bcff3f, 8ece284, 94a1592, 181408d.
+
