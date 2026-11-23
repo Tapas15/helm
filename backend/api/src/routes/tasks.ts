@@ -145,7 +145,12 @@ export function taskRoutes(db: Database) {
   app.get("/", async (c) => {
     const userId = c.get("userId");
     const status = c.req.query("status");
-    const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
+    const limitRaw = c.req.query("limit");
+    const limitNum = limitRaw === undefined ? 50 : Number(limitRaw);
+    if (!Number.isInteger(limitNum) || limitNum < 1) {
+      return c.json(errorBody(HELM_ERROR_CODES.VALIDATION_ERROR, "limit must be an integer >= 1", false), 400);
+    }
+    const limit = Math.min(limitNum, 200);
     const where = status ? and(eq(tasks.userId, userId), eq(tasks.status, status)) : eq(tasks.userId, userId);
     const rows = await db.select().from(tasks).where(where).orderBy(desc(tasks.updatedAt)).limit(limit);
     return c.json({ tasks: rows });

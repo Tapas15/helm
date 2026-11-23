@@ -81,4 +81,10 @@ async function api(path: string, init?: RequestInit) {
     expect(bad.status).toBe(409);
     expect(bad.json?.error?.code).toBe("INVALID_TRANSITION");
   }, 30000);
+
+  it("rejects invalid task list limit", async () => {
+    const bad = await api("/v1/tasks?limit=abc");
+    expect(bad.status).toBe(400);
+    expect(bad.json?.error?.code).toBe("VALIDATION_ERROR");
+  }, 30000);
 });

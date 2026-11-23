@@ -872,15 +872,15 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - SSE/events cursor validation hardening
-**Time:** 2026-11-23T21:07:18Z  
+## Session: 2026-11-23 - Task list limit validation hardening
+**Time:** 2026-11-23T21:17:39Z  
 **Agent:** Kilo  
 **Phase:** P1 task/event hardening
 
 ### Completed
-- [x] Hardened event cursor validation: `GET /v1/events/stream` and `GET /v1/tasks/:id/events` reject invalid `after` with `400 VALIDATION_ERROR`; task events also validate `limit >= 1` and cap at 500.
-- [x] Added integration coverage in `tests/integration/src/events-sse-api.test.ts` for invalid `after` on both endpoints.
-- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_INTEGRATION_API='1'; pnpm --filter @helm/integration-tests test -- events-sse-api` PASS (3/3).
+- [x] Hardened `GET /v1/tasks` query validation: invalid `limit` now returns `400 VALIDATION_ERROR` (`limit must be an integer >= 1`), capped at 200.
+- [x] Added integration coverage in `tests/integration/src/task-lifecycle-api.test.ts`.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_INTEGRATION_API='1'; pnpm --filter @helm/integration-tests test -- task-lifecycle-api` PASS (4/4).
 
 ### Active / Next (not completed)
 - [ ] Full interactive UI E2E click-through at `http://localhost:5173` - blocked in this shell.
@@ -888,7 +888,9 @@ untime.completed)
 - [ ] Encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation (P4).
 
 ### Evidence
-- `backend/api/src/routes/events.ts`, `backend/api/src/routes/tasks.ts`, `tests/integration/src/events-sse-api.test.ts`.
+- `backend/api/src/routes/tasks.ts`, `tests/integration/src/task-lifecycle-api.test.ts`.
+
+
 
 
 
