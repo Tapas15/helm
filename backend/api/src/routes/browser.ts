@@ -82,7 +82,11 @@ export function browserRoutes(db: Database) {
     const r = await proxy("/v1/sessions", { method: "POST", body: JSON.stringify(parsed.data) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.session?.id) {
-      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: parsed.data.taskId ?? null, action: "browser.session.created", resourceType: "browser_session", resourceId: String(json.session.id), decision: "allow", reason: "user_requested", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+      const sessionId = String(json.session.id);
+      if (parsed.data.taskId) {
+        await db.update(tasks).set({ updatedAt: new Date(), state: { ...(await db.select({ state: tasks.state }).from(tasks).where(and(eq(tasks.id, parsed.data.taskId), eq(tasks.userId, userId))).limit(1).then(r=> (r[0]?.state as Record<string,unknown> ?? {}))), activeBrowserSessionId: sessionId } }).where(and(eq(tasks.id, parsed.data.taskId), eq(tasks.userId, userId)));
+      }
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: parsed.data.taskId ?? null, action: "browser.session.created", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: "user_requested", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     }
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
