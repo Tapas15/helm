@@ -14,6 +14,7 @@ import { browserRoutes } from "./routes/browser.js";
 import { artifactRoutes, receiptRoutes } from "./routes/evidence.js";
 import { authRoutes } from "./routes/auth.js";
 import { connectorRoutes } from "./routes/connectors.js";
+import { connectorAccountRoutes } from "./routes/connector-accounts.js";
 import { gmailRoutes } from "./routes/gmail.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
@@ -35,6 +36,7 @@ app.get("/health", (c) => c.json({ ok: true, service: "helm-api", ts: new Date()
 app.use("/v1/*", authMiddleware(db));
 app.route("/v1/auth", authRoutes(db));
 app.route("/v1/connectors", connectorRoutes(db));
+app.route("/v1/connectors/accounts", connectorAccountRoutes(db));
 app.route("/v1/connectors/gmail", gmailRoutes(db));
 app.route("/v1/tasks", taskRoutes(db));
 app.route("/v1/events", eventRoutes(db));

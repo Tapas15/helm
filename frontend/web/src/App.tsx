@@ -18,7 +18,7 @@ const getDevUser = () => localStorage.getItem(DEV_USER_KEY) ?? "usr_local_dev";
 const setDevUser = (v: string) => localStorage.setItem(DEV_USER_KEY, v);
 
 type Connector = { id: string; kind: string; displayName: string; capabilities: string[]; scopes: string[]; enabled: boolean };
-type ConnectorAccount = { id: string; connectorId: string; status: string; scopes: string[]; createdAt: string; updatedAt: string };
+type ConnectorAccount = { id: string; connectorId: string; status: string; scopes: string[]; createdAt: string; updatedAt: string; hasRefreshToken?: boolean; expiresAt?: string | null; scope?: string | null };
 
 export function App() {
   const qc = useQueryClient();
@@ -107,6 +107,11 @@ export function App() {
   const revokeConnector = useMutation({
     mutationFn: (id: string) => api(`/v1/connectors/accounts/${id}/revoke`, { method: "POST" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["connectorAccounts"] }); },
+  });
+  const testConnector = useMutation({
+    mutationFn: (id: string) => api<any>(`/v1/connectors/accounts/${id}/test`, { method: "POST" }),
+    onSuccess: (d) => { window.alert(JSON.stringify(d.profile ?? d, null, 2)); qc.invalidateQueries({ queryKey: ["connectorAccounts"] }); },
+    onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
   });
   const reconcileReceipt = useMutation({
     mutationFn: (args: { id: string; outcome: "executed" | "failed" }) => api(`/v1/receipts/${args.id}/reconcile`, { method: "POST", body: JSON.stringify({ outcome: args.outcome, note: `Reconciled from UI as ${args.outcome}` }) }),
@@ -248,7 +253,7 @@ export function App() {
                 <div className="row"><strong>{c.displayName}</strong><span className="pill">{c.kind}</span>{c.enabled ? <span className="pill">enabled</span> : <span className="pill">disabled</span>}</div>
                 <div className="muted" style={{ margin: "6px 0" }}>Capabilities: {c.capabilities.join(", ") || "none"}</div>
                 <div className="row"><button className="primary" disabled={connectOAuth.isPending || !c.enabled} onClick={() => connectOAuth.mutate(c.id)}>Connect</button></div>
-                {accounts.map((a) => (<div key={a.id} className="row" style={{ marginTop: 8 }}><span className="pill">{a.status}</span><span className="muted">{a.id}</span><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div>))}
+                {accounts.map((a) => (<div key={a.id} style={{ marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 8 }}><div className="row"><span className="pill">{a.status}</span><span className="muted">{a.id}</span><button disabled={testConnector.isPending || a.status !== "active"} onClick={() => testConnector.mutate(a.id)}>Test</button><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div><div className="muted">Scopes: {(a.scopes ?? []).join(", ") || "none"}</div></div>))}
                 {accounts.length === 0 && <div className="muted" style={{ marginTop: 8 }}>No accounts connected.</div>}
               </div>
             );

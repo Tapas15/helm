@@ -3,26 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, connectorAccounts, type Database } from "@helm/db";
 import { GmailSendInput, HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
-import { DbCredentialBroker, getGoogleToken, saveGoogleToken } from "../lib/vault.js";
-import { isGoogleTokenExpired, refreshGoogleAccessToken } from "../lib/oauth.js";
+import { DbCredentialBroker } from "../lib/vault.js";
+import { getValidGoogleAccessToken } from "./connector-accounts.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-
-async function getValidGoogleAccessToken(vault: DbCredentialBroker, userId: string, accountId: string): Promise<string | null> {
-  const token = await getGoogleToken(vault, userId, accountId);
-  if (!token) return null;
-  const access = typeof token.access_token === "string" ? token.access_token : "";
-  const refresh = typeof token.refresh_token === "string" ? token.refresh_token : "";
-  if (access && !isGoogleTokenExpired(token as any)) return access;
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!refresh || !clientId || !clientSecret) return access || null;
-  const refreshed = await refreshGoogleAccessToken({ clientId, clientSecret, refreshToken: refresh });
-  const merged = { ...token, ...refreshed, refresh_token: refreshed.refresh_token ?? refresh, obtained_at: Date.now() };
-  await saveGoogleToken(vault, userId, accountId, merged);
-  return typeof merged.access_token === "string" ? merged.access_token : null;
-}
 
 export function gmailRoutes(db: Database) {
   const app = new Hono<AppEnv>();
@@ -35,13 +20,13 @@ export function gmailRoutes(db: Database) {
     if (!account) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
     if (account.connectorId !== "google-gmail" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Gmail account not active"), 409);
     const token = await getValidGoogleAccessToken(vault, userId, accountId);
-    if (!token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Gmail token not found"), 404);
+    if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Gmail token not found"), 404);
     const q = c.req.query("q") ?? "";
     const maxResults = Math.min(Number(c.req.query("maxResults") ?? 10), 25);
     const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
     if (q) url.searchParams.set("q", q);
     url.searchParams.set("maxResults", String(maxResults));
-    const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+    const res = await fetch(url, { headers: { authorization: `Bearer ${token.token}` } });
     const json = await res.json().catch(() => null);
     if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail read failed", res.status >= 500), res.status as any);
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "gmail.read", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "read_first", metadata: { q, maxResults } });
@@ -67,7 +52,7 @@ export function gmailRoutes(db: Database) {
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-gmail" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Gmail account not active"), 409);
     const token = await getValidGoogleAccessToken(vault, userId, input.accountId);
-    if (!token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Gmail token not found"), 404);
+    if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Gmail token not found"), 404);
 
     const receiptId = uid("rcpt");
     await db.insert(actionReceipts).values({
@@ -81,7 +66,7 @@ export function gmailRoutes(db: Database) {
     try {
       res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
         method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        headers: { authorization: `Bearer ${token.token}`, "content-type": "application/json" },
         body: JSON.stringify({ raw }),
       });
     } catch (e) {
