@@ -1093,3 +1093,16 @@ untime.completed)
 
 ### Evidence
 - `b0f2b11` pushed.
+## Session: 2026-11-23 - P4 calendar update guarded slice
+**Time:** 2026-11-23T21:12:00Z  
+**Agent:** Kilo  
+**Phase:** P4/P5
+
+### Completed
+- [x] Added `CalendarUpdateEventInput` contract; approval-gated `POST /v1/connectors/calendar/events/update` (PATCH, actionHash/idempotency/receipt/uncertain + Temporal routing guard).
+- [x] Added `calendar.update_event` Temporal activity.
+- [x] Verification: shared build PASS; API typecheck PASS; temporal-worker typecheck PASS. Commit `4a00b18`.
+
+### Remaining
+- [ ] Real Google OAuth E2E and provider behavior verification (external creds).
+- [ ] P6 adapter wiring, P7 identity/memory slices, P8 evidence.
