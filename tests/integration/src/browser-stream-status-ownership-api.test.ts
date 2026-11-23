@@ -18,7 +18,10 @@ async function api(path: string, init?: RequestInit, userId = "usr_local_dev") {
     if (!id) return;
     const own = await api(`/v1/browser/sessions/${id}/stream/status`);
     expect([200,404]).toContain(own.status);
-    if (own.status === 200) expect(own.json?.ok).toBe(true);
+    if (own.status === 200) {
+      expect(own.json?.ok).toBe(true);
+      expect(own.json?.sessionId ?? own.json?.data?.sessionId ?? id).toBeTruthy();
+    }
     const other = await api(`/v1/browser/sessions/${id}/stream/status`, undefined, "usr_other");
     expect([403,404]).toContain(other.status);
   }, 30000);
