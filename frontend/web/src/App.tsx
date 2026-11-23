@@ -113,6 +113,11 @@ export function App() {
     onSuccess: (d) => { window.alert(JSON.stringify(d.profile ?? d, null, 2)); qc.invalidateQueries({ queryKey: ["connectorAccounts"] }); },
     onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
   });
+  const readCalendar = useMutation({
+    mutationFn: (id: string) => api<any>(`/v1/connectors/calendar/accounts/${id}/events?maxResults=5`),
+    onSuccess: (d) => { window.alert(JSON.stringify(d.events?.slice?.(0, 5) ?? d, null, 2)); },
+    onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
+  });
   const reconcileReceipt = useMutation({
     mutationFn: (args: { id: string; outcome: "executed" | "failed" }) => api(`/v1/receipts/${args.id}/reconcile`, { method: "POST", body: JSON.stringify({ outcome: args.outcome, note: `Reconciled from UI as ${args.outcome}` }) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["receipts"] }); },
@@ -253,7 +258,7 @@ export function App() {
                 <div className="row"><strong>{c.displayName}</strong><span className="pill">{c.kind}</span>{c.enabled ? <span className="pill">enabled</span> : <span className="pill">disabled</span>}</div>
                 <div className="muted" style={{ margin: "6px 0" }}>Capabilities: {c.capabilities.join(", ") || "none"}</div>
                 <div className="row"><button className="primary" disabled={connectOAuth.isPending || !c.enabled} onClick={() => connectOAuth.mutate(c.id)}>Connect</button></div>
-                {accounts.map((a) => (<div key={a.id} style={{ marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 8 }}><div className="row"><span className="pill">{a.status}</span><span className="muted">{a.id}</span>{a.tokenExpired ? <span className="pill">token expired</span> : null}<button disabled={testConnector.isPending || a.status !== "active"} onClick={() => testConnector.mutate(a.id)}>Test</button><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div><div className="muted">Scopes: {(a.scopes ?? []).join(", ") || "none"}</div><div className="muted">Refresh token: {a.hasRefreshToken ? "yes" : "no"}{a.expiresAt ? ` · expires: ${new Date(a.expiresAt).toLocaleString()}` : ""}</div></div>))}
+                {accounts.map((a) => (<div key={a.id} style={{ marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 8 }}><div className="row"><span className="pill">{a.status}</span><span className="muted">{a.id}</span>{a.tokenExpired ? <span className="pill">token expired</span> : null}{a.connectorId === "google-calendar" ? <button disabled={readCalendar.isPending || a.status !== "active"} onClick={() => readCalendar.mutate(a.id)}>Read events</button> : null}<button disabled={testConnector.isPending || a.status !== "active"} onClick={() => testConnector.mutate(a.id)}>Test</button><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div><div className="muted">Scopes: {(a.scopes ?? []).join(", ") || "none"}</div><div className="muted">Refresh token: {a.hasRefreshToken ? "yes" : "no"}{a.expiresAt ? ` · expires: ${new Date(a.expiresAt).toLocaleString()}` : ""}</div></div>))}
                 {accounts.length === 0 && <div className="muted" style={{ marginTop: 8 }}>No accounts connected.</div>}
               </div>
             );
