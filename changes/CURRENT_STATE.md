@@ -15,7 +15,7 @@
 - **Phase 0 - Foundation:** `[~]` 91%.
 - **Phase 1 - UI/Task Core:** `[~]` 90%. Chat-first UI, SSE timeline, approvals/evidence/receipts, WS preview + polling fallback, takeover controls, idempotency/follow-up guards. Added SSE stream regression (`events-sse-api` PASS) and invalid control transition regression (`task-lifecycle-api` PASS 3/3). Dev web `http://localhost:5173`.
 - **Phase 2 - Agent Runtime:** `[~]` 56%. Local Ollama streaming + basic tool-calling loop; guardrails/allowlist/timeout/max_tokens/redaction; browser-intent gating; smoke PASS. Pending: richer tool registry/policy, provider/model selection UI, proper thread abstraction.
-- **Phase 3 - Browser Execution:** `[~]` 93%. Guarded ownership/authz, takeover, stale-session restart recovery + integration coverage, WS bearer session-token authz. Pending: real session/OIDC UX, WS stability/interactive-input live smoke, richer remote control.
+- **Phase 3 - Browser Execution:** `[~]` 93%. Guarded ownership/authz, takeover, stale-session restart recovery + direct and API-observable integration coverage, WS bearer session-token authz. Pending: real session/OIDC UX, WS stability/interactive-input live smoke, richer remote control.
 - **Phase 4 - Approvals/Vault/Connectors:** `[~]` 59%. Approval/receipts hardened; session-token scaffold + WS resolver; vault/connector contracts scaffolded; legacy unbound browser sessions hard-blocked with explicit rebind. Pending: real session/OIDC UX, encrypted vault provider, connector registry/OAuth, Gmail/Calendar, uncertain-outcome reconciliation.
 - **Phase 5-8:** `[ ]` 0-5%.
 
@@ -30,7 +30,7 @@
 - [x] Request takeover/resume from UI; control state persisted/emitted; agent pauses and resumes.
 - [x] Risky browser action pauses for approval; approved action executes once via guarded `actionHash`+idempotency path; reject blocks.
 - [x] Evidence artifacts/receipts persisted and visible in UI/API.
-- [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).`n- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; in-memory browser sessions do not.
+- [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).`n- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; browser-worker restart recovery has direct+API-observable integration coverage; in-memory live WS continuity still pending.
 
 
 

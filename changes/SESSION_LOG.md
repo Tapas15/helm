@@ -872,3 +872,20 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
+## Session: 2026-11-23 - API-observable browser restart recovery regression
+**Time:** 2026-11-23T12:24:00Z  
+**Agent:** Kilo  
+**Phase:** P3 browser hardening
+
+### Completed
+- [x] Added API-observable browser-worker restart recovery integration test `tests/integration/src/browser-restart-recovery-api.test.ts`. Test boots isolated browser-worker + API + temp state dirs, creates task+browser session through API, navigates, kills browser-worker, restarts it, then verifies API can still fetch session, navigate, and screenshot.
+- [x] Verification: `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_BROWSER_RECOVERY_API_TEST='1'; pnpm --filter @helm/integration-tests test -- browser-restart-recovery-api` PASS (1/1, 34.9s).
+
+### Active / Next (not completed)
+- [ ] Full interactive UI E2E click-through at `http://localhost:5173` - blocked in this shell (no browser automation surface).
+- [ ] Real session/OIDC UX and web token flow; replace dev `x-user-id` dependence across web/API/WS.
+- [ ] Encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation (P4).
+- [ ] P5-P8 blueprint gaps remain.
+
+### Evidence
+- `tests/integration/src/browser-restart-recovery-api.test.ts` - new env-gated integration regression.

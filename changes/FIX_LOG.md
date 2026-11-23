@@ -172,3 +172,18 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Audit/event IDs:** `4045ce3`, `4ad4820`.
 - **Status:** verified
 
+## FIX-20261123-browser-restart-recovery-api-observable
+- **Date:** 2026-11-23T12:24:00Z
+- **Reporter:** agent
+- **Severity:** medium
+- **Component:** api/browser-worker integration
+- **Symptom:** Browser-worker restart recovery had direct worker-level coverage, but no API-observable regression proving the full API path could still fetch/navigate/screenshot a persisted session after browser-worker restart.
+- **Root cause:** Prior recovery test exercised browser-worker directly; API proxy/ownership path was untested across worker restart.
+- **Evidence:** New env-gated integration test boots isolated browser-worker+API, creates task+session through API, navigates, restarts browser-worker, then verifies API GET/navigate/screenshot succeed for same session.
+- **Fix applied:** Added `tests/integration/src/browser-restart-recovery-api.test.ts` (env-gated by `HELM_BROWSER_RECOVERY_API_TEST=1`).
+- **Verification:** `pnpm --filter @helm/integration-tests typecheck` PASS; `$env:HELM_BROWSER_RECOVERY_API_TEST='1'; pnpm --filter @helm/integration-tests test -- browser-restart-recovery-api` PASS (1/1, ~34.9s) on 2026-11-23.
+- **Regression test:** `tests/integration/src/browser-restart-recovery-api.test.ts`.
+- **Risk/rollback:** Low; test-only. Remove test if it proves flaky in constrained environments.
+- **Audit/event IDs:** pending commit.
+- **Status:** verified
+
