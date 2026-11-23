@@ -105,7 +105,7 @@ export function taskRoutes(db: Database) {
       taskId: id,
       role: "user",
       content: input.prompt,
-      metadata: { source: "api", requestId, correlationId },
+      metadata: { source: "api", requestId, correlationId, idempotencyKey: idemKey ?? null },
       createdAt: ts,
     });
 
