@@ -99,6 +99,12 @@ export function browserRoutes(db: Database) {
     const bytes = await res.arrayBuffer();
     return c.newResponse(bytes, res.status as any, { "content-type": res.headers.get("content-type") ?? "image/png", "cache-control": "no-store" });
   });
+  app.get("/sessions/:id/stream/status", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/stream/status`);
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
 
   async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); }
   async function guardedAct(c: any, schema: any, action: string, path: string) {
