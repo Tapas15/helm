@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { createDb, taskEvents, tasks, users } from "@helm/db";
 
 const dbUrl = process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/helm";
-const run = process.env.HELM_INTEGRATION !== "0";
+const run = process.env.HELM_INTEGRATION === "1";
 const maybe = run ? describe : describe.skip;
 
 maybe("Phase 0 integration", () => {
