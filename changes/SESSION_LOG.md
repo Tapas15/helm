@@ -1168,3 +1168,28 @@ untime.completed)
 
 ### Remaining
 - [ ] Full typed route migration, real BrowserOS endpoint/parity tests.
+## Session: 2026-11-23 - P5-P8 focused completion slices
+**Time:** 2026-11-23T21:34:00Z  
+**Agent:** Kilo  
+**Phase:** P5-P8
+
+### Completed
+- [x] P4: added approval-gated Calendar update/delete with idempotency/receipt/uncertain handling and Temporal activity routing (`4a00b18`,`b0f2b11`).
+- [x] P6: adapter request/requestBinary dispatch behind `HELM_BROWSER_ADAPTER_DISPATCH`; adapter status endpoint (`e5391c1`,`a91885a`,`9dc78e6`).
+- [x] P7: identity contracts + status/create (helm-owned default, delegated disabled), DB-backed memory notes behind `HELM_MEMORY_ENABLED`, identities/memory_notes schema (`9f2494f`,`5fafda0`).
+- [x] P8: backup/restore runbook, security/privacy checklist, release-evidence doc (`740aec1`,`e22f979`,`e08c2d0`).
+- [x] Docs synced: README/CURRENT_STATE (`cee4999`).
+
+### Verification
+- `pnpm --filter @helm/shared build` PASS (after contract changes)
+- `pnpm --filter @helm/api typecheck` PASS
+- `pnpm --filter @helm/temporal-worker typecheck` PASS
+- `pnpm --filter @helm/db typecheck` PASS
+- Existing env-gated Temporal proofs previously PASS: routing stub, real dedupe E2E, mock side-effect E2E, rollback E2E.
+
+### Remaining / Blocked
+- [ ] Real Google OAuth E2E (needs `GOOGLE_CLIENT_ID/SECRET`) - external blocker.
+- [ ] Real-provider Temporal no-duplicate proof in provider sandbox - external blocker.
+- [ ] P6 real BrowserOS endpoint/protocol/parity tests.
+- [ ] P7 identity vault linkage/policy enforcement/UI, skills/proactivity; self-improvement activation requires explicit user approval.
+- [ ] P8 backup/restore drill execution, security scan/threat model, PII retention/export/delete, compliance/provenance signoff.
