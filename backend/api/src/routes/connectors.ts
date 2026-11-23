@@ -3,7 +3,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { connectorAccounts, oauthStates, auditLog, type Database } from "@helm/db";
 import { HELM_ERROR_CODES, OAuthStartInput } from "@helm/shared";
 import type { AppEnv } from "../types.js";
-import { DbCredentialBroker, encryptVaultValue, decryptVaultValue } from "../lib/vault.js";
+import { DbCredentialBroker, encryptVaultValue, decryptVaultValue, saveGoogleToken } from "../lib/vault.js";
 import { buildGoogleAuthUrl, buildPkce, randomBase64Url, sha256Base64Url } from "../lib/oauth.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -29,7 +29,7 @@ async function exchangeGoogleCode(input: { code: string; clientId: string; clien
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error_description ?? json?.error ?? `Google token exchange failed (${res.status})`);
-  return json as { access_token: string; refresh_token?: string; expires_in?: number; scope?: string; token_type?: string };
+  return { ...(json as Record<string, unknown>), obtained_at: Date.now() } as Record<string, unknown>;
 }
 
 export function connectorRoutes(db: Database) {
@@ -84,9 +84,9 @@ export function connectorRoutes(db: Database) {
     const token = await exchangeGoogleCode({ code, clientId, clientSecret, redirectUri: row.redirectUri, codeVerifier: verifier });
     await db.update(oauthStates).set({ consumedAt: new Date() }).where(eq(oauthStates.id, row.id));
     const accountId = uid("conn");
-    const secretName = `google-oauth:${accountId}`;
-    const secretRef = await vault.putSecret({ ownerUserId: row.userId, provider: "google", name: secretName, value: JSON.stringify(token), metadata: { connectorId: row.connectorId, scopes: row.scopes } });
-    await db.insert(connectorAccounts).values({ id: accountId, userId: row.userId, connectorId: row.connectorId, status: "active", secretRefId: secretRef.id, scopes: row.scopes, metadata: { tokenType: token.token_type ?? null, hasRefreshToken: !!token.refresh_token }, createdAt: new Date(), updatedAt: new Date() });
+    await saveGoogleToken(vault, row.userId, accountId, token, { connectorId: row.connectorId, scopes: row.scopes });
+    const secretRef = await vault.getSecretRef({ ownerUserId: row.userId, provider: "google", name: `google-oauth:${accountId}` });
+    await db.insert(connectorAccounts).values({ id: accountId, userId: row.userId, connectorId: row.connectorId, status: "active", secretRefId: secretRef?.id ?? null, scopes: row.scopes, metadata: { tokenType: (token as any).token_type ?? null, hasRefreshToken: !!(token as any).refresh_token }, createdAt: new Date(), updatedAt: new Date() });
     await db.insert(auditLog).values({ id: uid("aud"), userId: row.userId, ts: new Date(), actorType: "user", actorId: row.userId, action: "connector.oauth.callback", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "oauth_callback", metadata: { connectorId: row.connectorId, scopes: row.scopes } });
     return c.json({ ok: true, accountId, connectorId: row.connectorId, status: "active" });
   });
@@ -96,6 +96,14 @@ export function connectorRoutes(db: Database) {
     const id = c.req.param("id");
     const [row] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, id), eq(connectorAccounts.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
+    const token = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${id}` });
+    if (token) {
+      try {
+        const parsed = JSON.parse(token) as Record<string, unknown>;
+        const revokeToken = (parsed.refresh_token ?? parsed.access_token) as string | undefined;
+        if (revokeToken) await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(revokeToken)}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" } }).catch(() => null);
+      } catch {}
+    }
     await db.update(connectorAccounts).set({ status: "revoked", updatedAt: new Date() }).where(eq(connectorAccounts.id, id));
     if (row.secretRefId) await vault.revokeSecret({ ownerUserId: userId, secretId: row.secretRefId, reason: "user_revoke" });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: {} });

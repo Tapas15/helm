@@ -29,6 +29,16 @@ export function decryptVaultValue(payload: string): string {
   return dec.toString("utf8");
 }
 
+export async function getGoogleToken(vault: DbCredentialBroker, userId: string, accountId: string): Promise<Record<string, any> | null> {
+  const secretValue = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${accountId}` });
+  if (!secretValue) return null;
+  try { return JSON.parse(secretValue) as Record<string, any>; } catch { return null; }
+}
+
+export async function saveGoogleToken(vault: DbCredentialBroker, userId: string, accountId: string, token: Record<string, any>, metadata?: Record<string, unknown>) {
+  await vault.putSecret({ ownerUserId: userId, provider: "google", name: `google-oauth:${accountId}`, value: JSON.stringify(token), metadata });
+}
+
 export class DbCredentialBroker implements CredentialBroker {
   constructor(private db: Database) {}
 

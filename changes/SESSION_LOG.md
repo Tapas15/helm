@@ -872,23 +872,27 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - Connector management web UI scaffold
-**Time:** 2026-11-23T23:02:31Z  
+## Session: 2026-11-23 - P4 token refresh and Gmail uncertain-outcome handling
+**Time:** 2026-11-23T23:18:36Z  
 **Agent:** Kilo  
-**Phase:** P4 connectors
+**Phase:** P4 connectors/vault
 
 ### Completed
-- [x] Added basic Connectors panel in web UI: lists connector definitions, starts Google OAuth flow via `/v1/connectors/oauth/start`, lists connected accounts, and revokes accounts via `/v1/connectors/accounts/:id/revoke`.
-- [x] Verification: `pnpm --filter @helm/web typecheck` PASS; `pnpm --filter @helm/web build` PASS.
+- [x] Added Google token expiry/refresh helpers (`oauth.ts`) and vault token get/save helpers (`vault.ts`).
+- [x] Connector OAuth callback now stores `obtained_at`; account revoke attempts Google token revoke before local revoke.
+- [x] Gmail routes now use refresh-on-expiry access token lookup. Gmail send marks network/5xx/429 as `uncertain` receipts and blocks blind retry when prior receipt is uncertain.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck` PASS.
 
 ### Active / Next (not completed)
 - [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
-- [ ] Implement Google token refresh/revoke and uncertain-outcome reconciliation for Gmail send.
+- [ ] Add explicit uncertain-outcome reconciliation endpoint/UI (query Gmail by idempotency metadata / operator action).
 - [ ] Richer connector account UX (scopes, errors, last sync, test connection).
-- [ ] P5-P8 blueprint gaps remain.
+- [ ] Calendar connector implementation.
 
 ### Evidence
-- `frontend/web/src/App.tsx`.
+- `backend/api/src/lib/oauth.ts`, `backend/api/src/lib/vault.ts`, `backend/api/src/routes/connectors.ts`, `backend/api/src/routes/gmail.ts`.
+
+
 
 
 
