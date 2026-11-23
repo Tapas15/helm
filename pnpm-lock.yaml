@@ -78,6 +78,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.3
         version: 1.19.19(hono@4.13.20)
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       dotenv:
         specifier: ^16.5.0
         version: 16.6.1
@@ -90,6 +93,9 @@ importers:
       playwright:
         specifier: ^1.52.0
         version: 1.65.1
+      ws:
+        specifier: ^8.23.0
+        version: 8.23.0
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -250,12 +256,18 @@ importers:
       '@types/node':
         specifier: ^22.15.29
         version: 22.20.5
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
       vitest:
         specifier: ^3.1.4
         version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
+      ws:
+        specifier: ^8.23.0
+        version: 8.23.0
 
 packages:
 

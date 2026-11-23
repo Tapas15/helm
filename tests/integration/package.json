@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@helm/integration-tests",
   "version": "0.0.1",
   "private": true,
@@ -15,7 +15,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.29",
+    "@types/ws": "^8.18.2",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.1.4",
+    "ws": "^8.23.0"
   }
 }
