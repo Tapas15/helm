@@ -24,9 +24,13 @@ export const cancelSignal = defineSignal("cancel");
 export const statusQuery = defineQuery<HelmTaskWorkflowState>("getStatus");
 
 const activities = proxyActivities<{
-  executeApprovedAction(input: HelmTaskWorkflowInput & { approvalId: string }): Promise<{ receiptId: string; status: string }>;
+  executeApprovedAction(input: HelmTaskWorkflowInput & { approvalId: string }): Promise<{ receiptId: string; status: string; externalRef?: string | null; raw?: unknown }>;
 }>({
   startToCloseTimeout: "2 minutes",
+  retry: {
+    maximumAttempts: 3,
+    nonRetryableErrorTypes: ["PolicyDenied", "ValidationError", "ApprovalRejected", "Forbidden", "NotFound"],
+  },
 });
 
 export async function helmExternalActionWorkflow(input: HelmTaskWorkflowInput): Promise<HelmTaskWorkflowState> {
@@ -49,7 +53,9 @@ export async function helmExternalActionWorkflow(input: HelmTaskWorkflowInput): 
   try {
     const result = await activities.executeApprovedAction({ ...input, approvalId: state.approvalId });
     state.receiptId = result.receiptId;
-    state.status = result.status === "executed" ? "succeeded" : "failed";
+    if (result.status === "executed") state.status = "succeeded";
+    else if (result.status === "uncertain") { state.status = "failed"; state.error = "uncertain_external_outcome"; }
+    else { state.status = "failed"; state.error = `execution_${result.status}`; }
     return state;
   } catch (e) {
     state.status = "failed";
