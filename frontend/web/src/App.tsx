@@ -70,7 +70,7 @@ export function App() {
     wsRef.current?.close(); setLiveFrame(null);
     if (!currentSession?.id) { setStreamStatus("idle"); return; }
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${window.location.host}/v1/browser/sessions/${currentSession.id}/stream?userId=usr_local_dev`);
+    const ws = new WebSocket(`${proto}://${window.location.host}/v1/browser/sessions/${currentSession.id}/stream`);
     wsRef.current = ws; setStreamStatus("connecting");
     ws.onopen = () => setStreamStatus("live");
     ws.onmessage = (ev) => { try { const msg = JSON.parse(String(ev.data)); if (msg?.type === "frame" && typeof msg.data === "string") { setLiveFrame(`data:image/png;base64,${msg.data}`); setStreamStatus("live"); } } catch {} };
