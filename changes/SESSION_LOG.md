@@ -1120,3 +1120,15 @@ untime.completed)
 ### Remaining
 - [ ] Identity DB schema/provisioning/vault linkage/policy enforcement/UI.
 - [ ] P6 adapter route wiring; P8 evidence; blocked real OAuth/provider E2E.
+
+## Session: 2026-11-23 - P8 runbook/checklist thin slices
+**Time:** 2026-11-23T21:19:00Z  
+**Agent:** Kilo  
+**Phase:** P8
+
+### Completed
+- [x] Added `changes/RUNBOOK-backup-restore.md` (Postgres/artifacts/vault key backup-restore + gaps).
+- [x] Added `changes/P8-security-privacy-checklist.md` (done/partial/pending security/privacy items).
+
+### Remaining
+- [ ] Execute backup/restore drill; CI security scan; PII retention/export/delete implementation; threat model.
