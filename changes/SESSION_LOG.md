@@ -1006,3 +1006,22 @@ untime.completed)
 - `1ecca7b` pushed to `origin/main`.
 - Integration: `temporal-side-effect-e2e` PASS 1/1.
 
+## Session: 2026-11-23 - P5 browser external-action routing + rollback proof
+**Time:** 2026-11-23T20:29:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Added Temporal routing guard to `POST /v1/browser/sessions/:id/external-action` behind `HELM_TEMPORAL_ENABLED/HELM_TEMPORAL_MODE`, with internal activity secret bypass and audit event `browser.external_action.temporal_started`.
+- [x] Added `browser.external_action` Temporal activity in `backend/temporal-worker/src/activities.ts` calling guarded API path with approval/actionHash/idempotency; uncertain on 5xx/429/503.
+- [x] Added shared rollback/flag unit tests `packages/shared/src/temporal.test.ts`.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS; `pnpm --filter @helm/shared test` PASS (7 files, 23 tests).
+
+### Active / Next (not completed)
+- [ ] Real provider no-duplicate proof (external Google sandbox) and fault-injected uncertain-outcome proof.
+- [ ] Reconciliation workflow/schedules/monitors; operator runbook; disable-flag runtime E2E (not just unit).
+- [ ] P6-P8 thin vertical slices.
+
+### Evidence
+- Commit `7a79761` pushed to `origin/main`.
+
