@@ -691,3 +691,33 @@
 
 ### Evidence
 - Files present in `helm/changes/`; `git status` shows untracked new docs before commit.
+
+## Session: 2026-11-23 - Local Ollama guardrails + browser approval E2E smoke
+**Time:** 2026-11-23T06:00:00Z  
+**Agent:** Kilo  
+**Phase:** P2/P3/P4 hardening
+
+### Completed
+- Probed local Ollama models for tool-calling: `llama3.2:latest` PASS, `qwen2.5:latest` PASS, `qwen3.5:latest`/`qwen3:4b` timed out in 90s probe. Selected `llama3.2:latest` as default local tool-capable model.
+- Added runtime guardrails in `backend/worker/src/runtime.ts`: `HELM_MODEL_TIMEOUT_MS`, `HELM_MODEL_MAX_TOKENS`, `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`, redacted model errors, AbortController timeout, safer stream delta handling, tightened system prompt, and required approvalId/actionHash/idempotencyKey for `browser_click` tool args.
+- Added local-first model env defaults in `.env` (no secrets committed; values are local Ollama config).
+- Restarted browser-worker/API/worker with Ollama config. Verified health endpoints.
+- E2E smoke PASS: assistant task `task_92146b100cc04f04b601b15e92e4cf99` returned `HELM_OK` with Ollama `runtime.response.delta`.
+- Browser approval E2E PASS: `task_d43b586c851f4106be09c31d0a711715` (kind browser, high-risk buy prompt) -> `waiting_approval`; approval `apr_47f3e9b3a71b431fa4c073cf040aa80b` (`browser.external`, hash `947c9d30-33c0-4183-8e86-642e559c116e`) approved; task resumed, ran browser session `bs_6d8169cbf54b474a82a5081c6f339671`, emitted `browser.external_action.executed`, completed; receipt `rcpt_7ab4a67007bc44de801aed8d2b433075` status `executed` with artifact/evidence.
+
+### Files Changed
+- `backend/worker/src/runtime.ts` - model/tool guardrails, timeout/max tokens/allowlist, redaction.
+- `.env` - local Ollama model defaults (local only).
+- `changes/FIX_LOG.md` - FIX-20261123-runtime-model-guardrails-local-ollama.
+- `changes/CURRENT_STATE.md` - P2/overall updated with smoke evidence.
+- `changes/SESSION_LOG.md` - this entry.
+
+### Next Steps
+- Live UI E2E smoke through web at `http://127.0.0.1:5174` (chat + approval + browser preview/receipt panels).
+- Add regression tests for model allowlist/timeout guardrails and approval resolve replay/conflict/actionHash mismatch.
+- Binding audit: session ownership/authz for screenshot/snapshot/close/create/WS; navigate guard tests.
+
+### Evidence
+- `pnpm --filter @helm/worker typecheck` PASS.
+- `pnpm --filter @helm/worker test -- runtime` PASS (1/1).
+- API task/event/approval/receipt JSON captured for tasks above.

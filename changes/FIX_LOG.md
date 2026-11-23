@@ -91,3 +91,14 @@
 ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-path fix (tsconfig paths/tsx config or source-condition exports) before relying on watch mode.
 - **Verification:** pnpm build PASS; API /health OK; POST /v1/tasks -> worker completed -> events replayed 	ask.created/running/completed; SSE stream returned events.
 - **Regression test:** TODO (dev startup smoke script/CI check).
+
+## FIX-20261123-runtime-model-guardrails-local-ollama
+- **Date:** 2026-11-23
+- **Area:** backend/worker runtime, local Ollama model execution
+- **Symptom:** Runtime used model config without explicit timeout/max-token/tool-capability guardrails; small/unreliable local models could leak tool schema, refuse, or hang tool-calling flows. No explicit local-first Ollama allowlist/default in env.
+- **Root cause (suspected):** MVP runtime prioritized basic tool-calling loop over model reliability guardrails and operator-configurable limits.
+- **Fix:** Added `HELM_MODEL_TIMEOUT_MS`, `HELM_MODEL_MAX_TOKENS`, `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST` handling in `backend/worker/src/runtime.ts`; defaulted local model to `llama3.2:latest`; added tool-capability allowlist guardrail for Ollama models; redacted model error strings; enforced approvalId/actionHash/idempotencyKey presence for `browser_click` tool; tightened system prompt guardrails; added request timeout/AbortController to model fetch.
+- **Verification:** `pnpm --filter @helm/worker typecheck` PASS; `pnpm --filter @helm/worker test -- runtime` PASS (1/1). Local Ollama probes: `llama3.2:latest` tool-call PASS, `qwen2.5:latest` tool-call PASS, `qwen3.5:latest`/`qwen3:4b` timed out at 90s in probe. API E2E smoke with restarted worker/API/browser-worker: assistant task `task_92146b100cc04f04b601b15e92e4cf99` succeeded with `HELM_OK` and Ollama deltas; browser high-risk task `task_d43b586c851f4106be09c31d0a711715` moved to `waiting_approval`, approval `apr_47f3e9b3a71b431fa4c073cf040aa80b` approved, task completed, `browser.external_action.executed` emitted, receipt `rcpt_7ab4a67007bc44de801aed8d2b433075` executed with artifact.
+- **Regression test:** Existing `backend/worker/src/runtime.test.ts` PASS; add dedicated guardrail/allowlist/timeout tests (TODO).
+- **Risk/rollback:** Low-medium. Guardrail may reject previously configured unallowlisted Ollama models; rollback by removing allowlist check or setting `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`.
+
