@@ -872,22 +872,24 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - Gmail reconciliation idempotency metadata
-**Time:** 2026-11-23T23:44:17Z  
+## Session: 2026-11-23 - Calendar read-first connector route
+**Time:** 2026-11-23T23:48:55Z  
 **Agent:** Kilo  
-**Phase:** P4 connectors/receipts
+**Phase:** P4 connectors
 
 ### Completed
-- [x] Gmail send now includes `X-Helm-Idempotency` header. Uncertain-receipt auto-reconcile looks up recent sent messages by subject, fetches metadata headers, and matches `X-Helm-Idempotency`; falls back to subject+recipient when header missing.
+- [x] Added Google Calendar read-first route `GET /v1/connectors/calendar/accounts/:accountId/events` (approval-free read, audited) and connector account test support for `google-calendar`.
 - [x] Verification: `pnpm --filter @helm/api typecheck` PASS.
 
 ### Active / Next (not completed)
-- [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
-- [ ] Calendar connector implementation (read-first).
+- [ ] Real Google OAuth creds/callback E2E (external blocker).
+- [ ] Calendar write actions behind approval/actionHash/idempotency/receipt.
 - [ ] Richer connector diagnostics/sync UX.
 
 ### Evidence
-- `backend/api/src/routes/gmail.ts`.
+- `backend/api/src/routes/calendar.ts`, `backend/api/src/routes/connector-accounts.ts`, `backend/api/src/index.ts`.
+
+
 
 
 
