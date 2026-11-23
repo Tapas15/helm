@@ -1,4 +1,4 @@
-﻿# Side-Effect Binding Audit - 2026-11-23
+# Side-Effect Binding Audit - 2026-11-23
 
 ## Scope
 Mutating API routes (POST/PUT/PATCH/DELETE) in ackend/api/src/routes/*. Goal: every external/high-risk side effect requires explicit approval + actionHash + idempotency + receipt/audit, or is explicitly classified as low-risk with rationale.

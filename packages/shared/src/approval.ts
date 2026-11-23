@@ -32,5 +32,7 @@ export const CreateApprovalInput = z.object({
 
 export const ResolveApprovalInput = z.object({
   decision: ApprovalDecision,
-  reason: z.string().optional(),
+  reason: z.string().max(1000).optional(),
+  actionHash: z.string().min(1).optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
