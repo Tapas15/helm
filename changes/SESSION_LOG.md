@@ -631,3 +631,34 @@
 ### Next move
 1. Add HELM_MODEL=llama3.2:latest to .env.example guidance and expose model config in UI/settings.
 2. Run end-to-end task smoke through running API/worker with Ollama.
+
+## 2026-11-23T05:15:00Z - Blueprint loaded + binding audit started
+
+**Agent:** Kilo (Glyph Cluster)
+**Phase:** Planning/P3/P4
+
+### Commands run
+- Saved Planning 00-13 + MASTER-TECHNICAL-BLUEPRINT into helm/Planning/ and rebuilt master file.
+- pnpm --filter @helm/api typecheck - PASS (after navigate guard)
+- pnpm --filter @helm/integration-tests test -- browser-external-action - PASS (3/3)
+
+### Files created/changed
+- helm/Planning/* - blueprint docs loaded into repo context.
+- changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md - phase gap matrix.
+- changes/BINDING_AUDIT_2026-11-23.md - mutating route audit.
+- ackend/api/src/routes/browser.ts - navigate now allows allowlisted low-risk domains; non-allowlisted navigate requires approvalId/actionHash/idempotencyKey (guarded path) and logs audit.
+
+### Completed
+- [x] Blueprint docs saved and loaded.
+- [x] Gap analysis and binding audit artifacts created.
+- [x] Navigate risk guard added (initial policy).
+
+### Remaining
+- [ ] Full binding audit over all mutating routes including approvals resolve idempotency/conflict semantics.
+- [ ] Session ownership checks/audit for screenshot/snapshot/close/create.
+- [ ] Regression tests for navigate guard behavior (403 without guard, 200 allowlisted, guarded path dedupe).
+
+### Next move
+1. Add navigate guard regression tests.
+2. Harden approvals resolve with idempotent replay/conflict on mismatched decision.
+3. Update CURRENT_STATE and push.

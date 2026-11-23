@@ -83,7 +83,18 @@ export function browserRoutes(db: Database) {
   }
 
   // Read/observe actions proxied (low-risk). Side-effecting actions require approval+hash+idempotency.
-  app.post("/sessions/:id/navigate", (c) => act(c, BrowserNavigateInput, `/v1/sessions/${c.req.param("id")}/navigate`));
+  app.post("/sessions/:id/navigate", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const guard = BrowserActionGuard.safeParse(body);
+    if (guard.success) return guardedAct(c, BrowserNavigateInput, "navigate", `/v1/sessions/${c.req.param("id")}/navigate`);
+    const parsed = BrowserNavigateInput.safeParse(body);
+    if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400);
+    const url = String(parsed.data.url);
+    const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|example\.com|www\.example\.com)(\/|$)/i.test(url);
+    if (!allowed) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Navigation to non-allowlisted domain requires approvalId/actionHash/idempotencyKey", false, { url }), 403);
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), action: "browser.navigate.low_risk", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "allowlisted low-risk navigation", metadata: { url, requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    return act(c, BrowserNavigateInput, `/v1/sessions/${c.req.param("id")}/navigate`);
+  });
   app.post("/sessions/:id/click", (c) => guardedAct(c, BrowserClickInput, "click", `/v1/sessions/${c.req.param("id")}/click`));
   app.post("/sessions/:id/fill", (c) => guardedAct(c, BrowserFillInput, "fill", `/v1/sessions/${c.req.param("id")}/fill`));
   app.post("/sessions/:id/screenshot", (c) => act(c, BrowserScreenshotInput, `/v1/sessions/${c.req.param("id")}/screenshot`));
