@@ -55,8 +55,10 @@ async function main() {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? `127.0.0.1:${port}`}`);
       const m = url.pathname.match(/^\/v1\/browser\/sessions\/([^/]+)\/stream$/);
       if (!m) { socket.destroy(); return; }
+      const requireAuth = process.env.HELM_REQUIRE_AUTH === "1";
       const headerUser = req.headers["x-user-id"];
-      const userId = (Array.isArray(headerUser) ? headerUser[0] : headerUser) ?? url.searchParams.get("userId") ?? "usr_local_dev"; // dev auth parity; real auth pending
+      const queryUser = url.searchParams.get("userId");
+      const userId = ((Array.isArray(headerUser) ? headerUser[0] : headerUser) ?? (requireAuth ? undefined : queryUser) ?? (requireAuth ? undefined : "usr_local_dev"))?.trim();
       if (!userId) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
       const sessionId = decodeURIComponent(m[1] ?? "");
       void (async () => {
