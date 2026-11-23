@@ -17,6 +17,9 @@ const setToken = (t: string) => { if (t) localStorage.setItem(TOKEN_KEY, t); els
 const getDevUser = () => localStorage.getItem(DEV_USER_KEY) ?? "usr_local_dev";
 const setDevUser = (v: string) => localStorage.setItem(DEV_USER_KEY, v);
 
+type Connector = { id: string; kind: string; displayName: string; capabilities: string[]; scopes: string[]; enabled: boolean };
+type ConnectorAccount = { id: string; connectorId: string; status: string; scopes: string[]; createdAt: string; updatedAt: string };
+
 export function App() {
   const qc = useQueryClient();
   const [token, setTokenState] = useState(getToken());
@@ -79,6 +82,8 @@ export function App() {
   const artifactsQ = useQuery({ queryKey: ["artifacts", selected, token, devUser], queryFn: () => api<{ artifacts: Artifact[] }>(selected ? `/v1/artifacts?taskId=${selected}` : "/v1/artifacts"), enabled: meQ.isSuccess, refetchInterval: 5000 });
   const receiptsQ = useQuery({ queryKey: ["receipts", selected, token, devUser], queryFn: () => api<{ receipts: Receipt[] }>(selected ? `/v1/receipts?taskId=${selected}` : "/v1/receipts"), enabled: meQ.isSuccess, refetchInterval: 5000 });
   const messagesQ = useQuery({ queryKey: ["messages", selected, token, devUser], queryFn: () => api<{ messages: Msg[] }>(`/v1/tasks/${selected}/messages`), enabled: !!selected && meQ.isSuccess, refetchInterval: 4000 });
+  const connectorsQ = useQuery({ queryKey: ["connectors", token, devUser], queryFn: () => api<{ connectors: Connector[] }>("/v1/connectors"), enabled: meQ.isSuccess });
+  const connectorAccountsQ = useQuery({ queryKey: ["connectorAccounts", token, devUser], queryFn: () => api<{ accounts: ConnectorAccount[] }>("/v1/connectors/accounts"), enabled: meQ.isSuccess, refetchInterval: 10000 });
   const { events, stale, lastSequence } = useTaskEventStream(meQ.isSuccess ? selected : null, token);
   useEffect(() => { const t = window.setInterval(() => setPreviewTick((n) => n + 1), 2500); return () => window.clearInterval(t); }, []);
 
@@ -95,6 +100,14 @@ export function App() {
   const resolveApproval = useMutation({ mutationFn: (args: { id: string; decision: "approve" | "reject"; reason?: string }) => api(`/v1/approvals/${args.id}/resolve`, { method: "POST", body: JSON.stringify({ decision: args.decision, reason: args.reason }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); qc.invalidateQueries({ queryKey: ["receipts"] }); } });
   const takeover = useMutation({ mutationFn: (args: { id: string; reason: string }) => api(`/v1/browser/sessions/${args.id}/takeover/request`, { method: "POST", body: JSON.stringify({ reason: args.reason }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["browser-sessions"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); } });
   const resumeAgent = useMutation({ mutationFn: (args: { id: string }) => api(`/v1/browser/sessions/${args.id}/takeover/resume`, { method: "POST", body: JSON.stringify({ note: "User resumed agent" }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["browser-sessions"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); } });
+  const connectOAuth = useMutation({
+    mutationFn: (connectorId: string) => api<{ authUrl: string }>(`/v1/connectors/oauth/start`, { method: "POST", body: JSON.stringify({ connectorId }) }),
+    onSuccess: (d) => { window.location.href = d.authUrl; },
+  });
+  const revokeConnector = useMutation({
+    mutationFn: (id: string) => api(`/v1/connectors/accounts/${id}/revoke`, { method: "POST" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["connectorAccounts"] }); },
+  });
 
   const tasks = tasksQ.data?.tasks ?? [];
   const current = tasks.find((t) => t.id === selected) ?? null;
@@ -221,6 +234,23 @@ export function App() {
           {artifacts.length === 0 && receipts.length === 0 && <div className="muted">No evidence or receipts yet.</div>}
         </div>
         <div className="card"><h3 style={{ marginTop: 0 }}>Approvals</h3>{pendingApprovals.length === 0 && <div className="muted">No pending approvals for this view.</div>}{pendingApprovals.map((a) => (<div key={a.id} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><div className="row"><span className="pill">{a.status}</span><strong>{a.actionKind}</strong><span className="muted">{a.id}</span></div><div className="muted" style={{ margin: "6px 0" }}>{a.summary}</div><div className="muted">actionHash: {a.actionHash}</div><div className="row" style={{ marginTop: 8 }}><button className="primary" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "approve" })}>Approve</button><button className="danger" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "reject", reason: "Rejected from UI" })}>Reject</button></div><pre style={{ marginTop: 8 }}>{JSON.stringify(a.evidence, null, 2)}</pre></div>))}</div>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Connectors</h3>
+          <div className="muted" style={{ marginBottom: 8 }}>Direct Google OAuth2+PKCE primary. Composio deferred (optional adapter).</div>
+          {(connectorsQ.data?.connectors ?? []).map((c) => {
+            const accounts = (connectorAccountsQ.data?.accounts ?? []).filter((a) => a.connectorId === c.id);
+            return (
+              <div key={c.id} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}>
+                <div className="row"><strong>{c.displayName}</strong><span className="pill">{c.kind}</span>{c.enabled ? <span className="pill">enabled</span> : <span className="pill">disabled</span>}</div>
+                <div className="muted" style={{ margin: "6px 0" }}>Capabilities: {c.capabilities.join(", ") || "none"}</div>
+                <div className="row"><button className="primary" disabled={connectOAuth.isPending || !c.enabled} onClick={() => connectOAuth.mutate(c.id)}>Connect</button></div>
+                {accounts.map((a) => (<div key={a.id} className="row" style={{ marginTop: 8 }}><span className="pill">{a.status}</span><span className="muted">{a.id}</span><button className="danger" disabled={revokeConnector.isPending || a.status === "revoked"} onClick={() => revokeConnector.mutate(a.id)}>Revoke</button></div>))}
+                {accounts.length === 0 && <div className="muted" style={{ marginTop: 8 }}>No accounts connected.</div>}
+              </div>
+            );
+          })}
+          {(connectorsQ.data?.connectors ?? []).length === 0 && <div className="muted">No connectors loaded.</div>}
+        </div>
         <div className="card"><h3 style={{ marginTop: 0 }}>Event timeline</h3><div className="row" style={{ marginBottom: 8 }}><span className="pill">{stale ? "stale" : "live"}</span><span className="muted">last seq: {lastSequence}</span></div>{events.length === 0 && <div className="muted">No events.</div>}{events.map((e) => (<div key={e.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">#{e.sequence}</span><strong>{e.type}</strong><span className="muted">{e.source}</span><span className="muted">{new Date(e.ts).toLocaleTimeString()}</span></div><pre>{JSON.stringify(e.payload, null, 2)}</pre></div>))}</div>
       </main>
     </div>
