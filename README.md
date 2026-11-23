@@ -10,7 +10,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~70%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~71%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-Local_Ollama_Browser_E2E-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -20,11 +20,11 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~70%** | Prototype baseline; binding-audit hardening, regression tests, DX cleanup |
+| **Overall** | **~71%** | Prototype baseline; binding-audit hardening, regression tests, WS auth cleanup |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
 | Phase 1 UI/Task Core | 87% | Chat/SSE/approvals/preview usable |
 | Phase 2 Agent Runtime | 53% | Streaming + basic tool-calling; hardening pending |
-| Phase 3 Browser Execution | 80% | Ownership/authz + guarded navigate/integration coverage; recovery pending |
+| Phase 3 Browser Execution | 81% | Ownership/authz, WS auth parity, guarded navigate coverage; recovery pending |
 | Phase 4 Approvals/Vault/Connectors | 54% | Resolve/navigate guard invariants tested; vault/connectors pending |
 | Phase 5 Temporal Reliability | 5% | Primitives only |
 | Phase 6 BrowserOS Upgrade | 0% | Planned |
@@ -82,6 +82,7 @@ flowchart TB
 - Helm project license: see LICENSE.
 - Third-party dependency licenses: see THIRD_PARTY_NOTICES.md.
 - AGPL/copyleft code (e.g., BrowserOS) is not vendored into Helm. Optional external adapters require separate compliance review.
+
 
 
 
