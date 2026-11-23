@@ -13,17 +13,17 @@ const PREVIEW_TTL_MS = 5 * 60_000;
 const ARTIFACT_DIR = process.env.BROWSER_ARTIFACT_DIR ?? path.resolve(process.cwd(), ".data", "browser-artifacts");
 const STATE_DIR = process.env.BROWSER_STATE_DIR ?? path.resolve(process.cwd(), ".data", "browser-sessions");
 
-async function saveArtifact(sessionId: string, kind: string, ext: string, buf: Buffer, mime: string, metadata: Record<string, unknown>) {
-  await mkdir(ARTIFACT_DIR, { recursive: true });
+async function saveArtifact(artifactDir: string, sessionId: string, kind: string, ext: string, buf: Buffer, mime: string, metadata: Record<string, unknown>) {
+  await mkdir(artifactDir, { recursive: true });
   const id = `ba_${randomUUID().replace(/-/g, "")}`;
-  const filePath = path.join(ARTIFACT_DIR, `${id}.${ext}`);
+  const filePath = path.join(artifactDir, `${id}.${ext}`);
   await writeFile(filePath, buf);
   return { artifactId: id, kind, path: filePath, mime, sha256: createHash("sha256").update(buf).digest("hex"), sizeBytes: buf.byteLength, metadata };
 }
-async function persistState(state: SessionState) {
-  await mkdir(STATE_DIR, { recursive: true });
+async function persistState(stateDir: string, state: SessionState) {
+  await mkdir(stateDir, { recursive: true });
   const p: PersistedSession = { session: state.session, storageStatePath: state.storageStatePath };
-  await writeFile(path.join(STATE_DIR, `${state.session.id}.json`), JSON.stringify(p, null, 2), "utf8");
+  await writeFile(path.join(stateDir, `${state.session.id}.json`), JSON.stringify(p, null, 2), "utf8");
   await state.context.storageState({ path: state.storageStatePath }).catch(() => undefined);
 }
 
@@ -34,6 +34,12 @@ export function isStaleTargetError(err: unknown) {
 
 export class PlaywrightBrowserExecutor implements BrowserExecutor {
   private sessions = new Map<string, SessionState>();
+  private artifactDir: string;
+  private stateDir: string;
+  constructor(opts?: { artifactDir?: string; stateDir?: string }) {
+    this.artifactDir = opts?.artifactDir ?? process.env.BROWSER_ARTIFACT_DIR ?? path.resolve(process.cwd(), ".data", "browser-artifacts");
+    this.stateDir = opts?.stateDir ?? process.env.BROWSER_STATE_DIR ?? path.resolve(process.cwd(), ".data", "browser-sessions");
+  }
   private scheduleClose(id: string) { const s = this.sessions.get(id); if (!s) return; if (s.closeTimer) clearTimeout(s.closeTimer); s.closeTimer = setTimeout(() => { void this.closeSession(id); }, PREVIEW_TTL_MS); }
 
   private async attachScreencast(state: SessionState) {
@@ -61,7 +67,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
 
   private async restoreSession(sessionId: string): Promise<SessionState | null> {
     try {
-      const raw = await readFile(path.join(STATE_DIR, `${sessionId}.json`), "utf8");
+      const raw = await readFile(path.join(this.stateDir, `${sessionId}.json`), "utf8");
       const persisted = JSON.parse(raw) as PersistedSession;
       const browser = await chromium.launch({ headless: persisted.session.headless });
       const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, storageState: persisted.storageStatePath });
@@ -73,7 +79,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       state.emitter.setMaxListeners(50);
       await this.attachScreencast(state);
       this.sessions.set(sessionId, state);
-      await persistState(state);
+      await persistState(this.stateDir, state);
       this.scheduleClose(sessionId);
       return state;
     } catch { return null; }
@@ -95,8 +101,8 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
   async createSession(input: CreateBrowserSessionInput): Promise<BrowserSession> {
     const id = `bs_${randomUUID().replace(/-/g, "")}`;
     const now = new Date().toISOString();
-    await mkdir(STATE_DIR, { recursive: true });
-    const storageStatePath = path.join(STATE_DIR, `${id}.storage.json`);
+    await mkdir(this.stateDir, { recursive: true });
+    const storageStatePath = path.join(this.stateDir, `${id}.storage.json`);
     const browser = await chromium.launch({ headless: input.headless });
     const context = await browser.newContext({ viewport: input.viewport });
     const page = await context.newPage();
@@ -107,7 +113,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     await this.attachScreencast(state);
     if (input.initialUrl) await page.goto(input.initialUrl, { waitUntil: "domcontentloaded" });
     session.currentUrl = page.url() || null; session.title = (await page.title().catch(() => "")) || null; session.updatedAt = new Date().toISOString();
-    await persistState(state);
+    await persistState(this.stateDir, state);
     this.scheduleClose(id);
     return session;
   }
@@ -128,7 +134,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       else if (input.type === "press") await s.page.keyboard.press(String(input.key ?? "Enter"));
       else if (input.type === "scroll") await s.page.mouse.wheel(Number(input.deltaX ?? 0), Number(input.deltaY ?? 0));
       else return { ok: false, error: "unsupported input type" };
-      s.session.updatedAt = new Date().toISOString(); this.scheduleClose(sessionId); await persistState(s);
+      s.session.updatedAt = new Date().toISOString(); this.scheduleClose(sessionId); await persistState(this.stateDir, s);
       return { ok: true };
     } catch (e) {
       if (isStaleTargetError(e)) {
@@ -148,7 +154,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       try {
         const data = await fn(state);
         state.session.updatedAt = new Date().toISOString(); state.session.currentUrl = state.page.url() || null; state.session.title = (await state.page.title().catch(() => "")) || null;
-        await persistState(state); this.scheduleClose(sessionId);
+        await persistState(this.stateDir, state); this.scheduleClose(sessionId);
         return { ok: true, sessionId, action, url: state.session.currentUrl, title: state.session.title, data };
       } catch (err) {
         if (isStaleTargetError(err)) {
@@ -160,7 +166,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
             return retry;
           }
         }
-        state.session.status = "error"; state.session.updatedAt = new Date().toISOString(); await persistState(state).catch(() => undefined);
+        state.session.status = "error"; state.session.updatedAt = new Date().toISOString(); await persistState(this.stateDir, state).catch(() => undefined);
         return { ok: false, sessionId, action, url: state.page.url() || null, error: { code: "BROWSER_ACTION_FAILED", message: err instanceof Error ? err.message : String(err), retryable: isStaleTargetError(err) } };
       }
     };
@@ -170,12 +176,12 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
   async navigate(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserNavigateInput.parse(input); return this.withSession(sessionId, "navigate", async (s) => { await s.page.goto(p.url, { waitUntil: "domcontentloaded" }); return {}; }); }
   async click(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserClickInput.parse(input); return this.withSession(sessionId, "click", async (s) => { await s.page.click(p.selector, { timeout: 10_000 }); return { selector: p.selector }; }); }
   async fill(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserFillInput.parse(input); return this.withSession(sessionId, "fill", async (s) => { await s.page.fill(p.selector, p.value, { timeout: 10_000 }); if (p.submit) await s.page.press(p.selector, "Enter"); return { selector: p.selector, submitted: p.submit }; }); }
-  async snapshot(sessionId: string): Promise<BrowserActionResult> { return this.withSession(sessionId, "snapshot", async (s) => { const text = await s.page.locator("body").innerText().catch(() => ""); const buf = Buffer.from(text, "utf8"); const artifact = await saveArtifact(sessionId, "dom_snapshot", "txt", buf, "text/plain; charset=utf-8", { url: s.page.url(), title: await s.page.title().catch(() => "") }); return { text: text.slice(0, 20_000), artifact }; }, true); }
+  async snapshot(sessionId: string): Promise<BrowserActionResult> { return this.withSession(sessionId, "snapshot", async (s) => { const text = await s.page.locator("body").innerText().catch(() => ""); const buf = Buffer.from(text, "utf8"); const artifact = await saveArtifact(this.artifactDir, sessionId, "dom_snapshot", "txt", buf, "text/plain; charset=utf-8", { url: s.page.url(), title: await s.page.title().catch(() => "") }); return { text: text.slice(0, 20_000), artifact }; }, true); }
   async streamStatus(sessionId: string): Promise<BrowserActionResult> {
     return this.withSession(sessionId, "stream_status", async (s) => ({ hasCdp: !!s.cdp, control: s.session.control, status: s.session.status, currentUrl: s.session.currentUrl }), true);
   }
 
-  async screenshot(sessionId: string, input: z.infer<typeof BrowserScreenshotInput>): Promise<BrowserActionResult> { return this.withSession(sessionId, "screenshot", async (s) => { const buf = await s.page.screenshot({ fullPage: input.fullPage, type: "png" }); s.lastScreenshotBase64 = buf.toString("base64"); s.session.lastScreenshotAt = new Date().toISOString(); const artifact = await saveArtifact(sessionId, "screenshot", "png", buf, "image/png", { url: s.page.url(), title: await s.page.title().catch(() => ""), fullPage: input.fullPage }); return { mime: "image/png", base64: s.lastScreenshotBase64, artifact }; }, true); }
+  async screenshot(sessionId: string, input: z.infer<typeof BrowserScreenshotInput>): Promise<BrowserActionResult> { return this.withSession(sessionId, "screenshot", async (s) => { const buf = await s.page.screenshot({ fullPage: input.fullPage, type: "png" }); s.lastScreenshotBase64 = buf.toString("base64"); s.session.lastScreenshotAt = new Date().toISOString(); const artifact = await saveArtifact(this.artifactDir, sessionId, "screenshot", "png", buf, "image/png", { url: s.page.url(), title: await s.page.title().catch(() => ""), fullPage: input.fullPage }); return { mime: "image/png", base64: s.lastScreenshotBase64, artifact }; }, true); }
   async requestTakeover(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserTakeoverInput.parse(input); return this.withSession(sessionId, "takeover.request", async (s) => { s.session.status = "takeover"; s.session.control = { owner: "user", takeoverReason: p.reason, takeoverRequestedAt: new Date().toISOString(), resumedAt: null }; return { control: s.session.control }; }, true); }
   async resumeAgent(sessionId: string, input: unknown): Promise<BrowserActionResult> { const p = BrowserResumeInput.parse(input); return this.withSession(sessionId, "takeover.resume", async (s) => { s.session.status = "ready"; s.session.control = { owner: "agent", takeoverReason: null, takeoverRequestedAt: s.session.control.takeoverRequestedAt, resumedAt: new Date().toISOString() }; return { control: s.session.control, note: p.note ?? null }; }, true); }
   async externalAction(sessionId: string, input: unknown): Promise<BrowserActionResult> {
@@ -184,7 +190,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
       if (p.selector) await s.page.click(p.selector, { timeout: 10_000 });
       const shot = await s.page.screenshot({ fullPage: false, type: "png" });
       s.lastScreenshotBase64 = shot.toString("base64"); s.session.lastScreenshotAt = new Date().toISOString();
-      const artifact = await saveArtifact(sessionId, "external_action_evidence", "png", shot, "image/png", { action: p.action, actionHash: p.actionHash, idempotencyKey: p.idempotencyKey, approvalId: p.approvalId, url: s.page.url() });
+      const artifact = await saveArtifact(this.artifactDir, sessionId, "external_action_evidence", "png", shot, "image/png", { action: p.action, actionHash: p.actionHash, idempotencyKey: p.idempotencyKey, approvalId: p.approvalId, url: s.page.url() });
       return { action: p.action, actionHash: p.actionHash, idempotencyKey: p.idempotencyKey, approvalId: p.approvalId, artifact, executed: true };
     });
   }
@@ -195,7 +201,7 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     if (state.closeTimer) clearTimeout(state.closeTimer);
     try { if (state.cdp) await state.cdp.send("Page.stopScreencast").catch(() => {}); } catch {}
     await state.context.close().catch(() => undefined); await state.browser.close().catch(() => undefined);
-    state.session.status = "closed"; state.session.updatedAt = new Date().toISOString(); await persistState(state).catch(() => undefined);
+    state.session.status = "closed"; state.session.updatedAt = new Date().toISOString(); await persistState(this.stateDir, state).catch(() => undefined);
     this.sessions.delete(sessionId);
     return { ok: true, sessionId, action: "close" };
   }
