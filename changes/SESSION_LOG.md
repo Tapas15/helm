@@ -1025,3 +1025,20 @@ untime.completed)
 ### Evidence
 - Commit `7a79761` pushed to `origin/main`.
 
+## Session: 2026-11-23 - P5 rollback runtime E2E
+**Time:** 2026-11-23T20:34:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Added env-gated runtime rollback E2E `tests/integration/src/temporal-rollback-e2e.test.ts` (`HELM_TEMPORAL_ROLLBACK_E2E=1`): flag off => direct 200 guarded execution; flag on + stub => 202 temporal-routed workflow response.
+- [x] Verification: integration typecheck PASS; rollback E2E PASS (1/1).
+- [x] Commit/push: `1748e15`.
+
+### Active / Next
+- [ ] Real provider no-duplicate proof (external Google sandbox).
+- [ ] Reconciliation workflow/schedules/monitors; operator runbook depth.
+- [ ] P6-P8 thin vertical slices.
+
+### Evidence
+- `1748e15` pushed to `origin/main`.
