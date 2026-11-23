@@ -5,6 +5,7 @@ export * from "./task-control.js";
 export * from "./browser.js";
 export * from "./agent-runtime.js";
 export * from "./approval.js";
+export * from "./auth.js";
 
 import { z } from "zod";
 

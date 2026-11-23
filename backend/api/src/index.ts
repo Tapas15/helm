@@ -12,6 +12,7 @@ import { eventRoutes } from "./routes/events.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { browserRoutes } from "./routes/browser.js";
 import { artifactRoutes, receiptRoutes } from "./routes/evidence.js";
+import { authRoutes } from "./routes/auth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
 import type { AppEnv } from "./types.js";
@@ -28,7 +29,8 @@ app.use("*", requestContextMiddleware);
 
 app.get("/health", (c) => c.json({ ok: true, service: "helm-api", ts: new Date().toISOString() }));
 
-app.use("/v1/*", authMiddleware);
+app.use("/v1/*", authMiddleware(db));
+app.route("/v1/auth", authRoutes(db));
 app.route("/v1/tasks", taskRoutes(db));
 app.route("/v1/events", eventRoutes(db));
 app.route("/v1/approvals", approvalRoutes(db));

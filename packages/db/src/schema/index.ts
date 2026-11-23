@@ -11,11 +11,15 @@ export const users = pgTable("users", {
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
+  tokenHash: text("token_hash").notNull().unique(),
   deviceId: text("device_id"),
+  userAgent: text("user_agent"),
+  ipHash: text("ip_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
-}, (t) => [index("sessions_user_idx").on(t.userId)]);
+}, (t) => [index("sessions_user_idx").on(t.userId), index("sessions_expires_idx").on(t.expiresAt)]);
 
 export const tasks = pgTable("tasks", {
   id: text("id").primaryKey(),
