@@ -83,3 +83,18 @@ export const CalendarDeleteEventInput = z.object({
   actionHash: z.string().min(1),
 });
 export type CalendarDeleteEventInput = z.infer<typeof CalendarDeleteEventInput>;
+export const CalendarUpdateEventInput = z.object({
+  accountId: z.string().min(1),
+  calendarId: z.string().min(1).default("primary"),
+  eventId: z.string().min(1).max(500),
+  summary: z.string().min(1).max(500).optional(),
+  description: z.string().max(5000).optional(),
+  startIso: z.string().datetime().optional(),
+  endIso: z.string().datetime().optional(),
+  timeZone: z.string().max(100).optional(),
+  attendees: z.array(z.string().email()).max(20).optional(),
+  idempotencyKey: z.string().min(1).max(200),
+  approvalId: z.string().min(1),
+  actionHash: z.string().min(1),
+});
+export type CalendarUpdateEventInput = z.infer<typeof CalendarUpdateEventInput>;
