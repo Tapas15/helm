@@ -31,17 +31,17 @@ async function resolveTaskForSession(db: Database, userId: string, sessionId: st
   const sessionTaskId = session?.taskId;
   if (sessionTaskId) {
     const [task] = await db.select().from(tasks).where(and(eq(tasks.id, sessionTaskId), eq(tasks.userId, userId))).limit(1);
-    if (task) return { task, session };
+    if (task) return { task, session, binding: "session.taskId" as const };
   }
   const candidates = await db.select().from(tasks).where(and(eq(tasks.userId, userId))).orderBy(tasks.updatedAt);
   const task = candidates.reverse().find((t: any) => String((t.state as any)?.activeBrowserSessionId ?? "") === sessionId) ?? null;
-  return task ? { task, session } : { task: null, session };
+  return task ? { task, session, binding: "task.state.activeBrowserSessionId" as const } : { task: null, session, binding: "unbound" as const };
 }
 async function requireOwnedSession(db: Database, userId: string, sessionId: string) {
-  const { task, session } = await resolveTaskForSession(db, userId, sessionId);
+  const { task, session, binding } = await resolveTaskForSession(db, userId, sessionId);
   if (!session) return { ok: false as const, status: 404, body: err(HELM_ERROR_CODES.NOT_FOUND, "Browser session not found") };
-  if (!task) return { ok: false as const, status: 403, body: err(HELM_ERROR_CODES.FORBIDDEN, "Browser session not owned by user") };
-  return { ok: true as const, task, session };
+  if (!task) return { ok: false as const, status: 403, body: err(HELM_ERROR_CODES.FORBIDDEN, "Browser session is not bound to an owned task; rebind required", false, { sessionId, policy: "legacy-unbound-session-hard-block" }) };
+  return { ok: true as const, task, session, binding };
 }
 async function requireApprovedAction(db: Database, userId: string, guard: { approvalId: string; actionHash: string; idempotencyKey: string }) {
   const [approval] = await db.select().from(approvals).where(and(eq(approvals.id, guard.approvalId), eq(approvals.userId, userId))).limit(1);
@@ -253,6 +253,26 @@ export function browserRoutes(db: Database) {
     await emitTaskEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, type: "browser.external_action.executed", source: "api", correlationId, causationId: approval.id, payload: { sessionId: c.req.param("id"), approvalId: approval.id, actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, action: input.action, artifact } });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "browser.external_action.executed", resourceType: "action_receipt", resourceId: claimed.id, decision: "allow", reason: "approved action executed with idempotency receipt", metadata: { actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, requestId, correlationId } });
     return c.json({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id } });
+  });
+
+  app.post("/sessions/:id/rebind", async (c) => {
+    const userId = c.get("userId");
+    const sessionId = c.req.param("id");
+    const body = await c.req.json().catch(() => ({}));
+    const taskId = typeof (body as any)?.taskId === "string" ? String((body as any).taskId) : "";
+    if (!taskId) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "taskId required", false), 400);
+    const session = await getBrowserSession(sessionId);
+    if (!session) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Browser session not found"), 404);
+    if (session.taskId && session.taskId !== taskId) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Browser session already bound to a different task", false, { sessionTaskId: session.taskId }), 409);
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
+    if (!task) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Task not found"), 404);
+    const existing = String((task.state as any)?.activeBrowserSessionId ?? "");
+    if (existing && existing !== sessionId) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Task already has an active browser session", false, { activeBrowserSessionId: existing }), 409);
+    const ts = new Date();
+    await db.update(tasks).set({ updatedAt: ts, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId } }).where(and(eq(tasks.id, task.id), eq(tasks.userId, userId)));
+    await emitTaskEvent(db, { userId, taskId: task.id, runId: null, type: "browser.session.rebound", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, previousTaskId: session.taskId ?? null, policy: "explicit-rebind-owned-task" } });
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts, actorType: "user", actorId: userId, taskId: task.id, action: "browser.session.rebound", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: "explicit user rebind", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), previousTaskId: session.taskId ?? null } });
+    return c.json({ ok: true, sessionId, taskId: task.id, rebound: true });
   });
 
   app.post("/sessions/:id/close", async (c) => {
