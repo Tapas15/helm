@@ -29,9 +29,9 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
 | Phase 4 Approvals/Vault/Connectors | 88% | Vault/connector contracts, Gmail read/send, Calendar read/create/update/delete approval-gated with uncertain reconcile; real OAuth E2E blocked on external creds |
 | Phase 5 Temporal Reliability | 50% | Feature-flagged routing for Gmail/Calendar/browser external actions; stub/real-dedupe/mock-side-effect/rollback E2E proofs; runbook added |
-| Phase 6 BrowserOS Upgrade | 20% | Adapter interface + Playwright default + BrowserOS stub; adapter status/request/binary dispatch behind HELM_BROWSER_ADAPTER_DISPATCH flag; real BrowserOS endpoint pending |
-| Phase 7 Memory/Skills/Proactivity | 15% | Identity contracts/status/create (helm-owned default), DB-backed memory notes behind HELM_MEMORY_ENABLED; proactivity/skills/self-improvement still gated/design-only |
-| Phase 8 Hardening/Release | 15% | Backup/restore/security-privacy/release-evidence docs added; drills, threat model, PII lifecycle, and compliance signoff still pending |
+| Phase 6 BrowserOS Upgrade | 25% | Adapter interface + Playwright default + BrowserOS stub; adapter status/request/requestBinary dispatch + adapter-aware session lookup behind HELM_BROWSER_ADAPTER_DISPATCH; real BrowserOS endpoint/parity pending |
+| Phase 7 Memory/Skills/Proactivity | 20% | Identity contracts/status/create (helm-owned default), restrictive default identity policy, identities/identity_policies/memory_notes schema, DB-backed memory notes behind HELM_MEMORY_ENABLED; skills/proactivity/self-improvement gated/design-only |
+| Phase 8 Hardening/Release | 20% | Backup/restore scripts+runbooks, security/privacy/release-evidence checklists added; drills, scans/threat model, PII lifecycle, compliance signoff pending |
 
 > Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
