@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-11-23T06:00:00Z (session: local Ollama guardrails + assistant/browser approval E2E smoke)  
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
-**Next move:** Complete binding audit remaining gaps (approval resolve idempotency/conflict, session ownership/audit for screenshot/snapshot/close/create), add regression tests for navigate guard and approval replay, then continue browser recovery hardening. See `changes/PLANNING_MISSING_ITEMS.md` for full blueprint-parity checklist and `changes/DESIGN-self-improvement-loop.md` for proposed self-improvement design.
+**Next move:** Complete binding audit remaining gaps (approval resolve idempotency/conflict, session ownership/audit for screenshot/snapshot/close/create), add regression tests for navigate guard and approval replay, then continue browser recovery hardening. See `changes/PLANNING_MISSING_ITEMS.md` for full blueprint-parity checklist, `changes/DESIGN-self-improvement-loop.md` for proposed self-improvement design, and `changes/DESIGN-premium-white-ui.md` for the premium white UI design system plan.
 
 ## Project Identity
 - **Name:** Helm (`@helm/*`)
@@ -31,6 +31,7 @@
 - [x] Risky browser action pauses for approval; approved action executes once via guarded `actionHash`+idempotency path; reject blocks.
 - [x] Evidence artifacts/receipts persisted and visible in UI/API.
 - [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).`n- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; in-memory browser sessions do not.
+
 
 
 

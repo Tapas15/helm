@@ -164,19 +164,47 @@ From `Demo/openfuse`:
 - **Activity/receipt navigation** from chat cards.
 - **Capybara/avatar state** indicating active/waiting/needs input (optional branding).
 
-## 8. Component Library and Frontend Stack
+## 8. Visual Design System (Helm Premium White)
+
+Helm adopts an original premium white design language inspired by Muse usability/simplicity, but with no copied source code, assets, branding, or exact layouts.
+
+| Element | Direction |
+|---|---|
+| Main background | Pure white / warm white |
+| Sidebar | Soft off-white |
+| Cards | White with subtle borders |
+| Typography | Inter or Geist |
+| Primary text | Near-black |
+| Secondary text | Muted grey |
+| Accent | Restrained blue or violet |
+| Borders | Thin, light grey |
+| Shadows | Very subtle |
+| Corners | 10–14px |
+| Animations | Smooth, subtle |
+| Icons | Lucide |
+
+Interaction requirements: smooth page transitions; animated expandable panels; resizable three-panel workspace; interactive chat cards; live agent activity; interactive task timelines; drag-and-drop agent workflows; browser preview/takeover; approval dialogs; contextual menus/popovers; responsive mobile navigation; keyboard shortcuts and command palette.
+
+Quality objective: polished premium personal AI application, not a conventional developer dashboard. White UI must remain consistent across chat, agents, computer control, approvals, workflows, and settings.
+
+## 9. Component Library and Frontend Stack
 
 | Layer | Recommendation | Notes |
 |---|---|---|
-| Framework | React + TypeScript + Vite (web), React Native/Expo optional mobile | Matches OpenFUSE demo direction |
-| UI primitives | Tailwind + Radix/shadcn | Fast, accessible, consistent |
-| Data fetching | TanStack Query | Cache/invalidation for server state |
-| Realtime | WebSocket + event reducer | AG-UI stream compatible |
-| Charts/timeline | lightweight custom + virtualization | Avoid heavy deps |
-| Forms/validation | React Hook Form + Zod | Approval/config forms |
-| Desktop shell | Tauri (preferred) or Electron | Local gateway integration |
+| Framework | React + TypeScript + Vite | Fast web shell; Tauri/Electron optional desktop later |
+| Styling | Tailwind CSS v4 | Token-driven theme, light premium white surfaces |
+| UI primitives | shadcn/ui + Radix UI | Accessible, composable, original Helm styling |
+| Motion | Motion | Smooth transitions, expandable panels, subtle feedback |
+| App state | Zustand | Local UI/workspace/command palette state |
+| Server state | TanStack Query | Tasks, approvals, artifacts, connectors, settings |
+| Realtime | WebSockets + SSE + event reducer | AG-UI-compatible stream rendering and live previews |
+| Workflows | React Flow | Drag-and-drop agent/workflow graph editor |
+| Rich text | Tiptap | Prompt/doc/artifact editing surfaces |
+| DnD | dnd-kit | Workflow cards, panels, reorder interactions |
+| Charts | Recharts | Usage, reliability, run metrics; lightweight and calm |
+| Icons | Lucide | Consistent, restrained iconography |
 
-## 9. Accessibility and UX Quality
+## 10. Accessibility and UX Quality
 
 - Keyboard navigable approvals and task controls.
 - ARIA live regions for task status changes.
@@ -185,7 +213,7 @@ From `Demo/openfuse`:
 - "What happened?" panel for every failure.
 - Mobile: collapse to chat + activity + approvals; browser preview as snapshot.
 
-## 10. Frontend Security
+## 11. Frontend Security
 
 - No secrets/tokens in localStorage; use httpOnly cookies or secure desktop storage.
 - Render untrusted tool/web content as data, never HTML-executable by default.
@@ -193,7 +221,7 @@ From `Demo/openfuse`:
 - Signed URLs for artifacts/screenshots with short TTL.
 - CSP, frame protections, origin checks.
 
-## 11. Implementation Checklist
+## 12. Implementation Checklist
 
 1. Build app shell, routing, auth guard, theme/tokens.
 2. Implement chat thread + composer + stream renderer.
@@ -204,7 +232,7 @@ From `Demo/openfuse`:
 7. Add error boundaries, skeletons, empty/loading states.
 8. Add E2E tests for stream ordering, approval, takeover, cancel.
 
-## 12. Acceptance Criteria
+## 13. Acceptance Criteria
 
 - User can distinguish agent running vs waiting vs failed within 1 glance.
 - Approval screen shows exact action and cannot approve stale/changed payload.
@@ -212,3 +240,6 @@ From `Demo/openfuse`:
 - Task timeline reconstructs from persisted events after refresh.
 - Stop/cancel immediately updates UI after backend acknowledgement.
 - UI remains usable on desktop and narrow viewport.
+
+
+

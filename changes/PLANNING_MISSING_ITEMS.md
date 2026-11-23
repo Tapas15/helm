@@ -11,13 +11,17 @@
 - [ ] AGENTS/command/agent structure aligned with Kilo/competition conventions as needed.
 
 ## P1 UI / Task Core
+- [ ] **Premium White UI design system rollout** (see `changes/DESIGN-premium-white-ui.md`): Helm tokens, white/warm-white surfaces, soft off-white sidebar, Geist/Inter, Lucide, restrained blue/violet accent, 10–14px corners, subtle borders/shadows, smooth Motion animations.
 - [ ] Proper thread/conversation abstraction (task-as-thread is temporary).
 - [ ] SSE reconnect cursor resume E2E proof (hook exists; no live proof).
 - [ ] WS `/v1/ws` AG-UI reducer decision (optional vs required).
 - [ ] Richer inline cards: tool call, approval, browser takeover, diff, receipt.
 - [ ] Activity/approval centers and notifications UX.
 - [ ] Persona/memory/provider-model selection UI.
+- [ ] Resizable three-panel workspace, command palette/keyboard shortcuts, contextual menus/popovers, responsive mobile navigation.
+- [ ] Interactive task timelines, live agent activity, drag-and-drop agent workflows (React Flow/dnd-kit), browser preview/takeover polish, approval dialogs.
 - [ ] Accessibility/UX quality pass (keyboard, focus, ARIA, responsive).
+- [ ] UI stack migration plan: Tailwind v4, shadcn/ui+Radix, Motion, Zustand, TanStack Query, Tiptap, Recharts, WebSockets+SSE.
 
 ## P2 Runtime / Model
 - [ ] Provider/model selection UI and persisted config; tool-capable model allowlist/warning.

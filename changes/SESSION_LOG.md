@@ -721,3 +721,30 @@
 - `pnpm --filter @helm/worker typecheck` PASS.
 - `pnpm --filter @helm/worker test -- runtime` PASS (1/1).
 - API task/event/approval/receipt JSON captured for tasks above.
+
+## Session: 2026-11-23 - Premium white UI planning
+**Time:** 2026-11-23T06:10:00Z  
+**Agent:** Kilo  
+**Phase:** P1 planning/design
+
+### Completed
+- Added `changes/DESIGN-premium-white-ui.md` with Helm-original premium white design system: visual identity table, interaction requirements, technology stack, surface coverage, implementation notes.
+- Updated `Planning/03-Frontend-OpenFUSE-UI.md` with Premium White visual design section and modernized frontend stack (Tailwind v4, shadcn/ui+Radix, Motion, Zustand, TanStack Query, React Flow, Tiptap, dnd-kit, Recharts, WS+SSE, Lucide).
+- Updated `changes/PLANNING_MISSING_ITEMS.md` P1 with premium UI rollout, workspace/command-palette/workflow/timeline items, and stack migration plan.
+- Updated `changes/CURRENT_STATE.md` next move to reference UI design doc.
+- Added `DEC-20261123-premium-white-ui-design-system` to `changes/DECISIONS.md`.
+
+### Files Changed
+- `changes/DESIGN-premium-white-ui.md` - new design system plan.
+- `Planning/03-Frontend-OpenFUSE-UI.md` - visual system + stack update.
+- `changes/PLANNING_MISSING_ITEMS.md` - P1 UI planning items.
+- `changes/CURRENT_STATE.md` - next move reference.
+- `changes/DECISIONS.md` - decision.
+- `changes/SESSION_LOG.md` - this entry.
+
+### Next Steps
+- Continue P2/P3/P4 execution: live UI smoke, binding-audit regression tests, browser recovery hardening.
+- Plan UI migration slice: Tailwind v4 tokens + shadcn/Radix shell + command palette + resizable 3-panel layout without regressing existing task/browser/approval flows.
+
+### Evidence
+- Docs updated in repo; git diff/status to be captured before commit.

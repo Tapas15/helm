@@ -86,3 +86,9 @@
 - **Decision:** Record Helm-owned, Hermes-inspired self-improvement as a gated design, not autonomous self-modification. Design doc: `changes/DESIGN-self-improvement-loop.md`.
 - **Rationale:** User requested Hermes-like self-improvement. Helm invariants require model-proposes/policy-decides, approval for high-impact activation, versioned/rollbackable artifacts, no secrets/PII leakage, and reproducible eval evidence.
 - **Impact:** Creates P7 implementation track (feedback capture, memory provenance, skill/playbook proposals, bounded prompt/routing tuning). No runtime behavior changed yet; implementation requires separate approved slices.
+
+## DEC-20261123-premium-white-ui-design-system
+- **Date:** 2026-11-23
+- **Decision:** Adopt a Helm-original premium white UI design system as the target visual/interaction direction for all product surfaces (chat, agents, computer control, approvals, workflows, settings). Inspired by Muse usability/simplicity only; no copied source code, proprietary assets, branding, or exact layouts.
+- **Rationale:** User requested a polished, premium personal AI application feel, not a conventional developer dashboard. A documented design system prevents inconsistent UI drift as features expand.
+- **Impact:** Add `changes/DESIGN-premium-white-ui.md`; update Planning 03 and missing-items checklist; future UI work should align to tokens, accessibility, interaction requirements, and selected stack (React+Vite+TS, Tailwind v4, shadcn/ui+Radix, Motion, Zustand, TanStack Query, React Flow, Tiptap, dnd-kit, Recharts, WebSockets+SSE, Lucide).
