@@ -914,3 +914,32 @@ untime.completed)
 
 
 
+## Session: 2026-11-23 - P5-D Temporal routing slice (API feature flag)
+**Time:** 2026-11-23T19:30:00Z  
+**Agent:** Kilo  
+**Phase:** P5 Temporal Reliability
+
+### Completed
+- [x] Added `backend/api/src/lib/temporal.ts`: lazy Temporal client, `maybeStartExternalActionWorkflow()` starts `helmExternalActionWorkflow` and signals `approve` after guarded route validation; workflowId derived from idempotency key.
+- [x] Routed `gmail.send` and `calendar.create_event` through Temporal when `HELM_TEMPORAL_ENABLED=1` and `HELM_TEMPORAL_MODE=external-write|all`; returns `202 { ok, routed:"temporal", workflowId, runId, idempotencyKey }`. Fail-closed `503 DEPENDENCY_ERROR` on Temporal routing failure.
+- [x] Direct guarded path remains default fallback when flag disabled. Existing approval/actionHash/idempotency/receipt invariants preserved before routing.
+- [x] Fixed shared exports: `packages/shared/src/index.ts` exports `./connectors.js`.
+- [x] Verification: `pnpm --filter @helm/shared build` PASS; `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS.
+- [x] Commit/push: `f55eb8a` `feat(p5): route approval-gated connector writes through temporal flag`.
+
+### Files Changed
+- `backend/api/src/lib/temporal.ts` - Temporal client/routing helper.
+- `backend/api/src/routes/gmail.ts`, `backend/api/src/routes/calendar.ts` - feature-flagged routing before direct provider call.
+- `packages/shared/src/index.ts` - export connectors.
+- `backend/api/package.json`, `pnpm-lock.yaml` - `@temporalio/client` dependency.
+
+### Active / Next (not completed)
+- [ ] Env-gated Temporal E2E: no-duplicate side effect across worker kill/restart, approval signal resume, uncertain reconciliation proof.
+- [ ] Add `browser.external_action` Temporal activity/routing.
+- [ ] Add reconciliation workflow/signal integration for uncertain receipts.
+- [ ] Temporal service health/runbook docs; connection close hook.
+
+### Evidence
+- `f55eb8a` pushed to `origin/main`.
+- Typecheck PASS: shared build, api, temporal-worker.
+
