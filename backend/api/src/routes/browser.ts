@@ -103,6 +103,8 @@ export function browserRoutes(db: Database) {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/stream/status`);
+    const json = JSON.parse(r.text || "{}");
+    if (r.status < 400) await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.stream.status", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "observe", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
 
