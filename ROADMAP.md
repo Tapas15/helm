@@ -4,7 +4,7 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-~87%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-~90%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Prototype_Baseline-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Focus](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Recovery-238636?style=for-the-badge)](#-present--what-were-building-now)
 [![Blueprint](https://img.shields.io/badge/Blueprint-Phases_0--8-6e7781?style=for-the-badge)](Planning/MASTER-TECHNICAL-BLUEPRINT.md)
