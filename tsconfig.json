@@ -1,0 +1,13 @@
+﻿{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/observability" },
+    { "path": "packages/db" },
+    { "path": "backend/api" },
+    { "path": "backend/worker" },
+    { "path": "backend/browser-worker" },
+    { "path": "frontend/web" },
+    { "path": "tests/integration" }
+  ]
+}
