@@ -12,8 +12,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~87%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Browser_Recovery-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~90%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-P4_Connectors_%2B_P5_Temporal_Scaffold-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
 **[Explore the full visual roadmap →](ROADMAP.md)**
@@ -22,13 +22,13 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~87%** | Prototype baseline; auth/WS hardening, browser recovery, legacy rebind, SSE/control regressions |
+| **Overall** | **~90%** | P4 connectors/vault hardened, Calendar approval-gated create, P5 Temporal ADR/infra scaffold started |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
-| Phase 1 UI/Task Core | 90% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added |
+| Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added |
 | Phase 2 Agent Runtime | 56% | Local Ollama streaming + basic tool-calling; guardrails present, richer policy pending |
 | Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
-| Phase 4 Approvals/Vault/Connectors | 59% | Receipts/resolve hardening, session-token scaffold, legacy rebind, vault/connector contracts |
-| Phase 5 Temporal Reliability | 5% | Primitives only |
+| Phase 4 Approvals/Vault/Connectors | 87% | Receipts/resolve hardening, session-token scaffold, vault/connector contracts, Gmail read/send+uncertain reconcile, Calendar read/create approval-gated |
+| Phase 5 Temporal Reliability | 10% | ADR-002 drafted; Temporal dev compose scaffold behind profile; DB worker remains fallback |
 | Phase 6 BrowserOS Upgrade | 0% | Planned |
 | Phase 7 Memory/Skills/Proactivity | 0% | Design/proposed only |
 | Phase 8 Hardening/Release | 5% | Early evidence only |
