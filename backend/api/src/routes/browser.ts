@@ -15,6 +15,7 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
 async function proxy(path: string, init?: RequestInit) {
+  if (browserAdapterEnabled) return browserAdapter.request(path, init);
   const res = await fetch(`${browserUrl}${path}`, { ...init, headers: { authorization: `Bearer ${browserToken}`, "content-type": "application/json", ...(init?.headers ?? {}) } });
   return { status: res.status, contentType: res.headers.get("content-type") ?? "application/json", text: await res.text() };
 }
