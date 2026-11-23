@@ -1106,3 +1106,17 @@ untime.completed)
 ### Remaining
 - [ ] Real Google OAuth E2E and provider behavior verification (external creds).
 - [ ] P6 adapter wiring, P7 identity/memory slices, P8 evidence.
+
+## Session: 2026-11-23 - P7 agent-owned identity slice
+**Time:** 2026-11-23T21:15:00Z  
+**Agent:** Kilo  
+**Phase:** P7
+
+### Completed
+- [x] Added `packages/shared/src/identity.ts` contracts (`IdentityClass`, `IdentityRef`, `IdentityPolicy`) and exported from shared.
+- [x] Added `GET /v1/identity/status` (helm-owned default, no personal credential sharing, delegated bridge disabled by default) and 501 provisioning stub.
+- [x] Verification: shared build PASS; API typecheck PASS. Commit `9f2494f`.
+
+### Remaining
+- [ ] Identity DB schema/provisioning/vault linkage/policy enforcement/UI.
+- [ ] P6 adapter route wiring; P8 evidence; blocked real OAuth/provider E2E.
