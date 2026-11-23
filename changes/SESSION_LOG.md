@@ -872,25 +872,26 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - P4 token refresh and Gmail uncertain-outcome handling
-**Time:** 2026-11-23T23:18:36Z  
+## Session: 2026-11-23 - Uncertain receipt reconciliation endpoint/UI
+**Time:** 2026-11-23T23:23:15Z  
 **Agent:** Kilo  
-**Phase:** P4 connectors/vault
+**Phase:** P4 approvals/receipts
 
 ### Completed
-- [x] Added Google token expiry/refresh helpers (`oauth.ts`) and vault token get/save helpers (`vault.ts`).
-- [x] Connector OAuth callback now stores `obtained_at`; account revoke attempts Google token revoke before local revoke.
-- [x] Gmail routes now use refresh-on-expiry access token lookup. Gmail send marks network/5xx/429 as `uncertain` receipts and blocks blind retry when prior receipt is uncertain.
-- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck` PASS.
+- [x] Added `POST /v1/receipts/:id/reconcile` for owned uncertain receipts; allows explicit `executed|failed` outcome, records reconciliation metadata, and CAS-updates only `uncertain` receipts.
+- [x] Added web UI actions on uncertain receipts: "Mark executed" / "Mark failed".
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck/build` PASS.
 
 ### Active / Next (not completed)
 - [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
-- [ ] Add explicit uncertain-outcome reconciliation endpoint/UI (query Gmail by idempotency metadata / operator action).
+- [ ] Automated Gmail send reconciliation lookup (query provider before operator mark, where possible).
 - [ ] Richer connector account UX (scopes, errors, last sync, test connection).
 - [ ] Calendar connector implementation.
 
 ### Evidence
-- `backend/api/src/lib/oauth.ts`, `backend/api/src/lib/vault.ts`, `backend/api/src/routes/connectors.ts`, `backend/api/src/routes/gmail.ts`.
+- `backend/api/src/routes/evidence.ts`, `frontend/web/src/App.tsx`.
+
+
 
 
 

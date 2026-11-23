@@ -1,10 +1,13 @@
 ﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
 import { actionReceipts, browserArtifacts, type Database } from "@helm/db";
+import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 import { createReadStream, existsSync } from "node:fs";
 import { Readable } from "node:stream";
 import path from "node:path";
+
+const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
 export function artifactRoutes(db: Database) {
   const app = new Hono<AppEnv>();
@@ -19,9 +22,9 @@ export function artifactRoutes(db: Database) {
     const userId = c.get("userId");
     const id = c.req.param("id");
     const [row] = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.id, id), eq(browserArtifacts.userId, userId))).limit(1);
-    if (!row) return c.json({ error: { code: "NOT_FOUND", message: "Artifact not found", retryable: false } }, 404);
+    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Artifact not found"), 404);
     const resolved = path.resolve(row.path);
-    if (!existsSync(resolved)) return c.json({ error: { code: "NOT_FOUND", message: "Artifact file missing", retryable: false } }, 404);
+    if (!existsSync(resolved)) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Artifact file missing"), 404);
     c.header("content-type", row.mime || "application/octet-stream");
     c.header("content-disposition", `inline; filename="${path.basename(resolved)}"`);
     return c.body(Readable.toWeb(createReadStream(resolved)) as any);
@@ -38,6 +41,27 @@ export function receiptRoutes(db: Database) {
     const rows = await db.select().from(actionReceipts).where(where).orderBy(desc(actionReceipts.createdAt)).limit(100);
     return c.json({ receipts: rows });
   });
+
+  app.post("/:id/reconcile", async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const body = await c.req.json().catch(() => ({}));
+    const outcome = body?.outcome;
+    const externalRef = typeof body?.externalRef === "string" ? body.externalRef : null;
+    const note = typeof body?.note === "string" ? body.note.slice(0, 500) : null;
+    if (outcome !== "executed" && outcome !== "failed") return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "outcome must be executed or failed"), 400);
+    const [row] = await db.select().from(actionReceipts).where(and(eq(actionReceipts.id, id), eq(actionReceipts.userId, userId))).limit(1);
+    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Receipt not found"), 404);
+    if (row.status !== "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, `Receipt is ${row.status}; only uncertain receipts can be reconciled`), 409);
+    const [updated] = await db.update(actionReceipts).set({
+      status: outcome,
+      externalRef: externalRef ?? row.externalRef,
+      evidence: { ...(row.evidence as Record<string, unknown> ?? {}), reconciled: true, reconciledAt: new Date().toISOString(), reconcileNote: note, reconcileOutcome: outcome },
+    }).where(and(eq(actionReceipts.id, id), eq(actionReceipts.status, "uncertain"))).returning();
+    if (!updated) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Receipt changed during reconciliation", true), 409);
+    return c.json({ ok: true, receipt: updated });
+  });
+
   return app;
 }
 

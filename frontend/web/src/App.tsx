@@ -108,6 +108,10 @@ export function App() {
     mutationFn: (id: string) => api(`/v1/connectors/accounts/${id}/revoke`, { method: "POST" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["connectorAccounts"] }); },
   });
+  const reconcileReceipt = useMutation({
+    mutationFn: (args: { id: string; outcome: "executed" | "failed" }) => api(`/v1/receipts/${args.id}/reconcile`, { method: "POST", body: JSON.stringify({ outcome: args.outcome, note: `Reconciled from UI as ${args.outcome}` }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["receipts"] }); },
+  });
 
   const tasks = tasksQ.data?.tasks ?? [];
   const current = tasks.find((t) => t.id === selected) ?? null;
@@ -230,7 +234,7 @@ export function App() {
           <h3 style={{ marginTop: 0 }}>Evidence & receipts</h3>
           <div className="muted" style={{ marginBottom: 8 }}>Artifacts: {artifacts.length} · Receipts: {receipts.length}</div>
           {artifacts.map((a) => (<div key={a.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">{a.kind}</span><a href={`/v1/artifacts/${a.id}/download`} target="_blank" rel="noreferrer">{a.id}</a><span className="muted">{a.sizeBytes}B</span></div><div className="muted">sha256: {a.sha256}</div></div>))}
-          {receipts.map((r) => (<div key={r.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">{r.status}</span><strong>{r.actionKind}</strong><span className="muted">{r.id}</span></div><div className="muted">idempotency: {r.idempotencyKey}</div></div>))}
+          {receipts.map((r) => (<div key={r.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">{r.status}</span><strong>{r.actionKind}</strong><span className="muted">{r.id}</span></div><div className="muted">idempotency: {r.idempotencyKey}</div>{r.status === "uncertain" && <div className="row" style={{ marginTop: 8 }}><button className="primary" disabled={reconcileReceipt.isPending} onClick={() => reconcileReceipt.mutate({ id: r.id, outcome: "executed" })}>Mark executed</button><button className="danger" disabled={reconcileReceipt.isPending} onClick={() => reconcileReceipt.mutate({ id: r.id, outcome: "failed" })}>Mark failed</button></div>}</div>))}
           {artifacts.length === 0 && receipts.length === 0 && <div className="muted">No evidence or receipts yet.</div>}
         </div>
         <div className="card"><h3 style={{ marginTop: 0 }}>Approvals</h3>{pendingApprovals.length === 0 && <div className="muted">No pending approvals for this view.</div>}{pendingApprovals.map((a) => (<div key={a.id} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><div className="row"><span className="pill">{a.status}</span><strong>{a.actionKind}</strong><span className="muted">{a.id}</span></div><div className="muted" style={{ margin: "6px 0" }}>{a.summary}</div><div className="muted">actionHash: {a.actionHash}</div><div className="row" style={{ marginTop: 8 }}><button className="primary" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "approve" })}>Approve</button><button className="danger" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "reject", reason: "Rejected from UI" })}>Reject</button></div><pre style={{ marginTop: 8 }}>{JSON.stringify(a.evidence, null, 2)}</pre></div>))}</div>
