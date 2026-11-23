@@ -87,6 +87,25 @@ export function App() {
   const { events, stale, lastSequence } = useTaskEventStream(meQ.isSuccess ? selected : null, token);
   useEffect(() => { const t = window.setInterval(() => setPreviewTick((n) => n + 1), 2500); return () => window.clearInterval(t); }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauth = params.get("oauth");
+    if (!oauth) return;
+    const message = params.get("message");
+    const connectorId = params.get("connectorId");
+    if (oauth === "success") {
+      setAuthError(null);
+      qc.invalidateQueries({ queryKey: ["connectorAccounts"] });
+      window.alert(`Connector connected${connectorId ? `: ${connectorId}` : ""}`);
+    } else if (oauth === "error") {
+      setAuthError(message || "OAuth failed");
+      window.alert(message || "OAuth failed");
+    }
+    params.delete("oauth"); params.delete("message"); params.delete("accountId"); params.delete("connectorId");
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", next);
+  }, [qc]);
+
   const send = useMutation({
     mutationFn: async (p: string) => {
       if (selected && current && !["running", "planning"].includes(current.status)) {

@@ -89,26 +89,37 @@ export function connectorRoutes(db: Database) {
   });
 
   app.get("/google/callback", async (c) => {
+    const webUrl = process.env.WEB_URL ?? "http://localhost:5173";
+    const redirectToWeb = (params: Record<string, string>) => {
+      const url = new URL(webUrl);
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+      return c.redirect(url.toString(), 302);
+    };
     const state = c.req.query("state");
     const code = c.req.query("code");
     const error = c.req.query("error");
-    if (error) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `OAuth error: ${error}`, false), 400);
-    if (!state || !code) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "state and code required", false), 400);
+    if (error) return redirectToWeb({ oauth: "error", message: `OAuth error: ${error}` });
+    if (!state || !code) return redirectToWeb({ oauth: "error", message: "state and code required" });
     const stateHash = sha256Base64Url(state);
     const [row] = await db.select().from(oauthStates).where(and(eq(oauthStates.stateHash, stateHash), isNull(oauthStates.consumedAt), gt(oauthStates.expiresAt, new Date()))).limit(1);
-    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "OAuth state not found/expired"), 404);
+    if (!row) return redirectToWeb({ oauth: "error", message: "OAuth state not found/expired" });
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Google OAuth client not configured", false), 503);
+    if (!clientId || !clientSecret) return redirectToWeb({ oauth: "error", message: "Google OAuth client not configured" });
     const verifier = decryptVaultValue(row.pkceVerifierEncrypted);
-    const token = await exchangeGoogleCode({ code, clientId, clientSecret, redirectUri: row.redirectUri, codeVerifier: verifier });
-    await db.update(oauthStates).set({ consumedAt: new Date() }).where(eq(oauthStates.id, row.id));
-    const accountId = uid("conn");
-    await saveGoogleToken(vault, row.userId, accountId, token, { connectorId: row.connectorId, scopes: row.scopes });
-    const secretRef = await vault.getSecretRef({ ownerUserId: row.userId, provider: "google", name: `google-oauth:${accountId}` });
-    await db.insert(connectorAccounts).values({ id: accountId, userId: row.userId, connectorId: row.connectorId, status: "active", secretRefId: secretRef?.id ?? null, scopes: row.scopes, metadata: { tokenType: (token as any).token_type ?? null, hasRefreshToken: !!(token as any).refresh_token }, createdAt: new Date(), updatedAt: new Date() });
-    await db.insert(auditLog).values({ id: uid("aud"), userId: row.userId, ts: new Date(), actorType: "user", actorId: row.userId, action: "connector.oauth.callback", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "oauth_callback", metadata: { connectorId: row.connectorId, scopes: row.scopes } });
-    return c.json({ ok: true, accountId, connectorId: row.connectorId, status: "active" });
+    try {
+      const token = await exchangeGoogleCode({ code, clientId, clientSecret, redirectUri: row.redirectUri, codeVerifier: verifier });
+      await db.update(oauthStates).set({ consumedAt: new Date() }).where(eq(oauthStates.id, row.id));
+      const accountId = uid("conn");
+      await saveGoogleToken(vault, row.userId, accountId, token, { connectorId: row.connectorId, scopes: row.scopes });
+      const secretRef = await vault.getSecretRef({ ownerUserId: row.userId, provider: "google", name: `google-oauth:${accountId}` });
+      await db.insert(connectorAccounts).values({ id: accountId, userId: row.userId, connectorId: row.connectorId, status: "active", secretRefId: secretRef?.id ?? null, scopes: row.scopes, metadata: { tokenType: (token as any).token_type ?? null, hasRefreshToken: !!(token as any).refresh_token }, createdAt: new Date(), updatedAt: new Date() });
+      await db.insert(auditLog).values({ id: uid("aud"), userId: row.userId, ts: new Date(), actorType: "user", actorId: row.userId, action: "connector.oauth.callback", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "oauth_callback", metadata: { connectorId: row.connectorId, scopes: row.scopes } });
+      return redirectToWeb({ oauth: "success", accountId, connectorId: row.connectorId });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "OAuth callback failed";
+      return redirectToWeb({ oauth: "error", message });
+    }
   });
 
   app.post("/accounts/:id/revoke", async (c) => {
