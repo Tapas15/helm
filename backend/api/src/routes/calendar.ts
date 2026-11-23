@@ -82,7 +82,9 @@ export function calendarRoutes(db: Database) {
     if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
 
     const temporalCfg = readTemporalConfig(process.env);
-    if (shouldUseTemporalForAction(temporalCfg, "calendar.create_event")) {
+    const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+    const temporalInternal = temporalSecret ? c.req.header("x-helm-temporal-activity-secret") === temporalSecret : c.req.header("x-helm-temporal-activity") === "1";
+    if (!temporalInternal && shouldUseTemporalForAction(temporalCfg, "calendar.create_event")) {
       try {
         const started = await maybeStartExternalActionWorkflow({
           taskId: approval.taskId ?? input.accountId, userId, actionKind: "calendar.create_event", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,

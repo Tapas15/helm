@@ -92,7 +92,9 @@ export function gmailRoutes(db: Database) {
     if (!account || account.connectorId !== "google-gmail" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Gmail account not active"), 409);
 
     const temporalCfg = readTemporalConfig(process.env);
-    if (shouldUseTemporalForAction(temporalCfg, "gmail.send")) {
+    const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+    const temporalInternal = temporalSecret ? c.req.header("x-helm-temporal-activity-secret") === temporalSecret : c.req.header("x-helm-temporal-activity") === "1";
+    if (!temporalInternal && shouldUseTemporalForAction(temporalCfg, "gmail.send")) {
       try {
         const started = await maybeStartExternalActionWorkflow({
           taskId: approval.taskId ?? input.accountId, userId, actionKind: "gmail.send", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,

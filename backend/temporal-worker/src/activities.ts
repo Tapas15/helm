@@ -11,7 +11,9 @@ type ExecuteResult = { receiptId: string; status: string; externalRef?: string |
 async function postApi(path: string, body: unknown, userId: string): Promise<{ ok: boolean; status: number; json: any }> {
   const apiUrl = process.env.API_URL ?? "http://127.0.0.1:8787";
   const internalToken = process.env.HELM_INTERNAL_TOKEN;
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+  const headers: Record<string, string> = { "content-type": "application/json", "x-helm-temporal-activity": "1" };
+  if (temporalSecret) headers["x-helm-temporal-activity-secret"] = temporalSecret;
   if (internalToken) headers.authorization = `Bearer ${internalToken}`;
   else headers["x-user-id"] = userId; // dev fallback; requires HELM_ALLOW_DEV_AUTH=1
   const res = await fetch(`${apiUrl}${path}`, { method: "POST", headers, body: JSON.stringify(body ?? {}) });
