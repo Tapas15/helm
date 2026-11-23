@@ -15,6 +15,7 @@ import { artifactRoutes, receiptRoutes } from "./routes/evidence.js";
 import { authRoutes } from "./routes/auth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
+import { resolveAuth } from "./lib/auth.js";
 import type { AppEnv } from "./types.js";
 
 const port = Number(process.env.PORT ?? 8787);
@@ -57,13 +58,11 @@ async function main() {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? `127.0.0.1:${port}`}`);
       const m = url.pathname.match(/^\/v1\/browser\/sessions\/([^/]+)\/stream$/);
       if (!m) { socket.destroy(); return; }
-      const requireAuth = process.env.HELM_REQUIRE_AUTH === "1";
-      const headerUser = req.headers["x-user-id"];
-      const queryUser = url.searchParams.get("userId");
-      const userId = ((Array.isArray(headerUser) ? headerUser[0] : headerUser) ?? (requireAuth ? undefined : queryUser) ?? (requireAuth ? undefined : "usr_local_dev"))?.trim();
-      if (!userId) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
-      const sessionId = decodeURIComponent(m[1] ?? "");
       void (async () => {
+        const resolved = await resolveAuth(db, { authorization: req.headers.authorization, xUserId: Array.isArray(req.headers["x-user-id"]) ? req.headers["x-user-id"][0] : req.headers["x-user-id"] });
+        if (!resolved.ok) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+        const userId = resolved.userId;
+        const sessionId = decodeURIComponent(m[1] ?? "");
         const sessionRes = await fetch(`${browserUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, { headers: { authorization: `Bearer ${browserToken}` } });
         if (!sessionRes.ok) { socket.write("HTTP/1.1 404 Not Found\r\n\r\n"); socket.destroy(); return; }
         const sessionJson = await sessionRes.json().catch(() => null);
@@ -71,6 +70,8 @@ async function main() {
         if (taskId) {
           const [task] = await db.select({ id: (await import("@helm/db")).tasks.id }).from((await import("@helm/db")).tasks).where((await import("drizzle-orm")).and((await import("drizzle-orm")).eq((await import("@helm/db")).tasks.id, taskId), (await import("drizzle-orm")).eq((await import("@helm/db")).tasks.userId, userId))).limit(1);
           if (!task) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+        } else {
+          socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return;
         }
         const upstreamUrl = browserUrl.replace(/^http/, "ws") + `/v1/sessions/${encodeURIComponent(sessionId)}/stream`;
         wss.handleUpgrade(req, socket, head, (client) => {
