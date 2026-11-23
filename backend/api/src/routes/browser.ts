@@ -21,16 +21,27 @@ async function emitTaskEvent(db: Database, args: { userId: string; taskId: strin
   const seq = await nextSequence(db, args.taskId);
   await db.insert(taskEvents).values({ id: uid("evt"), userId: args.userId, taskId: args.taskId, runId: args.runId ?? null, sequence: seq, schemaVersion: 1, ts: new Date(), source: args.source, type: args.type, correlationId: args.correlationId ?? null, causationId: args.causationId ?? null, payload: args.payload });
 }
+async function getBrowserSession(sessionId: string) {
+  const res = await fetch(`${browserUrl}/v1/sessions/${sessionId}`, { headers: { authorization: `Bearer ${browserToken}` } });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null))?.session ?? null;
+}
 async function resolveTaskForSession(db: Database, userId: string, sessionId: string) {
-  const sessionRes = await fetch(`${browserUrl}/v1/sessions/${sessionId}`, { headers: { authorization: `Bearer ${browserToken}` } });
-  const sessionJson = await sessionRes.json().catch(() => null);
-  const sessionTaskId = sessionJson?.session?.taskId;
+  const session = await getBrowserSession(sessionId);
+  const sessionTaskId = session?.taskId;
   if (sessionTaskId) {
     const [task] = await db.select().from(tasks).where(and(eq(tasks.id, sessionTaskId), eq(tasks.userId, userId))).limit(1);
-    if (task) return task;
+    if (task) return { task, session };
   }
   const candidates = await db.select().from(tasks).where(and(eq(tasks.userId, userId))).orderBy(tasks.updatedAt);
-  return candidates.reverse().find((t: any) => String((t.state as any)?.activeBrowserSessionId ?? "") === sessionId) ?? null;
+  const task = candidates.reverse().find((t: any) => String((t.state as any)?.activeBrowserSessionId ?? "") === sessionId) ?? null;
+  return task ? { task, session } : { task: null, session };
+}
+async function requireOwnedSession(db: Database, userId: string, sessionId: string) {
+  const { task, session } = await resolveTaskForSession(db, userId, sessionId);
+  if (!session) return { ok: false as const, status: 404, body: err(HELM_ERROR_CODES.NOT_FOUND, "Browser session not found") };
+  if (!task) return { ok: false as const, status: 403, body: err(HELM_ERROR_CODES.FORBIDDEN, "Browser session not owned by user") };
+  return { ok: true as const, task, session };
 }
 async function requireApprovedAction(db: Database, userId: string, guard: { approvalId: string; actionHash: string; idempotencyKey: string }) {
   const [approval] = await db.select().from(approvals).where(and(eq(approvals.id, guard.approvalId), eq(approvals.userId, userId))).limit(1);
@@ -50,8 +61,19 @@ export function browserRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   app.get("/sessions", async (c) => { const r = await proxy("/v1/sessions"); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
   app.post("/sessions", async (c) => { const body = await c.req.json().catch(() => null); const parsed = CreateBrowserSessionInput.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid session input", false, parsed.error.flatten()), 400); const r = await proxy("/v1/sessions", { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
-  app.get("/sessions/:id", async (c) => { const r = await proxy(`/v1/sessions/${c.req.param("id")}`); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
-  app.get("/sessions/:id/screenshot.png", async (c) => { const res = await fetch(`${browserUrl}/v1/sessions/${c.req.param("id")}/screenshot.png`, { headers: { authorization: `Bearer ${browserToken}` } }); const bytes = await res.arrayBuffer(); return c.newResponse(bytes, res.status as any, { "content-type": res.headers.get("content-type") ?? "image/png", "cache-control": "no-store" }); });
+  app.get("/sessions/:id", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}`);
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
+  app.get("/sessions/:id/screenshot.png", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const res = await fetch(`${browserUrl}/v1/sessions/${c.req.param("id")}/screenshot.png`, { headers: { authorization: `Bearer ${browserToken}` } });
+    const bytes = await res.arrayBuffer();
+    return c.newResponse(bytes, res.status as any, { "content-type": res.headers.get("content-type") ?? "image/png", "cache-control": "no-store" });
+  });
 
   async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); }
   async function guardedAct(c: any, schema: any, action: string, path: string) {
@@ -97,8 +119,23 @@ export function browserRoutes(db: Database) {
   });
   app.post("/sessions/:id/click", (c) => guardedAct(c, BrowserClickInput, "click", `/v1/sessions/${c.req.param("id")}/click`));
   app.post("/sessions/:id/fill", (c) => guardedAct(c, BrowserFillInput, "fill", `/v1/sessions/${c.req.param("id")}/fill`));
-  app.post("/sessions/:id/screenshot", (c) => act(c, BrowserScreenshotInput, `/v1/sessions/${c.req.param("id")}/screenshot`));
-  app.post("/sessions/:id/snapshot", async (c) => { const r = await proxy(`/v1/sessions/${c.req.param("id")}/snapshot`, { method: "POST", body: "{}" }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
+  app.post("/sessions/:id/screenshot", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = BrowserScreenshotInput.safeParse(body);
+    if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid screenshot input", false, parsed.error.flatten()), 400);
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/screenshot`, { method: "POST", body: JSON.stringify(parsed.data) });
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.screenshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
+  app.post("/sessions/:id/snapshot", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/snapshot`, { method: "POST", body: "{}" });
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.snapshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
 
   app.post("/sessions/:id/takeover/request", async (c) => {
     const body = await c.req.json().catch(() => ({}));
@@ -108,7 +145,7 @@ export function browserRoutes(db: Database) {
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
-      const task = await resolveTaskForSession(db, c.get("userId"), sessionId);
+      const { task } = await resolveTaskForSession(db, c.get("userId"), sessionId);
       if (task) {
         await db.update(tasks).set({ status: "waiting_input", updatedAt: new Date(), state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: true, reason: parsed.data.reason, requestedAt: new Date().toISOString() } } }).where(eq(tasks.id, task.id));
         await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.requested", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, reason: parsed.data.reason, control: json.data?.control ?? null } });
@@ -126,7 +163,7 @@ export function browserRoutes(db: Database) {
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
-      const task = await resolveTaskForSession(db, c.get("userId"), sessionId);
+      const { task } = await resolveTaskForSession(db, c.get("userId"), sessionId);
       if (task) {
         await db.update(tasks).set({ status: "queued", updatedAt: new Date(), leaseOwner: null, leaseUntil: null, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { ...(((task.state as any)?.takeover) ?? {}), active: false, resumedAt: new Date().toISOString(), note: parsed.data.note ?? null } } }).where(eq(tasks.id, task.id));
         await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.resumed", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, note: parsed.data.note ?? null, control: json.data?.control ?? null } });
@@ -170,6 +207,12 @@ export function browserRoutes(db: Database) {
     return c.json({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id } });
   });
 
-  app.post("/sessions/:id/close", async (c) => { const r = await proxy(`/v1/sessions/${c.req.param("id")}/close`, { method: "POST", body: "{}" }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
+  app.post("/sessions/:id/close", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/close`, { method: "POST", body: "{}" });
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.close", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "closed" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
   return app;
 }
