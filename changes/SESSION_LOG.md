@@ -1,12 +1,12 @@
-﻿## 2026-11-23T01:20:00Z — Session: Restart/recovery smoke proof
+## 2026-11-23T01:20:00Z � Session: Restart/recovery smoke proof
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "Ok go next"
 
 ### Commands run + results
 - Captured pre-restart state for `task_769be87cba8448959c4ff9f365d78906`: `succeeded`, artifacts=3, receipts=1, events=19.
-- Stopped API/worker/browser-worker/web dev processes; restarted all four — **PASS** (5174/8787/8790 health 200).
-- Post-restart query for same task — **PASS**, identical persisted state: `succeeded`, artifacts=3, receipts=1, events=19.
+- Stopped API/worker/browser-worker/web dev processes; restarted all four � **PASS** (5174/8787/8790 health 200).
+- Post-restart query for same task � **PASS**, identical persisted state: `succeeded`, artifacts=3, receipts=1, events=19.
 
 ### Completed
 - [x] Restart/recovery smoke proof for persisted DB-backed task/event/receipt/artifact state.
@@ -16,7 +16,7 @@
 - [ ] Live/interactive preview (WS/CDP) instead of polling.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T01:00:00Z — Session: Evidence/receipts surfaced in web UI
+## 2026-11-23T01:00:00Z � Session: Evidence/receipts surfaced in web UI
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok next step"
@@ -26,15 +26,15 @@
 - `changes/CURRENT_STATE.md`: updated to ~47%, evidence UI marked visible.
 
 ### Commands run + results
-- `pnpm --filter @helm/web typecheck` — **PASS**.
-- Restarted web dev — **PASS** (5174 200).
+- `pnpm --filter @helm/web typecheck` � **PASS**.
+- Restarted web dev � **PASS** (5174 200).
 
 ### Remaining
 - [ ] Live/interactive browser preview (WS/CDP) instead of polling.
 - [ ] Recovery/restart hardening and smoke proof.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T00:45:00Z — Session: Guarded runtime external actions + evidence APIs
+## 2026-11-23T00:45:00Z � Session: Guarded runtime external actions + evidence APIs
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok next step"
@@ -48,9 +48,9 @@
 - `changes/CURRENT_STATE.md`: updated to ~45%.
 
 ### Commands run + results
-- `pnpm --filter @helm/api build` — **PASS** (after repairing index.ts corruption).
-- `pnpm --filter @helm/worker build` — **PASS**.
-- Restarted API/worker — **PASS**.
+- `pnpm --filter @helm/api build` � **PASS** (after repairing index.ts corruption).
+- `pnpm --filter @helm/worker build` � **PASS**.
+- Restarted API/worker � **PASS**.
 - Smoke: risky browser task -> `waiting_approval`; approve -> `succeeded`; `/v1/receipts?taskId=...` shows executed receipt with result; `browser.external_action.executed` task event recorded; artifacts present.
 
 ### Remaining
@@ -58,7 +58,7 @@
 - [ ] Live/interactive preview (WS/CDP) instead of polling.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T00:10:00Z — Session: Takeover pause/resume wired through worker/runtime
+## 2026-11-23T00:10:00Z � Session: Takeover pause/resume wired through worker/runtime
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok complete next step"
@@ -72,10 +72,10 @@
 - `changes/CURRENT_STATE.md`: updated to ~42%, Phase 3 55%.
 
 ### Commands run + results
-- `pnpm --filter @helm/shared build` — **PASS**.
-- `pnpm --filter @helm/worker build` — **PASS**.
-- `pnpm --filter @helm/api build` — **PASS**.
-- Restarted worker/API — **PASS**.
+- `pnpm --filter @helm/shared build` � **PASS**.
+- `pnpm --filter @helm/worker build` � **PASS**.
+- `pnpm --filter @helm/api build` � **PASS**.
+- Restarted worker/API � **PASS**.
 - Smoke: browser task succeeded; takeover request -> task `waiting_input`; resume -> task requeued and final `succeeded`. Event timeline shows `browser.takeover.requested`, `browser.takeover.resumed`, second run completed.
 
 ### Remaining
@@ -83,7 +83,7 @@
 - [ ] Surface artifacts/receipts in UI; live WS/CDP preview.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-22T23:45:00Z — Session: Takeover state/event persistence baseline
+## 2026-11-22T23:45:00Z � Session: Takeover state/event persistence baseline
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "next step"
@@ -93,8 +93,8 @@
 - `changes/CURRENT_STATE.md`: updated to ~40%, Phase 3 50%, takeover persistence noted.
 
 ### Commands run + results
-- `pnpm --filter @helm/api build` — **PASS**.
-- Restarted API — **PASS** (8787 health 200).
+- `pnpm --filter @helm/api build` � **PASS**.
+- Restarted API � **PASS** (8787 health 200).
 - Smoke: manual session for existing task + takeover request -> API 200; task moved to `waiting_input` with `state.takeover.active=true`; `browser.takeover.requested` task event recorded.
 
 ### Remaining
@@ -102,7 +102,7 @@
 - [ ] Route real runtime/browser-task external actions through guarded external-action path.
 - [ ] Add regression tests/fix-log entries.
 
-## 2026-11-22T23:15:00Z — Session: External browser action approval+idempotency gate
+## 2026-11-22T23:15:00Z � Session: External browser action approval+idempotency gate
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "next move"
@@ -116,9 +116,9 @@
 - `changes/phase-3-browser-execution.md`, `changes/phase-4-approvals-vault-connectors.md`, `changes/CURRENT_STATE.md`: updated status/evidence.
 
 ### Commands run + results
-- `pnpm --filter @helm/shared build` — **PASS**.
-- `pnpm --filter @helm/browser-worker --filter @helm/api build` — **PASS** (after `POLICY_DENIED` -> `FORBIDDEN` fix).
-- Restarted browser-worker/API — **PASS** (8790/8787 health 200).
+- `pnpm --filter @helm/shared build` � **PASS**.
+- `pnpm --filter @helm/browser-worker --filter @helm/api build` � **PASS** (after `POLICY_DENIED` -> `FORBIDDEN` fix).
+- Restarted browser-worker/API � **PASS** (8790/8787 health 200).
 - Smoke: risky browser task -> `waiting_approval`; external action before approval -> **403 FORBIDDEN**; approve -> task `succeeded`; external action with approved `actionHash`+`approvalId`+idempotency key -> **200 executed** with receipt+artifact; replay same key -> **200 deduped** same receipt. DB `action_receipts` shows executed receipt.
 
 ### Completed
@@ -129,7 +129,7 @@
 - [ ] Persist/emit takeover state as task/session events; agent pause/resume around takeover.
 - [ ] Add regression tests/fix-log entries for gate behavior.
 
-## 2026-11-22T22:40:00Z — Session: Live preview baseline, takeover controls, evidence/receipt groundwork
+## 2026-11-22T22:40:00Z � Session: Live preview baseline, takeover controls, evidence/receipt groundwork
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok move next" / "ok update in changes too"
@@ -147,11 +147,11 @@
 - DB applied manually: `action_receipts`, `browser_artifacts` created in Docker `infra-postgres-1`.
 
 ### Commands run + results
-- `pnpm --filter @helm/browser-worker --filter @helm/api build` — **PASS** (after dist-path toggle workaround).
-- `pnpm --filter @helm/shared --filter @helm/db build` — **PASS**.
-- `pnpm --filter @helm/browser-worker --filter @helm/api --filter @helm/worker build` — **PASS**.
-- `pnpm --filter @helm/web typecheck` — **PASS**.
-- Restarted browser-worker/API/worker/web dev processes — **PASS** (`8790/8787/5174` healthy).
+- `pnpm --filter @helm/browser-worker --filter @helm/api build` � **PASS** (after dist-path toggle workaround).
+- `pnpm --filter @helm/shared --filter @helm/db build` � **PASS**.
+- `pnpm --filter @helm/browser-worker --filter @helm/api --filter @helm/worker build` � **PASS**.
+- `pnpm --filter @helm/web typecheck` � **PASS**.
+- Restarted browser-worker/API/worker/web dev processes � **PASS** (`8790/8787/5174` healthy).
 - Browser task smoke: `Visit example.com and capture evidence` -> `succeeded`; session stayed `ready` for preview.
 - DB evidence: `browser_artifacts` contains screenshot + dom_snapshot rows with sha256/size.
 
@@ -168,11 +168,11 @@
 - [ ] Evidence/artifact UI surfacing and download links pending.
 - [ ] Add regression tests, FIX_LOG/DECISIONS entries as needed, and remote CI evidence.
 
-# Session Log â€” Helm
+# Session Log — Helm
 
 > Append-only. Never rewrite old entries. Add newest entry at top.
 
-## 2026-11-22T18:35:00Z â€” Session: Phase 0 hardening (task control/bootstrap/lint/tests)
+## 2026-11-22T18:35:00Z — Session: Phase 0 hardening (task control/bootstrap/lint/tests)
 
 **Agent:** Kilo
 **Request:** Continue Phase 0 hardening in `helm/` with file ownership constraints.
@@ -189,12 +189,12 @@
 - Tracker updates: `changes/CURRENT_STATE.md`, `changes/RUNBOOK.md`, `changes/SESSION_LOG.md`, `changes/FIX_LOG.md`, `changes/DECISIONS.md`, `changes/phase-0-foundation.md`.
 
 ### Commands run + results
-- `pnpm --filter @helm/shared test` â€” **PASS** (4 files, 15 tests).
-- `pnpm --filter @helm/shared build` â€” **PASS** (needed for workspace type resolution after dist export change).
-- `pnpm typecheck` â€” **PASS** after shared build (initial fail was stale dist missing new exports).
-- `pnpm lint` â€” **PASS** (7/7 packages; meaningful `tsc --noEmit`).
-- `pnpm test` â€” **PASS** (shared 15 tests, api smoke 1 test, others passWithNoTests).
-- `pnpm build` â€” **PASS**.
+- `pnpm --filter @helm/shared test` — **PASS** (4 files, 15 tests).
+- `pnpm --filter @helm/shared build` — **PASS** (needed for workspace type resolution after dist export change).
+- `pnpm typecheck` — **PASS** after shared build (initial fail was stale dist missing new exports).
+- `pnpm lint` — **PASS** (7/7 packages; meaningful `tsc --noEmit`).
+- `pnpm test` — **PASS** (shared 15 tests, api smoke 1 test, others passWithNoTests).
+- `pnpm build` — **PASS**.
 
 ### Completed
 - [x] Shared task transition helper with allowed from-states; API uses it.
@@ -208,7 +208,7 @@
 - [ ] CI remote run evidence (not executed here).
 - [ ] Existing dirty/unrelated worktree files were present; changes kept within assigned ownership.
 
-## 2026-11-22T17:10:00Z â€” Session: Scaffold + Tracker Hardening
+## 2026-11-22T17:10:00Z — Session: Scaffold + Tracker Hardening
 
 **Agent/context:** Glyph Cluster in Kilo; workspace `C:\Users\Tapas\Documents\projects\Dubai_competetion_projects`
 **User request:** "Check files and understand", then "create identical app from MASTER-TECHNICAL-BLUEPRINT.md, give project a name, implement from scratch", then "clarify frontend/backend not perfect", then "create changes folder for journey tracking, what completed/remaining", then "make tracker usable across sessions with zero context; what is next move?"
@@ -243,23 +243,23 @@
 ### Blockers / Decisions needed
 - None blocking Phase 0 verification. Docker Desktop must be running.
 - Hermes integration details deferred to Phase 2 (adapter contract exists in blueprint).
-## 2026-11-22T17:20:00Z â€” Session: Install/Setup + ECC review
+## 2026-11-22T17:20:00Z — Session: Install/Setup + ECC review
 
 **Agent:** Glyph Cluster (Kilo)
 **Request:** "do it install and set it up" (after tracker creation). Also asked about `everything-claude-code` - install it, how it helps Helm, follow it.
 
 ### Commands run + results
-- `pnpm install --lockfile-only` in `helm/` â€” **PASS** (lock resolved, 19s).
-- `pnpm install --reporter=append-only` â€” **PASS** (157 packages added, devDeps prettier/turbo/typescript; 15.6s).
-- `docker compose -f infra/docker-compose.yml up -d` â€” **FAIL** (image pulls denied/unauthorized: `minio/minio:latest`, `quay.io/minio/minio:latest`, postgres/redis interrupted; Docker 29.9.3 running but registry access restricted in environment).
-- Checked local Postgres: `postgresql-x64-17` service installed but stopped; `pg_ctl start` failed. Log shows **PANIC: replication checkpoint has wrong magic... database system was interrupted; not properly shut down** in `C:\Program Files\PostgreSQL\17\data` â€” existing local PG17 data dir corrupted/unhealthy. Did **not** modify user PGDATA.
+- `pnpm install --lockfile-only` in `helm/` — **PASS** (lock resolved, 19s).
+- `pnpm install --reporter=append-only` — **PASS** (157 packages added, devDeps prettier/turbo/typescript; 15.6s).
+- `docker compose -f infra/docker-compose.yml up -d` — **FAIL** (image pulls denied/unauthorized: `minio/minio:latest`, `quay.io/minio/minio:latest`, postgres/redis interrupted; Docker 29.9.3 running but registry access restricted in environment).
+- Checked local Postgres: `postgresql-x64-17` service installed but stopped; `pg_ctl start` failed. Log shows **PANIC: replication checkpoint has wrong magic... database system was interrupted; not properly shut down** in `C:\Program Files\PostgreSQL\17\data` — existing local PG17 data dir corrupted/unhealthy. Did **not** modify user PGDATA.
 - `node -v` v22.19.0, `pnpm -v` 11.19.0, Docker 29.9.3 confirmed.
 
 ### Files created/changed
-- `helm/AGENTS.md` â€” Helm agent rules (invariants, ECC-adapted workflow/coding/security/testing/git, session-start).
-- `helm/.kilo/rules/helm.md` â€” workspace rule.
-- `helm/changes/ECC-ADOPTION.md` â€” how ECC helps Helm, what to adopt/avoid, no global install required.
-- `helm/infra/docker-compose.yml` â€” simplified to postgres+redis, minio image fix attempted then removed; still blocked by image pull.
+- `helm/AGENTS.md` — Helm agent rules (invariants, ECC-adapted workflow/coding/security/testing/git, session-start).
+- `helm/.kilo/rules/helm.md` — workspace rule.
+- `helm/changes/ECC-ADOPTION.md` — how ECC helps Helm, what to adopt/avoid, no global install required.
+- `helm/infra/docker-compose.yml` — simplified to postgres+redis, minio image fix attempted then removed; still blocked by image pull.
 - Tracker updates: this log, CURRENT_STATE pending.
 
 ### Completed
@@ -273,12 +273,12 @@
 ### Next move
 1. Resolve infra: either (A) authenticate/fix Docker registry access and pull `postgres:16-alpine redis:7-alpine` (minio optional for Phase 0), or (B) use a clean local Postgres instance/port/data dir for Helm only, or (C) add SQLite/PGlite dev fallback for Phase 0 smoke (tradeoff vs blueprint Postgres-first).
 2. Once DB up: `pnpm db:push`, `pnpm typecheck`, `pnpm build`, `pnpm test`, smoke test API/worker/web.
-3. Record evidence in phase-0/CURRENT_STATE.## 2026-11-22T17:40:00Z â€” Typecheck fixed
+3. Record evidence in phase-0/CURRENT_STATE.## 2026-11-22T17:40:00Z — Typecheck fixed
 
 **Commands/results**
 - `pnpm typecheck` initially failed: `@helm/shared` missing `@types/node`; `@helm/api` missing `drizzle-orm` dep; worker had null leaseOwner compare type issue.
 - Fixes: added `types:["node"]`/`@types/node` to shared, added `drizzle-orm` to `backend/api` dependencies, fixed worker claim guard to `or(isNull(tasks.leaseOwner), eq(tasks.leaseOwner, workerId))` for queued unleased/owned-by-same-worker case.
-- `pnpm install --force` and `pnpm typecheck` â€” **PASS** (6/6 packages).
+- `pnpm install --force` and `pnpm typecheck` — **PASS** (6/6 packages).
 
 **Blockers unchanged**
 - Docker compose infra cannot start: registry/image pulls denied in this environment.
@@ -286,7 +286,7 @@
 
 **Next**
 - Pick infra path (Docker auth/registry fix, isolated clean Helm Postgres instance/data dir, or explicit dev fallback). Then db:push, build, smoke test.
-## 2026-11-22T17:50:00Z â€” Phase 0 verification (option 1)
+## 2026-11-22T17:50:00Z — Phase 0 verification (option 1)
 
 
 
@@ -871,3 +871,4 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api PASS (3/3).
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
+
