@@ -1132,3 +1132,15 @@ untime.completed)
 
 ### Remaining
 - [ ] Execute backup/restore drill; CI security scan; PII retention/export/delete implementation; threat model.
+
+## Session: 2026-11-23 - P6 adapter status slice
+**Time:** 2026-11-23T21:21:00Z  
+**Agent:** Kilo  
+**Phase:** P6
+
+### Completed
+- [x] Added `/v1/browser/adapter/status` and `HELM_BROWSER_ADAPTER_DISPATCH` flag visibility; default behavior unchanged.
+- [x] API typecheck PASS. Commit `e5391c1`.
+
+### Remaining
+- [ ] Route action dispatch through adapter interface; BrowserOS real endpoint/parity tests.
