@@ -4,7 +4,7 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-~79%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-~80%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Prototype_Baseline-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Focus](https://img.shields.io/badge/Current_Focus-Local_Ollama_E2E-238636?style=for-the-badge)](#-present--what-were-building-now)
 [![Blueprint](https://img.shields.io/badge/Blueprint-Phases_0--8-6e7781?style=for-the-badge)](Planning/MASTER-TECHNICAL-BLUEPRINT.md)
@@ -61,10 +61,10 @@ timeline
 
 ### Overall
 
-**`~79%`** complete (Phases 0–8, equal weight)
+**`~80%`** complete (Phases 0–8, equal weight)
 
 ```text
-[████████████████████] 79%
+[████████████████████] 80%
 ```
 
 **Prototype baseline usable.** Major reliability, security, connector, and release gaps remain.
@@ -90,7 +90,7 @@ timeline
 | **P0 Foundation / Repo** | 91% | Past / stabilizing | `██████████████████░░` |
 | **P1 UI / Task Core** | 87% | Past / polishing | `█████████████████░░░` |
 | **P2 Agent Runtime** | 53% | **Present** | `███████████░░░░░░░░░` |
-| **P3 Browser Execution** | 88% | **Present** | `██████████████████░░` |
+| **P3 Browser Execution** | 89% | **Present** | `██████████████████░░` |
 | **P4 Approvals / Vault / Connectors** | 57% | **Present** | `███████████░░░░░░░░░` |
 | **P5 Temporal / Reliability** | 5% | Future | `█░░░░░░░░░░░░░░░░░░░` |
 | **P6 BrowserOS Deterministic Upgrade** | 0% | Future | `░░░░░░░░░░░░░░░░░░░░` |
@@ -199,7 +199,7 @@ flowchart LR
 <td width="33%" valign="top">
 
 ### 🌐 P3 — Browser Execution
-**88% · Active**
+**89% · Active**
 
 **Delivered**
 - Playwright browser worker
@@ -339,6 +339,7 @@ flowchart TB
 **Helm is being built to be useful, inspectable, and safe — not just impressive.**
 
 </div>
+
 
 
 
