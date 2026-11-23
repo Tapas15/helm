@@ -186,9 +186,12 @@ export function browserRoutes(db: Database) {
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
       const task = owned.task;
-      await db.update(tasks).set({ status: "waiting_input", updatedAt: new Date(), state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: true, reason: parsed.data.reason, requestedAt: new Date().toISOString() } } }).where(eq(tasks.id, task.id));
-      await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.requested", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, reason: parsed.data.reason, control: json.data?.control ?? null } });
-      await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.requested", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.reason, metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
+      const current = ((task.state as any)?.takeover ?? {});
+      if (current.active !== true) {
+        await db.update(tasks).set({ status: "waiting_input", updatedAt: new Date(), state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: true, reason: parsed.data.reason, requestedAt: new Date().toISOString() } } }).where(eq(tasks.id, task.id));
+        await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.requested", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, reason: parsed.data.reason, control: json.data?.control ?? null } });
+        await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.requested", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.reason, metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
+      }
     }
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
@@ -204,9 +207,12 @@ export function browserRoutes(db: Database) {
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
       const task = owned.task;
-      await db.update(tasks).set({ status: "queued", updatedAt: new Date(), leaseOwner: null, leaseUntil: null, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { ...(((task.state as any)?.takeover) ?? {}), active: false, resumedAt: new Date().toISOString(), note: parsed.data.note ?? null } } }).where(eq(tasks.id, task.id));
-      await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.resumed", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, note: parsed.data.note ?? null, control: json.data?.control ?? null } });
-      await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.resumed", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.note ?? "resumed", metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
+      const current = ((task.state as any)?.takeover ?? {});
+      if (current.active !== false || task.status !== "queued") {
+        await db.update(tasks).set({ status: "queued", updatedAt: new Date(), leaseOwner: null, leaseUntil: null, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { ...current, active: false, resumedAt: new Date().toISOString(), note: parsed.data.note ?? null } } }).where(eq(tasks.id, task.id));
+        await emitTaskEvent(db, { userId: c.get("userId"), taskId: task.id, runId: (task as any).currentStepId ?? null, type: "browser.takeover.resumed", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, note: parsed.data.note ?? null, control: json.data?.control ?? null } });
+        await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.resumed", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.note ?? "resumed", metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
+      }
     }
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
