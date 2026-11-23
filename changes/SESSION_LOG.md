@@ -1074,3 +1074,22 @@ untime.completed)
 
 ### Evidence
 - Commits `463713c`, `139b80e` pushed.
+## Session: 2026-11-23 - P4 calendar delete guarded slice
+**Time:** 2026-11-23T21:05:00Z  
+**Agent:** Kilo  
+**Phase:** P4/P5
+
+### Completed
+- [x] Added `CalendarDeleteEventInput` contract in `packages/shared/src/connectors.ts`.
+- [x] Added approval-gated `POST /v1/connectors/calendar/events/delete` with actionHash/idempotency/receipt/uncertain handling and Temporal routing guard.
+- [x] Added `calendar.delete_event` Temporal activity.
+- [x] Verification: shared build PASS; API typecheck PASS; temporal-worker typecheck PASS.
+- [x] Commit/push: `b0f2b11`.
+
+### Remaining
+- [ ] Real Google OAuth E2E and provider behavior verification (external creds).
+- [ ] Calendar update route, richer connector diagnostics/sync UX.
+- [ ] P6/P7/P8 larger slices.
+
+### Evidence
+- `b0f2b11` pushed.
