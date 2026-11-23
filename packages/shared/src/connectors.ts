@@ -59,3 +59,18 @@ export const GmailSendInput = z.object({
   actionHash: z.string().min(1),
 });
 export type GmailSendInput = z.infer<typeof GmailSendInput>;
+
+export const CalendarCreateEventInput = z.object({
+  accountId: z.string().min(1),
+  calendarId: z.string().min(1).default("primary"),
+  summary: z.string().min(1).max(500),
+  description: z.string().max(5000).optional(),
+  startIso: z.string().datetime(),
+  endIso: z.string().datetime(),
+  timeZone: z.string().max(100).optional(),
+  attendees: z.array(z.string().email()).max(20).default([]),
+  idempotencyKey: z.string().min(1).max(200),
+  approvalId: z.string().min(1),
+  actionHash: z.string().min(1),
+});
+export type CalendarCreateEventInput = z.infer<typeof CalendarCreateEventInput>;
