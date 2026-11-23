@@ -9,6 +9,25 @@ import { getValidGoogleAccessToken } from "./connector-accounts.js";
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
+export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, userId: string, receipt: { idempotencyKey: string; evidence: unknown }) {
+  const evidence = (receipt.evidence ?? {}) as Record<string, unknown>;
+  const accountId = typeof evidence.accountId === "string" ? evidence.accountId : null;
+  const subject = typeof evidence.subject === "string" ? evidence.subject : null;
+  if (!accountId || !subject) return { ok: false as const, reason: "missing_reconcile_metadata" };
+  const token = await getValidGoogleAccessToken(vault, userId, accountId);
+  if (!token.token) return { ok: false as const, reason: token.reason ?? "missing_token" };
+  const q = `subject:${JSON.stringify(subject).slice(1, -1)} newer_than:7d`;
+  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  url.searchParams.set("q", q);
+  url.searchParams.set("maxResults", "5");
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token.token}` } });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) return { ok: false as const, reason: json?.error?.message ?? "gmail_lookup_failed" };
+  const found = Array.isArray(json?.messages) && json.messages.length > 0 ? json.messages[0] : null;
+  if (!found?.id) return { ok: false as const, reason: "not_found" };
+  return { ok: true as const, externalRef: String(found.id), threadId: found.threadId ? String(found.threadId) : null };
+}
+
 export function gmailRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const vault = new DbCredentialBroker(db);

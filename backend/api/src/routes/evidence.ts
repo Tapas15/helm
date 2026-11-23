@@ -6,6 +6,8 @@ import type { AppEnv } from "../types.js";
 import { createReadStream, existsSync } from "node:fs";
 import { Readable } from "node:stream";
 import path from "node:path";
+import { DbCredentialBroker } from "../lib/vault.js";
+import { lookupGmailSend } from "./gmail.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
@@ -53,13 +55,24 @@ export function receiptRoutes(db: Database) {
     const [row] = await db.select().from(actionReceipts).where(and(eq(actionReceipts.id, id), eq(actionReceipts.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Receipt not found"), 404);
     if (row.status !== "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, `Receipt is ${row.status}; only uncertain receipts can be reconciled`), 409);
+
+    let resolvedOutcome = outcome;
+    let resolvedExternalRef = externalRef ?? row.externalRef;
+    let autoLookup: Record<string, unknown> | null = null;
+    if (row.actionKind === "gmail.send") {
+      const vault = new DbCredentialBroker(db);
+      const lookup = await lookupGmailSend(db, vault, userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence });
+      autoLookup = lookup as Record<string, unknown>;
+      if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
+    }
+
     const [updated] = await db.update(actionReceipts).set({
-      status: outcome,
-      externalRef: externalRef ?? row.externalRef,
-      evidence: { ...(row.evidence as Record<string, unknown> ?? {}), reconciled: true, reconciledAt: new Date().toISOString(), reconcileNote: note, reconcileOutcome: outcome },
+      status: resolvedOutcome,
+      externalRef: resolvedExternalRef,
+      evidence: { ...(row.evidence as Record<string, unknown> ?? {}), reconciled: true, reconciledAt: new Date().toISOString(), reconcileNote: note, reconcileOutcome: resolvedOutcome, autoLookup },
     }).where(and(eq(actionReceipts.id, id), eq(actionReceipts.status, "uncertain"))).returning();
     if (!updated) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Receipt changed during reconciliation", true), 409);
-    return c.json({ ok: true, receipt: updated });
+    return c.json({ ok: true, receipt: updated, autoLookup });
   });
 
   return app;
