@@ -10,12 +10,16 @@ const err = (code: string, message: string, retryable = false, details?: unknown
 
 export async function getValidGoogleAccessToken(vault: DbCredentialBroker, userId: string, accountId: string): Promise<{ token: string | null; reason?: string }> {
   const raw = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${accountId}` });
-  if (!raw) return { token: null, reason: "missing_secret" };
+  if (!raw) {
+    if (process.env.HELM_TEST_CONNECTOR_HTTP === "1") return { token: "test-token" };
+    return { token: null, reason: "missing_secret" };
+  }
   let parsed: GoogleToken & Record<string, unknown>;
   try { parsed = JSON.parse(raw) as GoogleToken & Record<string, unknown>; } catch { return { token: null, reason: "invalid_secret" }; }
   const access = typeof parsed.access_token === "string" ? parsed.access_token : "";
   const refresh = typeof parsed.refresh_token === "string" ? parsed.refresh_token : "";
   if (access && !isGoogleTokenExpired(parsed)) return { token: access };
+  if (process.env.HELM_TEST_CONNECTOR_HTTP === "1") return { token: access || "test-token" };
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!refresh || !clientId || !clientSecret) return { token: access || null, reason: refresh ? "missing_client_config" : "missing_refresh_token" };

@@ -19,9 +19,9 @@ export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, u
   const token = await getValidGoogleAccessToken(vault, userId, accountId);
   if (!token.token) return { ok: false as const, reason: token.reason ?? "missing_token" };
 
-  // Stronger path: check for X-Helm-Idempotency header in recent sent messages matching subject.
+  const gmailBase = process.env.HELM_GMAIL_API_BASE ?? "https://gmail.googleapis.com";
   const q = `in:sent subject:${JSON.stringify(subject).slice(1, -1)} newer_than:7d`;
-  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  const url = new URL(`${gmailBase}/gmail/v1/users/me/messages`);
   url.searchParams.set("q", q);
   url.searchParams.set("maxResults", "10");
   const res = await fetch(url, { headers: { authorization: `Bearer ${token.token}` } });
@@ -30,7 +30,7 @@ export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, u
   const msgs = Array.isArray(json?.messages) ? json.messages as Array<{ id?: string; threadId?: string }> : [];
   for (const m of msgs) {
     if (!m?.id) continue;
-    const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(m.id)}?format=metadata&metadataHeaders=X-Helm-Idempotency&metadataHeaders=Subject&metadataHeaders=To`, { headers: { authorization: `Bearer ${token.token}` } });
+    const detailRes = await fetch(`${gmailBase}/gmail/v1/users/me/messages/${encodeURIComponent(m.id)}?format=metadata&metadataHeaders=X-Helm-Idempotency&metadataHeaders=Subject&metadataHeaders=To`, { headers: { authorization: `Bearer ${token.token}` } });
     const detail = await detailRes.json().catch(() => null);
     if (!detailRes.ok) continue;
     const headers = Array.isArray(detail?.payload?.headers) ? detail.payload.headers as Array<{ name?: string; value?: string }> : [];
@@ -126,9 +126,10 @@ export function gmailRoutes(db: Database) {
       `Content-Type: text/plain; charset=utf-8\r\n\r\n` +
       input.bodyText
     ).toString("base64url");
+    const gmailBase = process.env.HELM_GMAIL_API_BASE ?? "https://gmail.googleapis.com";
     let res: Response;
     try {
-      res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      res = await fetch(`${gmailBase}/gmail/v1/users/me/messages/send`, {
         method: "POST",
         headers: { authorization: `Bearer ${token.token}`, "content-type": "application/json" },
         body: JSON.stringify({ raw }),
