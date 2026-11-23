@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~80%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~81%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-Local_Ollama_Browser_E2E-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -22,11 +22,11 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~80%** | Prototype baseline; ownership hardening, strict-auth prep, audited recovery, regression tests |
+| **Overall** | **~81%** | Prototype baseline; ownership hardening, idempotent takeover, session recovery state |
 | Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
 | Phase 1 UI/Task Core | 87% | Chat/SSE/approvals/preview usable |
 | Phase 2 Agent Runtime | 53% | Streaming + basic tool-calling; hardening pending |
-| Phase 3 Browser Execution | 89% | Strict-auth prep, ownership+audit tests; recovery pending |
+| Phase 3 Browser Execution | 90% | Idempotent takeover, session state persistence, ownership+audit tests |
 | Phase 4 Approvals/Vault/Connectors | 57% | Resolve/task binding + strict-auth prep; vault/connectors pending |
 | Phase 5 Temporal Reliability | 5% | Primitives only |
 | Phase 6 BrowserOS Upgrade | 0% | Planned |
@@ -90,6 +90,7 @@ flowchart TB
 - Helm project license: see LICENSE.
 - Third-party dependency licenses: see THIRD_PARTY_NOTICES.md.
 - AGPL/copyleft code (e.g., BrowserOS) is not vendored into Helm. Optional external adapters require separate compliance review.
+
 
 
 
