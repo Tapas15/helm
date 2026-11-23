@@ -5,6 +5,9 @@ import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, Brow
 import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
 
+import { createBrowserAdapter } from "../lib/browser-adapter.js";
+
+const browserAdapter = createBrowserAdapter(process.env);
 const browserUrl = process.env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790";
 const browserToken = process.env.BROWSER_WORKER_TOKEN ?? "dev-browser-token";
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
