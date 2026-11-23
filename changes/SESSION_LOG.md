@@ -1059,3 +1059,18 @@ untime.completed)
 
 ### Evidence
 - Commits `46f58cc`, `6e60d10`, `2abe5b4`, `552867a` pushed.
+## Session: 2026-11-23 - Docs sync P5-P8 thin slices
+**Time:** 2026-11-23T20:59:00Z  
+**Agent:** Kilo  
+**Phase:** Cross-phase docs
+
+### Completed
+- [x] Synced README progress table/badges for P5-P7 thin slices and P8 checklist (`463713c`).
+- [x] Synced ROADMAP overall badge to ~90% (`139b80e`).
+
+### Active / Next
+- [ ] External blockers: Google OAuth creds for P4 real E2E; real provider Temporal no-duplicate proof.
+- [ ] P6 real BrowserOS wiring/parity; P7 identity/schema/memory implementation; P8 evidence.
+
+### Evidence
+- Commits `463713c`, `139b80e` pushed.
