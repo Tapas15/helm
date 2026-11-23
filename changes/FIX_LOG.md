@@ -102,3 +102,13 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Regression test:** Existing `backend/worker/src/runtime.test.ts` PASS; add dedicated guardrail/allowlist/timeout tests (TODO).
 - **Risk/rollback:** Low-medium. Guardrail may reject previously configured unallowlisted Ollama models; rollback by removing allowlist check or setting `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`.
 
+## FIX-20261123-runtime-browser-tool-gating
+- **Date:** 2026-11-23
+- **Area:** backend/worker runtime tool policy
+- **Symptom:** Normal assistant prompt (`"What is Helm in one short sentence?"`, task `task_f33a83f5f4b3430a9ffd1461c42ee45c`) triggered `browser_snapshot` with missing sessionId, causing NOT_FOUND tool result and confused assistant response asking for approval/action hash.
+- **Root cause (suspected):** Browser tools were always exposed with `tool_choice:auto`, and system prompt did not strongly prohibit browser-tool use for non-browser questions.
+- **Fix:** Gate browser tools to browser tasks, active browser session context, or explicit browser-intent prompts; omit tools for normal assistant questions; require sessionId in browser_navigate/snapshot/click handlers; tighten prompt guardrails.
+- **Verification:** `pnpm --filter @helm/worker typecheck` PASS. Post-fix smoke `task_25ceee8885e440e187981008a909bd00` succeeded with normal answer and no `runtime.tool.*` events.
+- **Regression test:** TODO - add runtime test asserting no browser tools exposed/called for plain assistant prompt without browser context.
+- **Risk/rollback:** Low; may reduce model ability to opportunistically browse. Rollback by restoring unconditional tool exposure.
+
