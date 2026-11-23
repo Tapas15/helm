@@ -21,7 +21,7 @@ Real visible browser work with Playwright worker, live preview, takeover/return 
 ## Remaining
 - [~] Live preview stream (WS/CDP screencast) added; interactive remote control baseline added for takeover mode (click/type/Enter over WS). Pending: richer controls (scroll/drag/keyboard modifiers), authz hardening, live smoke.
 - [ ] Evidence UI/downloads, richer artifact types (downloads, receipts).
-- [ ] Browser crash reported/recovered safely; in-memory browser session recovery/reconnect after browser-worker restart.
+- [x] Browser crash reported/recovered safely; stale-target/in-memory-loss recovery restores persisted session and retries action once. Integration restart-recovery coverage still pending.
 - [ ] Optional Obscura CDP backend evaluation behind `BrowserExecutor` (no AGPL copy; no bypass claims).
 
 ## Verification Evidence

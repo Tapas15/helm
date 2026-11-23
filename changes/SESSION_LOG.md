@@ -813,3 +813,35 @@ untime.completed)
 - API smoke: `task_6b922aee05304cfbb81c986ba5d960d4` status `succeeded`, output `HELM_SMOKE_OK`.
 - Web dev: Vite ready on `http://localhost:5173/` (bgp_207fcf66b001U5ri0qX1bWAHS5).
 
+## Session: 2026-11-23 - Browser-worker stale session recovery
+**Time:** 2026-11-23T11:05:00Z  
+**Agent:** Kilo  
+**Phase:** P3 browser execution hardening
+
+### Completed
+- [x] Audited `changes/` for missing fix traceability; added FIX_LOG entries for `c55dc2e`, `d2a83fa`, `0a3db45` (`fdc538f`).
+- [x] Added `tests/integration/src/task-lifecycle-api.test.ts`: cancelled follow-up returns 409 `INVALID_TRANSITION` with no revive/follow-up message; task-create persists `idempotencyKey` in initial message metadata and replay dedupes (`bf6675a`, `HELM_INTEGRATION_API=1` PASS 2/2).
+- [x] Marked task-lifecycle FIX_LOG entries verified with regression evidence (`550c83c`).
+- [x] Browser-worker stale session recovery (`4045ce3`): exported `isStaleTargetError`; `ensure()` discards closed/disconnected stale in-memory sessions and restores from persisted state; `withSession`/`sendInput` retry once after stale-target discard+restore; `streamStatus` allowed during takeover. Unit test `backend/browser-worker/src/playwrightExecutor.test.ts` PASS 1/1; browser-worker typecheck PASS.
+- [x] Manual restart smoke PASS: created `bs_88700b403efa4387ae811ca809fc6eca`, navigated, stopped browser-worker, restarted, `GET /v1/sessions/:id` restored `ready/agent`, navigate and screenshot succeeded.
+- [x] API smokes verified: assistant `task_6b922aee05304cfbb81c986ba5d960d4` -> `HELM_SMOKE_OK`; browser high-risk `task_31e477068d3741b7bd811617e4034fec` -> waiting_approval -> approved -> succeeded, `browser.external_action.executed`, receipt executed, artifacts captured.
+- [x] Reverified `browser-takeover-ownership-api` with `HELM_INTEGRATION_API=1` PASS 1/1.
+
+### Files Changed
+- `backend/browser-worker/src/playwrightExecutor.ts` - stale-target detection, discard/restore, retry-once recovery.
+- `backend/browser-worker/src/playwrightExecutor.test.ts` - stale error matcher regression test.
+- `tests/integration/src/task-lifecycle-api.test.ts` - task lifecycle regression coverage.
+- `changes/FIX_LOG.md`, `changes/CURRENT_STATE.md`, `changes/phase-3-browser-execution.md`, `changes/SESSION_LOG.md` - tracking/evidence.
+
+### Active / Next (not completed)
+- [ ] Full interactive UI E2E click-through at `http://localhost:5173` (chat stream, tool cards, approve/reject, receipts/evidence/preview) - blocked in this shell: no BrowserOS CLI/MCP.
+- [ ] Add integration test for browser-worker restart recovery through API path (kill/restart worker, assert restored session usable).
+- [ ] Real auth/session/OIDC prep replacing dev `x-user-id` for API + WS.
+- [ ] Legacy unbound browser session migration/rebind policy.
+- [ ] Blueprint gaps: P4 vault/credential broker/OAuth/connectors/reconciliation; P5 Temporal; P6 BrowserOS adapter; P7 memory/skills/proactivity/self-improvement implementation; P8 hardening/compliance/release evidence.
+
+### Evidence
+- Commits: `fdc538f`, `bf6675a`, `550c83c`, `4045ce3`.
+- Tests: `pnpm --filter @helm/integration-tests typecheck` PASS; `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- task-lifecycle-api` PASS (2/2); `HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- browser-takeover-ownership-api` PASS (1/1); `pnpm --filter @helm/browser-worker typecheck` PASS; `pnpm --filter @helm/browser-worker test` PASS (1/1).
+- Manual restart smoke: restored `bs_88700b403efa4387ae811ca809fc6eca` after browser-worker restart; navigate/screenshot PASS.
+

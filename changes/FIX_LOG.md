@@ -157,3 +157,18 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Audit/event IDs:** `0a3db45`.
 - **Status:** verified
 
+## FIX-20261123-browser-worker-stale-session-recovery
+- **Date:** 2026-11-23T11:04:00Z
+- **Reporter:** agent
+- **Severity:** high
+- **Component:** browser-worker/playwright
+- **Symptom:** Browser sessions could become unusable after browser-worker restart or stale Playwright target/browser closure; in-memory session loss made active session recovery unreliable.
+- **Root cause:** `ensure()` only returned in-memory session or attempted restore when absent; stale/closed targets were not detected/discarded before action, and action failures did not attempt deterministic restore+retry.
+- **Evidence:** Manual restart smoke: created `bs_88700b403efa4387ae811ca809fc6eca`, navigated to example.com, stopped browser-worker tsx process, restarted worker, `GET /v1/sessions/:id` restored session with `status=ready` and `control.owner=agent`, navigate+screenshot succeeded.
+- **Fix applied:** Added `isStaleTargetError()` export; detect stale closed/disconnected sessions in `ensure()`; discard stale sessions; on stale-target action/input failure, discard+restore and retry action once (mark `recovered:true` on successful retry); allow `streamStatus` during takeover for observability.
+- **Verification:** `pnpm --filter @helm/browser-worker typecheck` PASS; `pnpm --filter @helm/browser-worker test` PASS (1/1); manual restart smoke PASS (session restored, navigate PASS, screenshot PASS).
+- **Regression test:** `backend/browser-worker/src/playwrightExecutor.test.ts` (stale error matcher). TODO: add integration test that kills/restarts browser-worker and exercises restored session through API.
+- **Risk/rollback:** Medium; restore retries may mask persistent browser corruption. Rollback by removing stale detection/retry and keeping restore-on-missing only.
+- **Audit/event IDs:** `4045ce3`.
+- **Status:** verified
+
