@@ -42,15 +42,17 @@ export function connectorAccountRoutes(db: Database) {
     let hasRefreshToken = false;
     let expiresAt: string | null = null;
     let scope: string | null = null;
+    let tokenExpired = false;
     if (raw) {
       try {
         const token = JSON.parse(raw) as GoogleToken;
         hasRefreshToken = !!token.refresh_token;
         scope = typeof token.scope === "string" ? token.scope : null;
         if (token.obtained_at && token.expires_in) expiresAt = new Date(token.obtained_at + token.expires_in * 1000).toISOString();
+        tokenExpired = isGoogleTokenExpired(token);
       } catch {}
     }
-    return c.json({ ok: true, account: { id: account.id, connectorId: account.connectorId, status: account.status, scopes: account.scopes, hasRefreshToken, expiresAt, scope, updatedAt: account.updatedAt } });
+    return c.json({ ok: true, account: { id: account.id, connectorId: account.connectorId, status: account.status, scopes: account.scopes, hasRefreshToken, expiresAt, tokenExpired, scope, updatedAt: account.updatedAt } });
   });
 
   app.post("/:id/test", async (c) => {
