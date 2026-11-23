@@ -872,27 +872,26 @@ untime.completed)
 - HELM_INTEGRATION_API=1 pnpm --filter @helm/integration-tests test -- events-sse-api PASS (1/1).
 - Commits: 996421, c35839e.
 
-## Session: 2026-11-23 - Auth/web + Vault/Gmail connector scaffold
-**Time:** 2026-11-23T22:48:50Z  
+## Session: 2026-11-23 - DB schema manual apply for connector/vault
+**Time:** 2026-11-23T22:57:27Z  
 **Agent:** Kilo  
-**Phase:** P1/P4 hardening
+**Phase:** P4 connectors/vault
 
 ### Completed
-- [x] Track 1 auth/web: `resolveAuth` now allows dev `x-user-id` fallback only when `HELM_ALLOW_DEV_AUTH=1` and `HELM_REQUIRE_AUTH!=1`; bearer token accepted via Authorization header and `token` query for SSE/WS; web adds session-token sign-in/sign-out, stores bearer token, and sends auth on fetch/SSE/WS/screenshot.
-- [x] Track 2 P4 scaffold: added DB schema tables `vault_secrets`, `connector_accounts`, `oauth_states`; extended shared connector contracts; implemented local AES-256-GCM vault/CredentialBroker; added OAuth PKCE helpers; added connector routes (list, accounts, Google OAuth start/callback, revoke) and Gmail routes (read-first list, send gated by approved approval/actionHash/idempotency receipt).
-- [x] Direction recorded: direct Google OAuth2+PKCE+Gmail REST primary; Composio only optional later adapter behind Helm contracts/policy/audit/vault.
-- [x] Verification: `pnpm --filter @helm/shared build/typecheck` PASS; `pnpm --filter @helm/db build/typecheck` PASS; `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/web typecheck/build` PASS.
+- [x] Applied missing P4 schema manually to local Docker Postgres (`infra-postgres-1`, db `helm`) because `drizzle-kit push` requires interactive TTY for sessions unique-constraint prompt. Created `vault_secrets`, `connector_accounts`, `oauth_states` + indexes; verified tables present.
+- [x] Verification: `docker exec infra-postgres-1 psql ... \dt` shows new tables; `pnpm --filter @helm/api typecheck` PASS.
 
 ### Active / Next (not completed)
-- [ ] Apply DB schema changes (drizzle push TTY issue; manual SQL/migration needed).
 - [ ] Configure real Google OAuth client/secret/redirect and run E2E callback/Gmail flow.
 - [ ] Add connector account management UX in web.
 - [ ] Implement Google token refresh/revoke and uncertain-outcome reconciliation for Gmail send.
 - [ ] P5-P8 blueprint gaps remain.
 
 ### Evidence
-- `backend/api/src/lib/auth.ts`, `backend/api/src/middleware/auth.ts`, `backend/api/src/routes/auth.ts`, `frontend/web/src/App.tsx`, `frontend/web/src/useTaskEventStream.ts`.
-- `packages/db/src/schema/index.ts`, `packages/shared/src/connectors.ts`, `backend/api/src/lib/vault.ts`, `backend/api/src/lib/oauth.ts`, `backend/api/src/routes/connectors.ts`, `backend/api/src/routes/gmail.ts`.
+- Manual SQL via `docker exec -i infra-postgres-1 psql -U postgres -d helm -v ON_ERROR_STOP=1`.
+- `\dt` output includes `vault_secrets`, `connector_accounts`, `oauth_states`.
+
+
 
 
 
