@@ -11,17 +11,14 @@ async function api(path: string, init?: RequestInit, userId = "usr_local_dev") {
 }
 
 (run ? describe : describe.skip)("Browser session ownership API", () => {
-  it("denies cross-user session access for screenshot/snapshot/close", async () => {
-    // Find an existing session owned by dev user through task-known session from prior smoke
+  it("denies cross-user session access for get/screenshot/snapshot/close", async () => {
     const sessions = await api("/v1/browser/sessions");
     expect(sessions.status).toBe(200);
     const id = sessions.json?.sessions?.[0]?.id;
-    if (!id) return; // no session available in clean env
-    const other = await api(`/v1/browser/sessions/${id}`, undefined, "usr_other");
-    expect([403,404]).toContain(other.status);
-    const snap = await api(`/v1/browser/sessions/${id}/snapshot`, { method: "POST", body: "{}" }, "usr_other");
-    expect([403,404]).toContain(snap.status);
-    const close = await api(`/v1/browser/sessions/${id}/close`, { method: "POST", body: "{}" }, "usr_other");
-    expect([403,404]).toContain(close.status);
+    if (!id) return;
+    for (const [path, init] of [[`/v1/browser/sessions/${id}`, undefined], [`/v1/browser/sessions/${id}/screenshot.png`, undefined], [`/v1/browser/sessions/${id}/snapshot`, { method: "POST", body: "{}" }], [`/v1/browser/sessions/${id}/close`, { method: "POST", body: "{}" }]] as const) {
+      const other = await api(path, init as any, "usr_other");
+      expect([403,404]).toContain(other.status);
+    }
   }, 30000);
 });
