@@ -59,8 +59,33 @@ async function requireApprovedAction(db: Database, userId: string, guard: { appr
 
 export function browserRoutes(db: Database) {
   const app = new Hono<AppEnv>();
-  app.get("/sessions", async (c) => { const r = await proxy("/v1/sessions"); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
-  app.post("/sessions", async (c) => { const body = await c.req.json().catch(() => null); const parsed = CreateBrowserSessionInput.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid session input", false, parsed.error.flatten()), 400); const r = await proxy("/v1/sessions", { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); });
+  app.get("/sessions", async (c) => {
+    const userId = c.get("userId");
+    const r = await proxy("/v1/sessions");
+    const json = JSON.parse(r.text || "{}");
+    if (r.status >= 400 || !Array.isArray(json?.sessions)) return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const owned = await db.select({ id: tasks.id, state: tasks.state }).from(tasks).where(eq(tasks.userId, userId));
+    const ownedTaskIds = new Set(owned.map(t => t.id));
+    const ownedSessionIds = new Set(owned.map(t => String((t.state as any)?.activeBrowserSessionId ?? "")).filter(Boolean));
+    const sessions = json.sessions.filter((s: any) => (s?.taskId && ownedTaskIds.has(String(s.taskId))) || ownedSessionIds.has(String(s?.id ?? "")));
+    return c.json({ sessions });
+  });
+  app.post("/sessions", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = CreateBrowserSessionInput.safeParse(body);
+    if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid session input", false, parsed.error.flatten()), 400);
+    const userId = c.get("userId");
+    if (parsed.data.taskId) {
+      const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, parsed.data.taskId), eq(tasks.userId, userId))).limit(1);
+      if (!task) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Task not found for browser session"), 404);
+    }
+    const r = await proxy("/v1/sessions", { method: "POST", body: JSON.stringify(parsed.data) });
+    const json = JSON.parse(r.text || "{}");
+    if (r.status < 400 && json?.session?.id) {
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: parsed.data.taskId ?? null, action: "browser.session.created", resourceType: "browser_session", resourceId: String(json.session.id), decision: "allow", reason: "user_requested", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    }
+    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
   app.get("/sessions/:id", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
