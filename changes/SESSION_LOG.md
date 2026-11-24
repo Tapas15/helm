@@ -1215,3 +1215,19 @@ untime.completed)
 - [ ] BrowserOS real endpoint/protocol/parity tests - needs BrowserOS runtime/protocol decision.
 - [ ] Backup/restore drill execution, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff - manual/ops/legal.
 - [ ] Self-improvement activation - requires explicit user approval before implementation/activation.
+## Session: 2026-11-24 - Auto-continue follow-up (P7 policy visibility)
+**Time:** 2026-11-24T02:52:00Z  
+**Agent:** Kilo  
+**Phase:** P5-P8
+
+### Completed (unblocked)
+- [x] Added `GET /v1/identity/:id/policy` for operator visibility (`d5b7087`).
+- [x] Added `changes/P5-P8-PRACTICAL-STATUS.md` documenting runnable capabilities vs external/manual blockers (`988b3c3`).
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS.
+
+### Remaining / Blocked
+- [ ] Real Google OAuth E2E - needs `GOOGLE_CLIENT_ID/SECRET`.
+- [ ] Real-provider Temporal no-duplicate proof - needs provider sandbox/creds.
+- [ ] BrowserOS real endpoint/protocol/parity tests - needs BrowserOS runtime/protocol decision.
+- [ ] Backup/restore drill execution, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff - manual/ops/legal.
+- [ ] Self-improvement activation - requires explicit user approval before implementation/activation.
