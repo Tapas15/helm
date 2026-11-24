@@ -1,28 +1,38 @@
-﻿# Phase 4 - Approvals + Security Boundaries
+# Phase 4 - Approvals / Vault / Connectors
 
-**Status:** `[~]` In progress  
+**Status:** `[~]` 90%  
 **Blueprint refs:** Phase 4, `07-Approvals-Trust-and-Safety.md`, `12-Security-Privacy-and-Compliance.md`
 
 ## Goal
-High-risk actions require user approval; side-effect ledger prevents double execution; vault handles secrets safely.
+High-risk actions require approval; side-effect ledger prevents double execution; vault/connector boundaries are safe and auditable.
 
-## Completed
-- [x] Approval contract/DB/API/worker/UI baseline.
-- [x] High-risk actions pause before execution; approve/reject flow works in smoke path.
-- [x] `action_receipts` table added; approval resolve records approved receipt; worker records executed receipt for approved runs (idempotency key `task:{taskId}:action:{actionHash}`).
-- [x] External browser action gate: `POST /v1/browser/sessions/:id/external-action` requires approved approval matching `actionHash` + `approvalId`, claims idempotency key, executes only after claim, records executed/failed receipt, emits `browser.external_action.executed` event + audit, dedupes same idempotency key.
-- [x] Runtime/browser-task approved high-risk path calls guarded external-action API (no direct unguarded external side effect in that path). Smoke: task paused `waiting_approval`, approve -> succeeded, executed receipt + `browser.external_action.executed` event recorded.
+## Checklist
 
-## Remaining
-- [~] Bind approval to specific action hash + evidence in all execution paths (coverage audit still needed). Worker hardened to not auto-mark `browser.*`/`external.*` approvals executed without guarded receipt.
-- [ ] Takeover/vault/connector receipts hardening.
-- [ ] Vault/secret storage boundary; no secret leakage in logs/events/UI.
-- [ ] Policy engine and command tiers.
+### Completed
+- [x] Approval contract/DB/API/worker/UI baseline; approve/reject flow; task `waiting_approval`.
+- [x] `action_receipts` table; approval resolve records approved receipt; worker records executed receipt; idempotency key `task:{taskId}:action:{actionHash}`.
+- [x] External/browser action gate requires approved approval matching `actionHash` + `approvalId`, claims idempotency, dedupes same receipt, 409 on executing claim.
+- [x] Runtime/browser-task approved high-risk path uses guarded external-action API.
+- [x] Local vault/CredentialBroker (AES-256-GCM) + `VaultRef`; secrets not returned in API responses.
+- [x] Web connector management UI; session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot.
+- [x] Google OAuth PKCE scaffold: connect/callback/revoke; callback redirects to `WEB_URL`.
+- [x] Gmail read/send guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile.
+- [x] Google Calendar read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup.
+- [x] Token refresh-on-expiry; revoke hardening with configurable `GOOGLE_REVOKE_BASE`, provider outcome captured/audited.
+- [x] OAuth helper tests PASS (5/5, `backend/api/src/lib/oauth.test.ts`).
+- [x] Connector account status/test routes; token expiry status/UI.
+- [x] Identity policy enforcement wired into Gmail/Calendar create/update/delete and browser external action (flag-aware).
 
-## Verification Evidence
-- 2026-11-23: 	ests/integration/src/browser-external-action.test.ts PASS - BrowserExternalActionInput requires approvalId/actionHash/idempotencyKey.
-- 2026-11-22: “Buy headphones on Amazon” paused `waiting_approval`; approve requeued and task completed.
-- 2026-11-22: `action_receipts`/`browser_artifacts` schema applied in Docker Postgres; browser artifact rows persisted.
-- 2026-11-22: external action smoke - pending approval returned 403 `FORBIDDEN`; approved action returned 200 with receipt/artifact; replay returned deduped same receipt.
-- 2026-11-23: runtime-approved high-risk browser task executed through guarded external-action path; receipt status `executed` with result; `browser.external_action.executed` event recorded.
+### Remaining / Blocked
+- [ ] **Blocked:** Real Google OAuth connect/callback/Gmail/Calendar E2E after creds configured (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI, test Gmail+Calendar account). See `changes/OAUTH_E2E_SETUP.md`.
+- [ ] **Blocked:** Real-provider no-duplicate/uncertain-reconcile proof in provider sandbox.
+- [ ] Token refresh/revoke hardening against real provider behavior.
+- [ ] Richer connector diagnostics/sync UX.
+- [ ] Broader connector policy matrix; full mutating endpoint/tool idempotency+audit coverage audit.
+- [ ] Vault secret storage/deployment hardening for production (encrypted provider/KMS decision).
+- [ ] Connector registry persistence/OAuth lifecycle polish.
 
+## Evidence
+- 2026-11-22: "Buy headphones on Amazon" paused `waiting_approval`; approve requeued; completed. External action 403 pending, 200 executed with receipt/artifact, replay deduped same receipt.
+- 2026-11-24: `pnpm --filter @helm/api test -- oauth` PASS (5/5).
+- Env-gated reconciliation API includes Gmail/Calendar uncertain reconciliation cases (PASS 10/10).

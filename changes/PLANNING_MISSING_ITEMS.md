@@ -1,8 +1,11 @@
-﻿# Planning Missing Items — Helm
+# Planning Missing Items ? Helm
 
-**Date:** 2026-11-23  
-**Purpose:** Concrete checklist of blueprint/planning items not yet implemented or not fully tracked. Derived from `Planning/00-13` + `MASTER-TECHNICAL-BLUEPRINT.md`. Use with `CURRENT_STATE.md`, `BLUEPRINT_GAP_ANALYSIS_2026-11-23.md`, `BINDING_AUDIT_2026-11-23.md`.
+**Date:** 2026-11-23 (legacy checklist)  
+**Status:** Superseded for day-to-day tracking by `STATUS.md`, `CURRENT_STATE.md`, and `phase-*.md`. Keep for historical gap analysis; do not treat unchecked items here as authoritative without cross-checking phase docs.
 
+Use `STATUS.md` for current %/remaining/blockers. Use phase docs for checklist evidence.
+
+---
 ## P0 Foundation / Repo
 - [ ] Remote CI evidence (GitHub Actions) verified and linked in changes.
 - [ ] ESLint-depth lint rules (currently `tsc --noEmit` placeholders).

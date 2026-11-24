@@ -1,34 +1,34 @@
-﻿# Phase 3 - Browser Execution + Takeover
+# Phase 3 - Browser Execution + Takeover
 
-**Status:** `[~]` In progress  
+**Status:** `[~]` 93%  
 **Blueprint refs:** Phase 3, `06-Deterministic-Browser-and-Computer-Execution.md`
 
 ## Goal
-Real visible browser work with Playwright worker, live preview, takeover/return control, deterministic playbook runner v1.
+Real visible browser work with Playwright worker, live preview, takeover/return control, deterministic execution baseline.
 
-## Completed
-- [x] Live preview baseline: browser-worker CDP screencast frames streamed over WS (/v1/sessions/:id/stream), proxied by API, rendered in web with polling fallback and stream status.
-- [x] Playwright Chromium runtime smoke and session API verification (create/navigate/snapshot/screenshot/close). Evidence: `changes/BROWSER_SMOKE_2026-11-22.md`.
-- [x] Browser-worker Playwright session scaffold: create/get/navigate/click/fill/snapshot/screenshot/close; token auth.
-- [x] Worker executes browser-kind tasks through browser-worker and records session/navigate/snapshot/screenshot/close events in timeline.
-- [x] Basic browser preview in web UI via polling screenshot PNG (`/v1/browser/sessions/:id/screenshot.png`), 2.5s refresh; sessions kept open with 5m preview TTL.
-- [x] Takeover/return control baseline: shared control state, browser-worker request/resume endpoints, API proxy, web takeover/resume buttons, task events/audit (`browser.takeover.requested/resumed`), task state `waiting_input` on takeover and `queued` on resume.
-- [x] Worker/runtime takeover pause/resume: worker persists `activeBrowserSessionId`, browser runtime resumes existing session, detects takeover and yields `waiting_input`; resume requeues and completes. Smoke PASS.
-- [x] Evidence artifact baseline: screenshot/DOM snapshot files written with sha256/size/metadata; persisted to `browser_artifacts` DB rows.
-- [x] External browser side-effect endpoint guarded by approved `actionHash` + `approvalId` + idempotency receipt (`POST /v1/browser/sessions/:id/external-action`); deduped replay returns same receipt.
-- [x] Runtime/browser-task approved high-risk path routes through guarded external-action API. Smoke PASS.
+## Checklist
 
-## Remaining
-- [~] Live preview stream (WS/CDP screencast) added; interactive remote control baseline added for takeover mode (click/type/Enter over WS). Pending: richer controls (scroll/drag/keyboard modifiers), authz hardening, live smoke.
-- [ ] Evidence UI/downloads, richer artifact types (downloads, receipts).
-- [x] Browser crash reported/recovered safely; stale-target/in-memory-loss recovery restores persisted session and retries action once. Integration restart-recovery coverage still pending.
-- [ ] Optional Obscura CDP backend evaluation behind `BrowserExecutor` (no AGPL copy; no bypass claims).
+### Completed
+- [x] Playwright browser-worker: create/get/navigate/click/fill/snapshot/screenshot/close; token auth.
+- [x] CDP screencast WS stream (`/v1/sessions/:id/stream`) proxied by API; web renders with polling fallback.
+- [x] Takeover/return control: request/resume endpoints, API proxy, web buttons, task `waiting_input` on takeover and requeue on resume, events/audit.
+- [x] Worker/runtime takeover pause/resume; persists `activeBrowserSessionId`; resume completes.
+- [x] Evidence artifacts: screenshot/DOM snapshot files with sha256/size/metadata; `browser_artifacts` rows.
+- [x] External browser side-effect endpoint guarded by approved `actionHash` + `approvalId` + idempotency receipt (`POST /v1/browser/sessions/:id/external-action`); dedupe same receipt.
+- [x] Runtime/browser-task approved high-risk path routes through guarded external-action API.
+- [x] Browser crash/stale-target/in-memory-loss recovery restores persisted session and retries action once.
+- [x] Ownership/authz hardening: session ownership checks, guarded routes, browser WS bearer authz via shared resolver.
+- [x] Legacy unbound browser sessions hard-blocked 403; `POST /v1/browser/sessions/:id/rebind`.
+- [x] Integration regressions: ownership/guarded/takeover/stream-status/ws-authz/restart-recovery/browser-session-create/legacy-rebind APIs present and passing in env-gated suite history.
 
-## Verification Evidence
-- 2026-11-23: pnpm --filter @helm/browser-worker typecheck PASS; pnpm --filter @helm/api typecheck PASS; pnpm --filter @helm/web typecheck PASS (WS screencast proxy + takeover input UI).
-- `changes/BROWSER_SMOKE_2026-11-22.md`
-- 2026-11-22 smoke: browser task `Visit example.com and capture evidence` -> `succeeded`; session remained ready for preview; `browser_artifacts` rows recorded for screenshot + dom_snapshot.
-- 2026-11-22 smoke: external action denied 403 when approval pending; approved action executed once with receipt/artifact; replay deduped same receipt.
-- 2026-11-23 smoke: browser task succeeded; takeover request moved task to `waiting_input` and emitted `browser.takeover.requested`; resume requeued task and second run completed with `browser.takeover.resumed` in timeline.
-- 2026-11-23 smoke: approved high-risk browser task executed through guarded external-action path; receipt executed with result; `browser.external_action.executed` event recorded.
+### Remaining / Blocked
+- [ ] Live interactive smoke for WS preview + takeover input (click/type/scroll/drag/modifiers). **Blocked:** no browser automation surface in shell.
+- [ ] Richer remote controls (scroll/drag/keyboard modifiers), stability polish.
+- [ ] Browser crash/restart recovery integration coverage expansion for more edge cases.
+- [ ] Richer artifact types/downloads/network evidence capture; retention policy.
+- [ ] Optional Obscura/BrowserOS CDP backend evaluation behind `BrowserExecutor` (no AGPL/copyleft copy; no bypass claims).
 
+## Evidence
+- `changes/BROWSER_SMOKE_2026-11-22.md`.
+- 2026-11-22/23 smoke: browser task succeeded; takeover/resume events; guarded external action dedupe/receipt; approved high-risk path through guarded API.
+- Integration tests present: `browser-external-action`, `browser-guarded-ownership-api`, `browser-legacy-rebind-api`, `browser-navigate-guard-api`, `browser-ownership-api`, `browser-restart-recovery-api`, `browser-session-create-ownership-api`, `browser-stream-status-ownership-api`, `browser-takeover-ownership-api`, `browser-ws-authz-api`.

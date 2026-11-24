@@ -1,30 +1,38 @@
 # Phase 5 - Temporal Reliability Layer
 
-**Status:** `[~]` P5-D/E partial: routing proofs + DB-canonical uncertain-receipt reconciliation baseline (2026-11-24)  
+**Status:** `[~]` 68%  
 **Blueprint refs:** Phase 5, `08-Temporal-Reliable-Execution.md`, `changes/ADR-002-temporal-scope.md`
 
 ## Goal
-Durable execution for real tasks: Temporal workflows, signals/queries, idempotent activities, schedules, uncertain-write reconciliation. No blind retry of uncertain external writes.
+Durable execution for real tasks: Temporal workflows/signals/queries, idempotent activities, schedules, uncertain-write reconciliation. No blind retry of uncertain external writes.
 
-## Completed
-- [x] P5-A: ADR-002 drafted (incremental migration; Temporal for high-risk/long-running/external-write workflows first; DB lease worker remains fallback behind feature flag).
-- [x] P5-A: Temporal dev infra scaffold added to docker-compose (profile-gated; not default startup path).
-- [x] P5-B: `packages/shared/src/temporal.ts` config/feature flags; `@helm/temporal-worker` scaffold (client bootstrap, workflow signal/query skeleton, activity scaffold); shared/temporal-worker typecheck PASS (`be4f0a9`).
-- [x] P5-C: Guarded Temporal activities for `gmail.send`/`calendar.create_event` route through existing guarded API paths with approval/actionHash/idempotency; 5xx/429/503 mapped to uncertain; workflow retry policy with non-retryable classes (`38840e7`).
-- [~] P5-D: API Temporal client routing added behind `HELM_TEMPORAL_ENABLED=external-write` for `gmail.send` and `calendar.create_event` (`f55eb8a`). Returns 202 + workflowId/runId when routed; fail-closed 503 on Temporal routing failure. DB/direct guarded path remains default fallback. Added stub test mode + internal activity secret loop guard + env-gated stub routing integration (`7497b0c`, PASS 1/1). Real Temporal server E2E added: compose dynamic config fixed, workflowId dedupe/idempotency proven against running Temporal (`528551c`, PASS 1/1). Mock-provider side-effect E2E added: worker restart/idempotent receipt (<=1 per idempotency key) and uncertain reconciliation path PASS (`1ecca7b`, 1/1).
+## Checklist
 
-## Remaining
-- [~] P5-D: Added DB-canonical reconciliation service + `/v1/reconciliation/status|run|dry-run|schedule/ensure` + optional in-process scheduler (`HELM_RECONCILIATION_*`) for uncertain receipts; lookup-first, no blind retry. Added Temporal reconciliation workflow/activity/schedule bootstrap (`helmReconciliationWorkflow`, `reconcileUncertainReceiptsActivity`, `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_*`) and fault-injection hooks (`HELM_RECONCILIATION_FAULT_INJECT`) for lookup/activity no-blind-retry proofs. Gmail/Calendar env-gated API proofs PASS 10/10 including scheduler tick, calendar update/delete uncertain reconciliation, and delete-still-present no-blind-retry guard (`HELM_RECONCILIATION_API_TEST=1`). Real external provider no-duplicate proof (Google creds/sandbox) and real Temporal server schedule/monitor E2E remain external/manual.
-- [~] P5-C/D scope: `browser.external_action` Temporal activity/routing present; uncertain receipt reconciliation baseline present; Temporal-native reconciliation schedule/monitor baseline added, full monitor/fault-injection depth pending real Temporal env.
-- [ ] P5-E: Retry policies by action class; non-retryable `PolicyDenied/ValidationError/ApprovalRejected/UncertainExternalOutcome` (scaffolded in workflow, needs integration proof).
-- [ ] P5-F: Schedules/monitors; dead-letter/operator runbooks; observability.
-- [ ] Disable flag rollback proof.
+### Completed
+- [x] P5-A: ADR-002 drafted (incremental migration; Temporal for high-risk/long-running/external-write workflows first; DB lease worker fallback behind feature flag).
+- [x] P5-A: Temporal dev infra scaffold in docker-compose (profile-gated; not default startup).
+- [x] P5-B: Shared Temporal config/contracts in `packages/shared/src/temporal.ts`; `@helm/temporal-worker` scaffold (client bootstrap, workflow signal/query skeleton).
+- [x] P5-C: Guarded Temporal activities for `gmail.send`/`calendar.create_event` route through existing guarded API paths with approval/actionHash/idempotency; 5xx/429/503 mapped to uncertain; workflow retry policy with non-retryable classes.
+- [x] P5-D: API Temporal routing behind `HELM_TEMPORAL_ENABLED` for gmail/calendar/browser external writes; fail-closed 503 on routing failure; internal bypass headers prevent re-entry loops.
+- [x] P5-D: Stub test mode + env-gated routing integration (`temporal-routing-api` PASS 1/1).
+- [x] P5-D: Real Temporal server E2E dedupe/idempotency proof (`temporal-e2e` PASS 1/1).
+- [x] P5-D: Mock-provider side-effect E2E worker restart/idempotent receipt and uncertain reconciliation (`temporal-side-effect-e2e` PASS 1/1).
+- [x] P5-D: Rollback E2E proof (`temporal-rollback-e2e` PASS 1/1).
+- [x] P5-D: DB-canonical reconciliation service `reconcileUncertainReceipts` (lookup-first, no blind retry); Gmail/Calendar lookup; proven marks executed + evidence/audit/task event `receipt.reconciled`.
+- [x] P5-D: Reconciliation API `GET /v1/reconciliation/status|POST /run|POST /dry-run`; default user-scoped; `scope=all` guarded by `HELM_ALLOW_DEV_AUTH=1`; optional in-process scheduler (`HELM_RECONCILIATION_*`).
+- [x] P5-D: Env-gated reconciliation API integration PASS (10/10) including scheduler tick, calendar update/delete uncertain reconciliation, delete-still-present no-blind-retry guard, dry-run no-mutation case.
+- [x] P5-D: Temporal reconciliation workflow/activity/schedule bootstrap (`helmReconciliationWorkflow`, `reconcileUncertainReceiptsActivity`, `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_*`), schedule status/dev-gated ensure endpoint, fault-injection guards (`HELM_RECONCILIATION_FAULT_INJECT`) preserving no-blind-retry (`8471aef`, CI `45441229198` green).
 
-## Verification Evidence
-- P5-A: docs/docker-compose scaffold only; no runtime verification yet (Temporal images not pulled/started in this session).
-- P5-B: `pnpm --filter @helm/shared typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS (`be4f0a9`).
-- P5-C: `pnpm --filter @helm/temporal-worker typecheck` PASS (`38840e7`).
-- P5-D routing: `pnpm --filter @helm/shared build` PASS; `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS (`f55eb8a`). No Temporal E2E runtime proof yet.
-- P5-D stub integration: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `HELM_TEMPORAL_ROUTING_TEST=1 pnpm --filter @helm/integration-tests test -- temporal-routing-api` PASS 1/1 (`7497b0c`).
-- P5-D real Temporal E2E: compose profile healthy after dynamic config mount fix; `HELM_TEMPORAL_E2E=1 TEMPORAL_ADDRESS=localhost:7233 pnpm --filter @helm/integration-tests test -- temporal-e2e` PASS 1/1 (`528551c`).
-- P5-D mock side-effect E2E: `pnpm --filter @helm/api typecheck` PASS; `pnpm --filter @helm/integration-tests typecheck` PASS; `HELM_TEMPORAL_SIDE_EFFECT_E2E=1 ... pnpm --filter @helm/integration-tests test -- temporal-side-effect-e2e` PASS 1/1 (`1ecca7b`).
+### Remaining / Blocked
+- [ ] **Blocked:** Real-provider no-duplicate proof (needs Google creds/sandbox).
+- [ ] Real Temporal server schedule/monitor/fault-injection E2E depth (env-gated scaffold exists: `tests/integration/src/temporal-reconciliation-e2e.test.ts`).
+- [ ] P5-E: Retry policies by action class integration proof; non-retryable `PolicyDenied/ValidationError/ApprovalRejected/UncertainExternalOutcome`.
+- [ ] P5-F: Schedules/monitors, dead-letter/operator runbooks, observability depth.
+- [ ] Verify Temporal routing coverage for all required external-write paths in production config.
+- [ ] Disable-flag rollback proof in live/staging-like config.
+- [ ] Keep DB worker as default/fallback until Temporal path fully verified.
+
+## Evidence
+- P5-B/C/D: `pnpm --filter @helm/shared typecheck` PASS; `pnpm --filter @helm/temporal-worker typecheck` PASS; `pnpm --filter @helm/api typecheck` PASS.
+- Env-gated: `temporal-routing-api` PASS (1/1), `temporal-e2e` PASS (1/1), `temporal-side-effect-e2e` PASS (1/1), `temporal-rollback-e2e` PASS (1/1), `reconciliation-api` PASS (10/10).
+- 2026-11-24: `8471aef`, CI `45441229198` green.

@@ -27,19 +27,19 @@
 - Replaceable adapters; contracts in `packages/shared`.
 - No silent failures; structured errors + agent trace + audit.
 
-## Phase Index
+## Phase Index (source of truth for phase status)
 
-| Phase | Status | Doc | Summary |
-|---|---|---|---|
-| 0 | `[~]` | [phase-0-foundation.md](./phase-0-foundation.md) | Scaffold+deps+typecheck+build+smoke pass; hardening/CI/bootstrap pending |
-| 1 | `[ ]` | [phase-1-ui-task-core.md](./phase-1-ui-task-core.md) | WS event stream, AG-UI reducer, task core hardening |
-| 2 | `[ ]` | [phase-2-hermes-runtime.md](./phase-2-hermes-runtime.md) | Hermes adapter, model router, normalized events |
-| 3 | `[ ]` | [phase-3-browser-execution.md](./phase-3-browser-execution.md) | Playwright worker, preview, takeover, playbooks |
-| 4 | `[ ]` | [phase-4-approvals-vault-connectors.md](./phase-4-approvals-vault-connectors.md) | Sentinel policy, approvals, vault, connectors |
-| 5 | `[ ]` | [phase-5-temporal-reliability.md](./phase-5-temporal-reliability.md) | Temporal, idempotency receipts, reconciliation |
-| 6 | `[ ]` | [phase-6-browseros-upgrade.md](./phase-6-browseros-upgrade.md) | BrowserOS adapter + fallback |
-| 7 | `[ ]` | [phase-7-memory-skills-proactivity.md](./phase-7-memory-skills-proactivity.md) | Memory, skills, monitors, notifications |
-| 8 | `[ ]` | [phase-8-hardening-release.md](./phase-8-hardening-release.md) | Security, evals, SLOs, packaging, release gates |
+| Phase | Status | % | Doc | Summary |
+|---|---|---:|---|---|
+| 0 | `[~]` | 91 | [phase-0-foundation.md](./phase-0-foundation.md) | Dev baseline + CI green; Drizzle migration-history alignment pending |
+| 1 | `[~]` | 91 | [phase-1-ui-task-core.md](./phase-1-ui-task-core.md) | Chat/SSE/controls/preview; live UI E2E and cursor-resume proof pending |
+| 2 | `[~]` | 73 | [phase-2-hermes-runtime.md](./phase-2-hermes-runtime.md) | Helm-native runtime/tool policy/model override; live real-flow E2E pending |
+| 3 | `[~]` | 93 | [phase-3-browser-execution.md](./phase-3-browser-execution.md) | Playwright/WS preview/takeover/guarded actions; live smoke/richer controls pending |
+| 4 | `[~]` | 90 | [phase-4-approvals-vault-connectors.md](./phase-4-approvals-vault-connectors.md) | Vault/Gmail/Calendar guarded+reconcile; real OAuth E2E blocked on creds |
+| 5 | `[~]` | 68 | [phase-5-temporal-reliability.md](./phase-5-temporal-reliability.md) | Temporal routing+reconciliation schedule/fault guards; real-provider/real-Temporal depth blocked |
+| 6 | `[~]` | 34 | [phase-6-browseros-upgrade.md](./phase-6-browseros-upgrade.md) | Adapter contract/dispatch flag; real BrowserOS parity/security blocked |
+| 7 | `[~]` | 48 | [phase-7-memory-skills-proactivity.md](./phase-7-memory-skills-proactivity.md) | Identity/policy/memory/skills flags; self-improvement activation approval-gated |
+| 8 | `[~]` | 43 | [phase-8-hardening-release.md](./phase-8-hardening-release.md) | CI/backup-dry-run/redaction/export-delete; drills/scans/compliance signoff pending |
 
 ## Mandatory Update Protocol (no user prompt needed)
 After every meaningful work batch, update:

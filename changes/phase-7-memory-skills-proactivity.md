@@ -1,20 +1,31 @@
-﻿# Phase 7 - Memory, Skills, Proactivity
+# Phase 7 - Memory / Skills / Proactivity
 
-**Status:** `[ ]` Not started  
+**Status:** `[~]` 48%  
 **Blueprint refs:** Phase 7, `05-Hermes-Agent-Runtime.md`, `07-Integrations-Apps-Models-Connectors.md`
 
 ## Goal
-Personal assistant intelligence over time: memory service, skill registry/versioning, ideas/monitors/goals, deduped notifications.
+Personal assistant intelligence over time: agent-owned identity, memory, skills, proactivity, with explicit approval/safety boundaries.
 
-## Completed
-- [ ] None.
+## Checklist
 
-## Remaining
-- [ ] Memory service with provenance/sensitivity/CRUD/export.
-- [ ] Skill registry, versioning, test-before-enable.
-- [ ] Ideas/monitors/goals UI.
-- [ ] Notification policy (material changes only).
-- [ ] Memory inspect/edit/delete; routing respects sensitivity.
+### Completed
+- [x] Shared identity contracts; DB-backed identity routes (status, list, create helm-owned, policy read/PATCH, connector-account binding).
+- [x] Restrictive default identity policy on helm-owned identity create.
+- [x] Identity policy enforcement helper: `backend/api/src/lib/identity-policy.ts`; wired into Gmail send and Calendar create/update/delete (flag-aware `HELM_IDENTITY_ENFORCEMENT`).
+- [x] Browser external-action identity enforcement when `HELM_IDENTITY_ENFORCEMENT=1` and browser session metadata contains bound `identityId`.
+- [x] Identity policy unit tests: `backend/api/src/lib/identity-policy.test.ts` PASS (4/4).
+- [x] P7 DB tables/schema manually applied and verified (17 public tables).
+- [x] Memory notes behind `HELM_MEMORY_ENABLED`: create/list/delete endpoints.
+- [x] Skills/proactivity rules behind flags with status/CRUD/PATCH; no autonomous execution.
+- [x] Self-improvement design doc exists (`changes/DESIGN-self-improvement-loop.md`); routes/reporting keep `selfImprovement.allowed=false`, `requiresExplicitApproval=true`.
 
-## Verification Evidence
-- None.
+### Remaining / Blocked
+- [ ] Broader identity-policy enforcement coverage across all side-effect paths.
+- [ ] Identity vault linkage/UI; connector-account binding UX/policy visibility.
+- [ ] Skill execution/proactivity scheduler (flag-gated, no unsafe autonomous behavior).
+- [ ] Memory service depth: provenance/sensitivity/CRUD/export boundaries, inspect/edit/delete/export UX.
+- [ ] **Blocked (explicit user approval required):** self-improvement implementation/activation. Design-only until approved.
+
+## Evidence
+- `pnpm --filter @helm/api test -- identity-policy` PASS (4/4).
+- P7 schema/tables manually applied; migration history alignment tracked in P0.
