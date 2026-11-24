@@ -32,5 +32,16 @@ export function identityRoutes(db: Database) {
     if (row) await db.insert(identityPolicies).values({ id: uid("idp"), userId, identityId: row.id, allowedDomains: [], allowedRecipients: [], allowExternalWrites: false, requireApproval: true, createdAt: now, updatedAt: now }).onConflictDoNothing();
     return c.json({ ok: true, identity: row }, 201);
   });
+  app.get("/:id/policy", async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [row] = await db.select().from(identityPolicies).where(and(eq(identityPolicies.id, id), eq(identityPolicies.userId, userId))).limit(1);
+    if (!row) {
+      const [byIdentity] = await db.select().from(identityPolicies).where(and(eq(identityPolicies.identityId, id), eq(identityPolicies.userId, userId))).limit(1);
+      if (!byIdentity) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Identity policy not found"), 404);
+      return c.json({ ok: true, policy: byIdentity });
+    }
+    return c.json({ ok: true, policy: row });
+  });
   return app;
 }
