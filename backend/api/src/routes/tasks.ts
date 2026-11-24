@@ -91,7 +91,7 @@ export function taskRoutes(db: Database) {
         kind: input.kind,
         status: "queued",
         priority: 0,
-        state: idemKey ? { idempotencyKey: idemKey } : {},
+        state: { ...(idemKey ? { idempotencyKey: idemKey } : {}), ...(input.settings && typeof input.settings === "object" ? (input.settings as Record<string, unknown>) : {}) },
         attempts: 0,
         maxAttempts: 3,
         createdAt: ts,

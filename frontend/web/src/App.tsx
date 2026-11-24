@@ -29,6 +29,8 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<"assistant" | "browser">("assistant");
+  const [modelOverride, setModelOverride] = useState("");
+  const [modelStatus, setModelStatus] = useState<string | null>(null);
   const [previewTick, setPreviewTick] = useState(0);
   const [takeoverReason, setTakeoverReason] = useState("Need manual CAPTCHA/OTP/login");
   const [liveFrame, setLiveFrame] = useState<string | null>(null);
@@ -106,12 +108,20 @@ export function App() {
     window.history.replaceState({}, "", next);
   }, [qc]);
 
+  const runtimeConfigQ = useQuery({ queryKey: ["runtime-config", token, devUser], queryFn: () => api<any>("/v1/runtime/config"), enabled: meQ.isSuccess, retry: false });
+  const validateModel = useMutation({
+    mutationFn: (model: string) => api<any>("/v1/runtime/model-validate", { method: "POST", body: JSON.stringify({ model }) }),
+    onSuccess: (d) => setModelStatus(d.toolCapable ? `Model OK: ${d.override?.model}` : `Model not in tool-capable allowlist: ${d.override?.model}`),
+    onError: (e) => setModelStatus(e instanceof Error ? e.message : String(e)),
+  });
   const send = useMutation({
     mutationFn: async (p: string) => {
       if (selected && current && !["running", "planning"].includes(current.status)) {
         return api<{ task: Task }>(`/v1/tasks/${selected}/messages`, { method: "POST", body: JSON.stringify({ content: p }) });
       }
-      return api<{ task: Task }>("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: p, kind }) });
+      const settings: Record<string, unknown> = {};
+      if (modelOverride.trim()) settings.modelOverride = { model: modelOverride.trim() };
+      return api<{ task: Task }>("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: p, kind, settings }) });
     },
     onSuccess: (d) => { setPrompt(""); setSelected(d.task.id); qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["messages", d.task.id] }); },
   });
@@ -215,8 +225,11 @@ export function App() {
             <select value={kind} onChange={(e) => setKind(e.target.value as any)} style={{ background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
               <option value="assistant">assistant</option><option value="browser">browser</option>
             </select>
+            <input value={modelOverride} onChange={(e) => setModelOverride(e.target.value)} placeholder={runtimeConfigQ.data?.runtime?.model ? `model (${runtimeConfigQ.data.runtime.model})` : "model override"} style={{ width: 170, background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }} />
+            <button onClick={() => modelOverride.trim() && validateModel.mutate(modelOverride.trim())} disabled={!modelOverride.trim() || validateModel.isPending}>Check</button>
             <button className="primary" disabled={!prompt.trim() || send.isPending} onClick={() => send.mutate(prompt.trim())}>{send.isPending ? "Sending..." : "Send"}</button>
           </div>
+          {modelStatus && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{modelStatus}</div>}
         </div>
         <div className="muted" style={{ marginBottom: 8 }}>Tasks</div>
         <div className="card" style={{ marginBottom: 12 }}>
