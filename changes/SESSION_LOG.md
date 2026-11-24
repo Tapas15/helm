@@ -1477,3 +1477,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Code**: rowseros-mcp-client.ts gained timeout (BROWSEROS_MCP_TIMEOUT_MS, default 30s) + capability detection (	ools/list, required tools). rowseros-mcp-executor.ts classifies errors (BROWSEROS_TIMEOUT/UNAVAILABLE/CAPABILITY_MISSING/SELECTOR_NOT_FOUND), checks capabilities before create/action, and annotates create failures. Smoke test treats screenshot as best-effort due local MCP timeout; snapshot remains required.
 - **Verification**: API typecheck PASS; rowser-adapter.test.ts PASS (8/8); env-gated MCP smoke PASS (1/1) with 45s timeout; screenshot timed out once and was classified retryable.
 - **Policy**: Playwright remains default; no silent fallback/default dispatch change. External runtime only.
+
+## 2026-11-24T23:35:00Z - P0 closeout evidence
+
+- **Fix**: scripts/align-drizzle-journal.mjs resolves journal/hash paths from repo root (cwd-independent). Verified idempotent from repo root and packages/db.
+- **Gates**: pnpm lint PASS (1 pre-existing warning), pnpm typecheck PASS, pnpm build PASS, pnpm test PASS (12 tasks; env-gated integration skips expected).
+- **Remaining P0**: tsconfig dist/src cleanup deferred (functional workaround), CI/fresh-clone confirmation after push.

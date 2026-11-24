@@ -5,11 +5,11 @@
 **Rule:** Mark `[x]` only with evidence (code/test/CI/doc). Keep blocked items visible with blocker reason.
 
 ## P0 Foundation / Repo
-- [x] Remote CI evidence verified: GitHub Actions `45438392752` PASS, `45441229198` PASS (main).
-- [ ] ESLint-depth lint rules (currently `tsc --noEmit` placeholders).
-- [ ] `tsconfig` dist/src path workaround cleanup for builds/typechecks.
-- [ ] tsx watch stability (known worker/API watch instability).
-- [ ] **Blocked/tooling:** CI-safe non-interactive Drizzle migration-history alignment for manual P7 baseline (`packages/db/drizzle/0001_p7_tables_manual.sql`); no destructive reset without explicit approval.
+- [x] Remote CI evidence verified: GitHub Actions `45438392752` PASS, `45441229198` PASS (main); later pushes also green.
+- [x] ESLint-depth lint rules (moved from `tsc --noEmit` placeholders to ESLint).
+- [~] `tsconfig` dist/src path workaround cleanup for builds/typechecks (backend tsconfigs still include `../../packages/*/src/**/*.ts`; functional, cleanup deferred).
+- [x] tsx watch stability hardened (`--clear-screen=false --ignore dist/** --ignore node_modules/**`).
+- [x] Drizzle migration-history alignment script made cwd-independent and idempotent (`scripts/align-drizzle-journal.mjs`); verified from repo root and `packages/db`. Fresh-clone CI confirmation after push.
 
 ## P1 UI / Task Core
 - [x] Chat-first task UI, SSE timeline, approvals/evidence/receipts, WS preview + polling fallback, takeover controls.

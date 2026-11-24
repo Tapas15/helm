@@ -1,7 +1,7 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-24T23:15:00Z  
-**Overall:** 72.0% (equal-weight P0-P8) | **Remaining:** 28.0% | **Target:** 100%  
+**Last updated:** 2026-11-24T23:35:00Z  
+**Overall:** 72.2% (equal-weight P0-P8) | **Remaining:** 27.8% | **Target:** 100%  
 **CI:** green `45441229198` (main, 2026-11-24); local P6 adapter tests PASS, full build/test not rerun  
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
@@ -9,7 +9,7 @@
 
 | Phase | Current | Remaining | Done | Needed | Blocker |
 |---|---:|---:|---|---|---|
-| P0 Foundation | 91% | 9% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle migrate verified on fresh temp DB; `scripts/align-drizzle-journal.mjs` idempotently seeds journal for baseline-present DBs | CI/fresh-clone verification of alignment script; tsconfig dist/src cleanup | No destructive reset without approval |
+| P0 Foundation | 93% | 7% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle fresh-temp-DB migrate verified; alignment script cwd-independent and idempotent from repo root/`packages/db`; local lint/typecheck/build/test PASS | CI/fresh-clone confirmation after push; tsconfig dist/src cleanup | No destructive reset without approval |
 | P1 UI/Task Core | 91% | 9% | Chat/SSE/approvals/preview/takeover/idempotency regressions | SSE cursor-resume E2E proof, AG-UI WS decision, live UI smoke, fault-injection depth | Browser automation surface for full UI E2E |
 | P2 Agent Runtime | 73% | 27% | Ollama streaming, tool loop/policy, model override/config validation, worker tests | Live real browser+connector E2E, integration tweaks, model/provider evidence | Real env for end-to-end validation |
 | P3 Browser Execution | 93% | 7% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions, recovery | Live WS/takeover smoke, richer remote controls, recovery depth | Browser automation for live smoke |
@@ -27,6 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
+- 2026-11-24: P0 closeout evidence: fixed `scripts/align-drizzle-journal.mjs` to resolve repo-root paths (cwd-independent); `db:migrate:align` idempotent PASS from repo root and `packages/db`. Full local gates PASS: `pnpm lint` (1 pre-existing warning), `pnpm typecheck`, `pnpm build`, `pnpm test` (12 tasks; env-gated integration skips expected).
 - 2026-11-24: P6 BrowserOS MCP hardening + contract mapping (`e36e4f3`, `505736f`): capability detection, timeout/error classification, missing-capability/timeout mapping tests; adapter contract 11/11 PASS. Env-gated smoke PASS (snapshot required, screenshot best-effort timeout classified retryable). Playwright remains default; external runtime only.
 - `ddd445d` P4: added `gmail.send` + `calendar.events` OAuth scopes to connector definitions (write-scope E2E unblock).
 - 2026-11-24: Real Google OAuth connect/test verified (Gmail `simplytaps3@gmail.com`, Calendar 1 calendar). Approval-gated Gmail send executed (`rcpt_7a0bc795...`, `gmailMessageId=1a20f3b6dad91d55`) and same-idempotency retry returned deduped same receipt/externalRef. Approval-gated Calendar create executed (`rcpt_da3b4961...`, `calendarEventId=jshv868h65pplmu3tjmbtu2eo0`) and same-idempotency retry deduped; calendar list shows single `Helm E2E Test` event. No auto-delete performed.
