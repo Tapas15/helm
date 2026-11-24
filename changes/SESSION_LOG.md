@@ -1252,3 +1252,22 @@ untime.completed)
 - [ ] BrowserOS real endpoint/protocol/parity - needs runtime/protocol decision.
 - [ ] Backup/restore drill execution, CI security scan/threat model execution, PII retention/export/delete implementation, compliance/provenance signoff - ops/legal/manual.
 - [ ] Self-improvement activation - explicit user approval required.
+## Session: 2026-11-24 - Unblocked-only continuation
+**Time:** 2026-11-24T03:19:00Z  
+**Agent:** Kilo  
+**Phase:** P7/P8
+
+### Completed (no external dependency)
+- [x] P7: added PATCH endpoints for skills/proactivity rules behind existing flags (`458dfcc`).
+- [x] P8: added backup/restore drill runbook with evidence checklist (`5c0a123`).
+- [x] Docs synced (`ce6b721`).
+
+### Verification
+- `pnpm --filter @helm/api typecheck` PASS
+
+### Blocked / explicit approval
+- [ ] Real Google OAuth E2E - external creds.
+- [ ] Real-provider Temporal no-duplicate proof - external sandbox/creds.
+- [ ] BrowserOS real endpoint/protocol/parity - runtime/protocol decision.
+- [ ] Backup/restore drill execution, CI security scan/threat model execution, PII retention/export/delete implementation, compliance/provenance signoff - ops/legal/manual.
+- [ ] Self-improvement activation - explicit user approval required.
