@@ -128,17 +128,22 @@ export function connectorRoutes(db: Database) {
     const [row] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, id), eq(connectorAccounts.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
     const token = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${id}` });
+    let revokeOk = false;
     if (token) {
       try {
         const parsed = JSON.parse(token) as Record<string, unknown>;
         const revokeToken = (parsed.refresh_token ?? parsed.access_token) as string | undefined;
-        if (revokeToken) await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(revokeToken)}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" } }).catch(() => null);
+        if (revokeToken) {
+          const revokeBase = process.env.GOOGLE_REVOKE_BASE ?? "https://oauth2.googleapis.com/revoke";
+          const rr = await fetch(`${revokeBase}?token=${encodeURIComponent(revokeToken)}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" } }).catch(() => null);
+          revokeOk = !!rr?.ok;
+        }
       } catch {}
     }
     await db.update(connectorAccounts).set({ status: "revoked", updatedAt: new Date() }).where(eq(connectorAccounts.id, id));
     if (row.secretRefId) await vault.revokeSecret({ ownerUserId: userId, secretId: row.secretRefId, reason: "user_revoke" });
-    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: {} });
-    return c.json({ ok: true, accountId: id, status: "revoked" });
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: { providerRevoked: revokeOk } });
+    return c.json({ ok: true, accountId: id, status: "revoked", providerRevoked: revokeOk });
   });
 
   return app;
