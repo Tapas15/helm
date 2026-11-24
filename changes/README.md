@@ -3,9 +3,9 @@
 > **START HERE if you have zero context.**
 
 ## Read Order (new session / no context)
-1. `README.md` (this file)
-2. `CURRENT_STATE.md` - authoritative snapshot
-3. `SESSION_LOG.md` - latest entries at top
+1. `STATUS.md` - **one-page memory dashboard** (%, remaining, blockers, invariants, latest completed)
+2. `CURRENT_STATE.md` - authoritative snapshot + context memory + update protocol
+3. `SESSION_LOG.md` - latest entries at bottom (append each session)
 4. `DECISIONS.md` - decisions/assumptions/ADRs
 5. `REPLACEABILITY_OBSERVABILITY_AUDIT_PLAN.md` - cross-cutting requirements (must follow)
 6. `FIX_LOG.md` - problems/fixes/audit trail
@@ -41,11 +41,14 @@
 | 7 | `[ ]` | [phase-7-memory-skills-proactivity.md](./phase-7-memory-skills-proactivity.md) | Memory, skills, monitors, notifications |
 | 8 | `[ ]` | [phase-8-hardening-release.md](./phase-8-hardening-release.md) | Security, evals, SLOs, packaging, release gates |
 
-## Session Update Rule
-After meaningful work, update:
-1. `CURRENT_STATE.md` - snapshot, next move, evidence
-2. `SESSION_LOG.md` - append newest entry at top (commands, pass/fail, files, blockers)
-3. Active phase doc - checklist + evidence
-4. `FIX_LOG.md` - any non-trivial fix/incident
-5. `DECISIONS.md` - decisions/ADRs/assumptions
-6. This README table/status if changed
+## Mandatory Update Protocol (no user prompt needed)
+After every meaningful work batch, update:
+1. `STATUS.md` - one-page %, remaining, blockers, latest completed
+2. `CURRENT_STATE.md` - snapshot, context memory, next move, evidence
+3. `SESSION_LOG.md` - append session entry (commands, pass/fail, files, blockers)
+4. Active `phase-*.md` - checklist + evidence
+5. `FIX_LOG.md` - any non-trivial fix/incident (regression + audit/safety note)
+6. `DECISIONS.md` - decisions/ADRs/assumptions
+7. Repo-root `README.md`/`ROADMAP.md` when percentages/progress change
+8. This README table/status if changed
+Commit docs with code when work is committed.

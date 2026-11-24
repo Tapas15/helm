@@ -33,36 +33,50 @@
 - [x] Request takeover/resume from UI; control state persisted/emitted; agent pauses and resumes.
 - [x] Risky browser action pauses for approval; approved action executes once via guarded `actionHash`+idempotency path; reject blocks.
 - [x] Evidence artifacts/receipts persisted and visible in UI/API.
-- [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).`n- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; browser-worker restart recovery has direct+API-observable integration coverage; in-memory live WS continuity still pending.
+- [~] Live preview: WS screencast stream + takeover-only remote input implemented (typecheck/test PASS; live stack smoke pending).
+- [~] Clean restart/recovery: persisted task/event/approval/receipt/artifact state survives restart; browser-worker restart recovery has direct+API-observable integration coverage; in-memory live WS continuity still pending.
 
+## Context Memory (keep updated every session)
 
+### Repo / Ops
+- Repo: `https://github.com/Tapas15/helm`, branch `main`. Local git: `Tapas15 <tapas.mahanandia@gmail.com>`. CI: `.github/workflows/ci.yml` ubuntu-latest, concurrency cancel-in-progress, 20m timeout, Install/Lint/Typecheck/Build/Test, report-only `pnpm audit --audit-level=high`.
+- Latest CI: `45441229198` (main, push, `8471aef`) **green** 2026-11-24. Prior green: `45438392752` (`e6f79d4`).
+- Dev ports: web `5173`, API `8787`, browser-worker `8790`. Docker: `infra-postgres-1` (Postgres 16, db `helm`), `infra-redis-1` healthy. Do not touch local PG17 `postgresql-x64-17`.
+- `.env` gitignored; `backups/` untracked local dir. `browseros-cli` not found.
 
+### Safety / Invariants (never violate)
+- DB task/event/receipt tables canonical user-visible state. No blind retry of uncertain external writes; lookup-first reconciliation only; proven requires provider proof.
+- External/browser side effects require approved `approvalId` + matching `actionHash` + idempotency receipt; dedupe same receipt; executing claim returns 409.
+- No secrets in logs/events/prompts; redaction covers sessionToken/vaultKey/encryptedValue/PKCE verifier. Vendor SDKs behind `packages/shared` contracts/adapters.
+- Self-improvement design-only; requires explicit user approval before implementation/activation. No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
+### Current % (equal-weight P0-P8)
+| Phase | % | Remaining | Main blocker/need |
+|---|---:|---:|---|
+| P0 Foundation | 91 | 9 | Drizzle migration-history alignment (CI-safe, non-destructive) |
+| P1 UI/Task Core | 91 | 9 | SSE cursor-resume E2E proof; live UI smoke |
+| P2 Agent Runtime | 73 | 27 | Live real browser+connector E2E; model/provider evidence |
+| P3 Browser Execution | 93 | 7 | Live WS/takeover smoke; richer remote controls |
+| P4 Connectors/Vault | 90 | 10 | Real Google OAuth E2E/no-duplicate proof (creds/test accounts) |
+| P5 Temporal | 68 | 32 | Real-provider no-duplicate; real Temporal schedule/monitor/fault-injection E2E |
+| P6 BrowserOS | 34 | 66 | Real BrowserOS endpoint/protocol/token/parity/security |
+| P7 Identity/Memory/Skills | 48 | 52 | Identity vault/UI, skill/proactivity scheduler; self-improvement approval-gated |
+| P8 Hardening/Release | 43 | 57 | Full backup/restore drill, scan gating, threat model, PII policy/impl, compliance/provenance/Dubai signoff |
+| **Overall** | **70.0** | **30.0** | External creds/runtime/ops/legal decisions |
 
+### Recently Completed (this session, 2026-11-24)
+- `e6f79d4` CI fix: Build before Test; shared tests import `./temporal.js`; CI `45438392752` green.
+- `8471aef` P5: Temporal reconciliation workflow/activity/schedule bootstrap, schedule status/dev-gated ensure, `HELM_RECONCILIATION_FAULT_INJECT` no-blind-retry guards, env-gated `temporal-reconciliation-e2e` scaffold; docs/FIX_LOG/CURRENT_STATE updated; CI `45441229198` green.
+- `d18cea5` Docs: README/ROADMAP synced to 70.0%/CURRENT_STATE.
+- `57917a7` Docs: CURRENT_STATE/SESSION_LOG updated with completed/blockers/invariants.
 
+### Active Blockers (external/manual/approval)
+- Real Google OAuth E2E/no-duplicate proof: needs `GOOGLE_CLIENT_ID/SECRET`, redirect URI, test Gmail+Calendar accounts.
+- Real BrowserOS adapter: needs endpoint/protocol/token/runtime decision + parity/security tests.
+- Real Temporal depth: real Temporal server schedule/monitor/fault-injection E2E; real-provider no-duplicate proof.
+- Drizzle migration-history alignment: manual P7 baseline applied; `drizzle-kit push --force` TTY-blocked; `db:migrate`/CLI unresolved; needs CI-safe non-interactive path; no destructive reset without explicit approval.
+- P8 manual: full backup/restore drill (artifacts/vault-key scope), CI scan gating, threat-model execution, PII retention/export/delete policy+impl, compliance/provenance/Dubai submission signoff.
+- Self-improvement activation: explicit user approval required.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Update Protocol (mandatory)
+- After every meaningful work batch: update `changes/CURRENT_STATE.md`, append `changes/SESSION_LOG.md`, update relevant `changes/phase-*.md`, add `changes/FIX_LOG.md` for non-trivial fixes, keep `README.md`/`ROADMAP.md` in sync when progress changes. Do not wait for user to ask.
