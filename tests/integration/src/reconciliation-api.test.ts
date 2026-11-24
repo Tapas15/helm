@@ -5,8 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDb } from "@helm/db";
-import { actionReceipts, taskEvents, tasks, users } from "@helm/db";
+import { actionReceipts, sessions, taskEvents, tasks, users } from "@helm/db";
 import { eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
 
 const run = process.env.HELM_RECONCILIATION_API_TEST === "1";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -209,5 +210,48 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect(ev.reconciled).toBe(true);
     expect(ev.reconcileOutcome).toBe("executed");
     await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 90000);
+
+  it("reports status and enforces scope=all dev-only guard", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_RECONCILIATION_ENABLED: "0",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const st = await api(apiBase, "/v1/reconciliation/status");
+    expect(st.status).toBe(200);
+    expect(st.json?.ok).toBe(true);
+    expect(st.json?.enabled).toBe(false);
+    const r = await api(apiBase, "/v1/reconciliation/run", { method: "POST", body: JSON.stringify({ scope: "all", olderThanMs: 0, limit: 1 }) });
+    expect(r.status).toBe(200);
+    expect(r.json?.ok).toBe(true);
+  }, 90000);
+
+  it("rejects scope=all when not in dev/internal mode", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const token = `hls_${crypto.randomUUID().replace(/-/g, "")}`;
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    const now = new Date();
+    const expiresAt = new Date(Date.now() + 60 * 60_000);
+    await db.insert(sessions).values({ id: uid("ses"), userId: "usr_local_dev", tokenHash, expiresAt, createdAt: now, lastSeenAt: now }).onConflictDoNothing();
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "1", HELM_ALLOW_DEV_AUTH: "0",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const res = await fetch(`${apiBase}/v1/reconciliation/run`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ scope: "all", olderThanMs: 0, limit: 1 }) });
+    const json = await res.json().catch(() => null);
+    expect(res.status).toBe(403);
+    expect(json?.error?.code).toBe("FORBIDDEN");
   }, 90000);
 });
