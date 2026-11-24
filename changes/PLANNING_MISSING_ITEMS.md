@@ -53,7 +53,8 @@
 - [x] Google Calendar read/create/update/delete guarded with approval/actionHash/idempotency/uncertain reconcile.
 - [x] Web connector management UI; connector account status/test routes.
 - [x] OAuth helper tests PASS (5/5); identity policy enforcement wired into Gmail/Calendar/browser external action (flag-aware).
-- [ ] **Blocked:** Real Google OAuth E2E/no-duplicate proof (needs `GOOGLE_CLIENT_ID/SECRET`, redirect URI, test Gmail+Calendar accounts).
+- [x] Real Google OAuth connect/callback/test verified 2026-11-24 (write-scoped Gmail/Calendar accounts). Approval-gated Gmail send + Calendar create E2E PASS with same-idempotency dedupe (same receipt/externalRef); single calendar event confirmed. No auto-delete.
+- [ ] Real-provider uncertain/timeout reconcile proof beyond API-level cases.
 - [ ] Token refresh/revoke hardening against real provider behavior.
 - [ ] Richer connector diagnostics/sync UX and broader connector policy matrix.
 - [ ] Vault secret storage/deployment hardening for production (KMS/encrypted provider decision).
