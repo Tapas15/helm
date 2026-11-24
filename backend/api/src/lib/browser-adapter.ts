@@ -94,7 +94,7 @@ function parseBody(init?: RequestInit) {
 export class BrowserOSMcpAdapter implements BrowserOSAdapter {
   kind = "browseros" as const;
   private exec: BrowserOSMcpExecutor;
-  constructor(mcpUrl: string) { this.exec = new BrowserOSMcpExecutor({ mcpUrl }); }
+  constructor(mcpUrl: string, opts?: { client?: import("./browseros-mcp-client.js").BrowserOSMcpClient }) { this.exec = new BrowserOSMcpExecutor({ mcpUrl, client: opts?.client }); }
 
   async request(path: string, init?: RequestInit): Promise<{ status: number; contentType: string; text: string }> {
     try {

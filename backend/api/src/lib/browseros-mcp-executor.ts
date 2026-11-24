@@ -51,9 +51,9 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
   private artifactDir: string;
   private mcpUrl: string;
 
-  constructor(opts?: { mcpUrl?: string; artifactDir?: string }) {
+  constructor(opts?: { mcpUrl?: string; artifactDir?: string; client?: BrowserOSMcpClient }) {
     this.mcpUrl = opts?.mcpUrl ?? process.env.BROWSEROS_MCP_URL ?? "http://127.0.0.1:9210/mcp";
-    this.client = new BrowserOSMcpClient(this.mcpUrl);
+    this.client = opts?.client ?? new BrowserOSMcpClient(this.mcpUrl);
     this.artifactDir = opts?.artifactDir ?? process.env.BROWSER_ARTIFACT_DIR ?? path.resolve(process.cwd(), ".data", "browser-artifacts");
   }
 
