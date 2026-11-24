@@ -27,9 +27,23 @@ export function readTemporalConfig(env: NodeJS.ProcessEnv = process.env): Tempor
   });
 }
 
+export const TEMPORAL_EXTERNAL_WRITE_ACTION = /^(gmail\.send|calendar\.create_event|calendar\.update_event|calendar\.delete_event|browser\.external_action|external\.)/;
+
+export const TEMPORAL_NON_RETRYABLE_ERROR_TYPES = [
+  "PolicyDenied",
+  "ValidationError",
+  "ApprovalRejected",
+  "Forbidden",
+  "NotFound",
+] as const;
+
 export function shouldUseTemporalForAction(config: TemporalConfig, actionKind: string): boolean {
   if (!config.enabled || config.mode === "off") return false;
   if (config.mode === "all") return true;
   // external-write mode: only approval-gated/external side effects
-  return /^(gmail\.send|calendar\.create_event|browser\.external_action|external\.)/.test(actionKind);
+  return TEMPORAL_EXTERNAL_WRITE_ACTION.test(actionKind);
+}
+
+export function isNonRetryableTemporalErrorType(name: string): boolean {
+  return (TEMPORAL_NON_RETRYABLE_ERROR_TYPES as readonly string[]).includes(name);
 }

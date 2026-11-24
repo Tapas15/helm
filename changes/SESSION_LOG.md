@@ -1447,3 +1447,19 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Real-provider uncertain/timeout reconcile proof beyond API-level/env-gated cases.
 - [ ] Token refresh/revoke hardening against real provider behavior.
 - [ ] Richer connector diagnostics/sync UX and broader connector policy matrix.
+
+## Session: 2026-11-24 - P5 Temporal policy/action-class hardening
+**Time:** 2026-11-25T02:32:28Z
+**Agent:** Kilo
+**Phase:** P5 Temporal/Reliability
+
+### Completed
+- [x] Centralized Temporal external-write action classification (TEMPORAL_EXTERNAL_WRITE_ACTION) and non-retryable error types (TEMPORAL_NON_RETRYABLE_ERROR_TYPES, isNonRetryableTemporalErrorType) in packages/shared/src/temporal.ts.
+- [x] Expanded packages/shared/src/temporal.test.ts to cover guarded external-write action classes (gmail.send, calendar create/update/delete, browser.external_action) and non-retryable classification.
+- [x] Updated ackend/temporal-worker/src/workflows.ts to use shared non-retryable error types.
+- [x] Verified: pnpm -C packages/shared test PASS (8 files, 28 tests); pnpm -C backend/temporal-worker typecheck PASS.
+- [x] Updated changes/phase-5-temporal-reliability.md and changes/PLANNING_MISSING_ITEMS.md.
+
+### Blocked / Remaining
+- [ ] End-to-end retry-policy/action-class proof per action class, including uncertain-outcome handling in real Temporal runtime.
+- [ ] Real-provider no-duplicate proof and deeper real Temporal schedule/monitor/fault-injection/operator depth.

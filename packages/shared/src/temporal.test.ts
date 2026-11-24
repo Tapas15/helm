@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { readTemporalConfig, shouldUseTemporalForAction } from "./temporal.js";
+import { isNonRetryableTemporalErrorType, readTemporalConfig, shouldUseTemporalForAction, TEMPORAL_EXTERNAL_WRITE_ACTION, TEMPORAL_NON_RETRYABLE_ERROR_TYPES } from "./temporal.js";
 
 describe("temporal rollback flag", () => {
   it("disables routing when HELM_TEMPORAL_ENABLED is off", () => {
@@ -18,5 +18,21 @@ describe("temporal rollback flag", () => {
   it("reads reconciliation schedule config", () => {
     const cfg = readTemporalConfig({ HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID: "helm-recon-test" } as any);
     expect(cfg.reconciliationScheduleId).toBe("helm-recon-test");
+  });
+
+  it("covers guarded external-write action classes used by Temporal routing", () => {
+    const cfg = readTemporalConfig({ HELM_TEMPORAL_ENABLED: "1", HELM_TEMPORAL_MODE: "external-write" } as any);
+    for (const action of ["gmail.send", "calendar.create_event", "calendar.update_event", "calendar.delete_event", "browser.external_action"]) {
+      expect(TEMPORAL_EXTERNAL_WRITE_ACTION.test(action)).toBe(true);
+      expect(shouldUseTemporalForAction(cfg, action)).toBe(true);
+    }
+    for (const action of ["gmail.read", "calendar.read", "task.plan", "memory.write"]) {
+      expect(shouldUseTemporalForAction(cfg, action)).toBe(false);
+    }
+  });
+
+  it("classifies non-retryable Temporal error types", () => {
+    for (const t of TEMPORAL_NON_RETRYABLE_ERROR_TYPES) expect(isNonRetryableTemporalErrorType(t)).toBe(true);
+    expect(isNonRetryableTemporalErrorType("TimeoutError")).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 ﻿import { defineSignal, defineQuery, proxyActivities, setHandler, condition } from "@temporalio/workflow";
+import { TEMPORAL_NON_RETRYABLE_ERROR_TYPES } from "@helm/shared";
 
 export const helmTaskQueue = "helm-main";
 
@@ -30,7 +31,7 @@ const activities = proxyActivities<{
   startToCloseTimeout: "2 minutes",
   retry: {
     maximumAttempts: 3,
-    nonRetryableErrorTypes: ["PolicyDenied", "ValidationError", "ApprovalRejected", "Forbidden", "NotFound"],
+    nonRetryableErrorTypes: [...TEMPORAL_NON_RETRYABLE_ERROR_TYPES],
   },
 });
 

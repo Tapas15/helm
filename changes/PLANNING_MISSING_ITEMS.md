@@ -66,9 +66,10 @@
 - [x] Env-gated proofs PASS: temporal-routing-api (1/1), temporal-e2e (1/1), temporal-side-effect-e2e (1/1), temporal-rollback-e2e (1/1).
 - [x] DB-canonical reconciliation service/API/scheduler (lookup-first, no blind retry); reconciliation-api PASS (10/10).
 - [x] Temporal reconciliation workflow/activity/schedule bootstrap + fault-injection guards preserving no-blind-retry (`8471aef`, CI `45441229198` green).
+- [x] Centralized Temporal external-write action classification + non-retryable error types in shared contracts; workflow uses shared types; shared tests PASS (8 files/28).
 - [ ] **Blocked:** Real-provider no-duplicate proof (Google creds/sandbox).
 - [ ] Real Temporal server schedule/monitor/fault-injection E2E depth.
-- [ ] Retry-policy integration proof by action class; non-retryable classes verified end-to-end.
+- [ ] Retry-policy integration proof by action class; non-retryable classes verified end-to-end (beyond shared classification).
 - [ ] Schedules/monitors, dead-letter/operator runbooks, observability depth.
 
 ## P6 BrowserOS Deterministic Upgrade
