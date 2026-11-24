@@ -74,4 +74,16 @@ describe("browser adapter factory", () => {
       globalThis.fetch = orig;
     }
   });
+
+  it("BrowserOSHttpAdapter requestBinary returns bytes and content type", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => new Response(Uint8Array.from([1,2,3]), { status: 200, headers: { "content-type": "image/png" } });
+    try {
+      const a = new BrowserOSHttpAdapter("http://browseros.local", "secret");
+      const r = await a.requestBinary("/v1/sessions/s1/screenshot.png");
+      expect(r.status).toBe(200);
+      expect(r.contentType).toContain("image/png");
+      expect(new Uint8Array(r.body)).toEqual(Uint8Array.from([1,2,3]));
+    } finally { globalThis.fetch = orig; }
+  });
 });
