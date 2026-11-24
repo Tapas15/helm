@@ -1449,16 +1449,17 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Richer connector diagnostics/sync UX and broader connector policy matrix.
 
 ## Session: 2026-11-24 - P5 Temporal policy/action-class hardening
-**Time:** 2026-11-25T02:32:28Z
+**Time:** 2026-11-24T20:57:00Z
 **Agent:** Kilo
 **Phase:** P5 Temporal/Reliability
 
 ### Completed
-- [x] Centralized Temporal external-write action classification (TEMPORAL_EXTERNAL_WRITE_ACTION) and non-retryable error types (TEMPORAL_NON_RETRYABLE_ERROR_TYPES, isNonRetryableTemporalErrorType) in packages/shared/src/temporal.ts.
-- [x] Expanded packages/shared/src/temporal.test.ts to cover guarded external-write action classes (gmail.send, calendar create/update/delete, browser.external_action) and non-retryable classification.
-- [x] Updated ackend/temporal-worker/src/workflows.ts to use shared non-retryable error types.
-- [x] Verified: pnpm -C packages/shared test PASS (8 files, 28 tests); pnpm -C backend/temporal-worker typecheck PASS.
-- [x] Updated changes/phase-5-temporal-reliability.md and changes/PLANNING_MISSING_ITEMS.md.
+- [x] Centralized Temporal external-write action classification (`TEMPORAL_EXTERNAL_WRITE_ACTION`) and non-retryable error types (`TEMPORAL_NON_RETRYABLE_ERROR_TYPES`, `isNonRetryableTemporalErrorType`) in `packages/shared/src/temporal.ts`.
+- [x] Expanded `packages/shared/src/temporal.test.ts` to cover guarded external-write action classes (gmail.send, calendar create/update/delete, browser.external_action) and non-retryable classification.
+- [x] Updated `backend/temporal-worker/src/workflows.ts` to use shared non-retryable error types.
+- [x] Verified: `pnpm -C packages/shared test` PASS (8 files, 28 tests); `pnpm -C backend/temporal-worker typecheck` PASS.
+- [x] Targeted env-gated proofs after change: `reconciliation-api.test.ts -t "keeps uncertain|dry-run|marks uncertain gmail receipt executed"` PASS (3 passed, 7 skipped); `HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1 temporal-reconciliation-e2e.test.ts` PASS (1/1).
+- [x] Updated `changes/phase-5-temporal-reliability.md` and `changes/PLANNING_MISSING_ITEMS.md`; commits `c0bc1b0`, `1f33f2f` pushed.
 
 ### Blocked / Remaining
 - [ ] End-to-end retry-policy/action-class proof per action class, including uncertain-outcome handling in real Temporal runtime.
