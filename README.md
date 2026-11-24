@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~90%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-~70%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P5_Temporal_%2B_P6%2FP7_Slices-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -22,16 +22,16 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **~90%** | Usable prototype baseline; P5 proofs strong, P6 adapter dispatch wired behind flag, P7 flagged identity/memory DB slices, P8 evidence/checklists added |
-| Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable |
-| Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added |
-| Phase 2 Agent Runtime | 56% | Local Ollama streaming + basic tool-calling; guardrails present, richer policy pending |
+| **Overall** | **~70%** | Usable prototype baseline; CI green, P2/P4/P5/P7 hardening landed, real-provider/BrowserOS/ops/legal items remain blocked |
+| Phase 0 Foundation | 91% | Contracts/dev/bootstrap + workspace typecheck/DX config stable; Drizzle migration history alignment pending |
+| Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview usable; lifecycle/idempotency/SSE regressions added; SSE cursor-resume E2E depth pending |
+| Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation, worker tests; live real-flow E2E pending |
 | Phase 3 Browser Execution | 93% | Ownership integration coverage, takeover, stale-session restart recovery, WS bearer auth |
-| Phase 4 Approvals/Vault/Connectors | 88% | Vault/connector contracts, Gmail read/send, Calendar read/create/update/delete approval-gated with uncertain reconcile; real OAuth E2E blocked on external creds |
-| Phase 5 Temporal Reliability | 50% | Feature-flagged routing for Gmail/Calendar/browser external actions; stub/real-dedupe/mock-side-effect/rollback E2E proofs; runbook added |
-| Phase 6 BrowserOS Upgrade | 25% | Adapter interface + Playwright default + BrowserOS stub; adapter status/request/requestBinary dispatch + adapter-aware session lookup behind HELM_BROWSER_ADAPTER_DISPATCH; real BrowserOS endpoint/parity pending |
-| Phase 7 Memory/Skills/Proactivity | 38% | Identity contracts/status/list/create/policy read (helm-owned default), restrictive default policy, identities/identity_policies/memory_notes/skills/proactivity_rules schema, DB-backed notes/skills/proactivity rules behind flags with PATCH/delete; self-improvement gated/design-only (no activation) |
-| Phase 8 Hardening/Release | 20% | Backup/restore scripts+runbooks, security/privacy/release-evidence checklists added; drills, scans/threat model, PII lifecycle, compliance signoff pending |
+| Phase 4 Approvals/Vault/Connectors | 90% | Vault/connector contracts, Gmail/Calendar read+write approval-gated with uncertain reconcile, token refresh/revoke hardening; real OAuth E2E blocked on creds |
+| Phase 5 Temporal Reliability | 68% | Feature-flagged routing, stub/real/mock rollback proofs, DB-canonical reconciliation/scheduler, Temporal reconciliation schedule/fault-injection guards; real-provider/real-Temporal depth blocked |
+| Phase 6 BrowserOS Upgrade | 34% | Adapter interface + Playwright default + BrowserOS HTTP/stub, status/dispatch flag, contract tests; real BrowserOS endpoint/parity/security blocked |
+| Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, DB-backed notes/skills/proactivity behind flags, connector/browser policy linkage; self-improvement design-only, activation needs explicit approval |
+| Phase 8 Hardening/Release | 43% | Backup/restore scripts+dry-run evidence, security/privacy/release checklists, task export/delete controls, dep audit baseline; drills/scans/threat model/PII/compliance signoff pending |
 
 > Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
