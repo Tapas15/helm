@@ -6,6 +6,15 @@
 ## Goal
 High-risk actions require approval; side-effect ledger prevents double execution; vault/connector boundaries are safe and auditable.
 
+## What we have done
+- **Approvals/receipts**: Approval contract/DB/API/worker/UI; approve/reject flow; task `waiting_approval`. `action_receipts` with `task:{taskId}:action:{actionHash}` idempotency key; dedupe same receipt; executing claim 409; runtime/browser-task approved high-risk path uses guarded external-action API.
+- **Vault/CredentialBroker**: Local AES-256-GCM vault + `VaultRef`; secrets not returned in API responses.
+- **Auth/connector UX**: Web connector management UI; session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot.
+- **Google OAuth PKCE scaffold**: Connect/callback/revoke; callback redirects to `WEB_URL`; token refresh-on-expiry; revoke hardening with configurable `GOOGLE_REVOKE_BASE`, provider outcome captured/audited. OAuth helper tests PASS (5/5).
+- **Gmail**: Read/send guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile.
+- **Google Calendar**: Read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup.
+- **Diagnostics/policy**: Connector account status/test routes; token expiry status/UI. Identity policy enforcement wired into Gmail send, Calendar create/update/delete, and browser external action (flag-aware).
+
 ## Checklist
 
 ### Completed

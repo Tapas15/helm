@@ -6,6 +6,15 @@
 ## Goal
 Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native runtime/contracts first; any Hermes adapter must be optional, isolated, contract-tested, and no Hermes code copied.
 
+## What we have done
+- **Runtime contract/foundation**: `AgentRuntime` contract + tests in `@helm/shared`; worker wired to `HelmNativeRuntime`; normalized `runtime.*` events.
+- **Local-first model path**: OpenAI-compatible streaming adapter; Ollama defaults (`llama3.2:latest`, `http://127.0.0.1:11434`), no external API key required by default.
+- **Tool-calling loop**: Normalized runtime events, batched delta persistence, tool loop/policy/registry, unknown tool blocked, browser sessionId normalization.
+- **Safety/guardrails**: High-risk prompt detection emits `runtime.tool.proposed` with `approvalRequired=true`, `actionHash`; task `waiting_approval`; approve requeues/reject cancels. Runtime guardrails include timeout, max tokens, AbortController, redacted model errors.
+- **Model/tool capability controls**: `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`, `isToolCapableModel()` warning/gating; browser tools gated by `shouldExposeBrowserTools()` and require `sessionId`.
+- **Runtime config/override**: Thread abstraction `RuntimeThreadMessage`/`input.thread`; model override with clamped timeout/maxTokens; `GET /v1/runtime/config`, `POST /v1/runtime/model-validate`.
+- **Tests/probes**: Worker tests PASS (11/11, `runtime.test.ts`, `runtime.behavior.test.ts`). Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
+
 ## Checklist
 
 ### Completed

@@ -1355,3 +1355,78 @@ eceipt.reconciled task event. Added ackend/api/src/routes/reconciliation.ts (GE
 - No blind retry of uncertain external writes; reconciliation remains DB-canonical and lookup-first.
 - Fault-injection env guards are test-only; lookup/activity faults keep uncertain receipts uncertain.
 - Schedule ensure endpoint guarded by `HELM_ALLOW_DEV_AUTH=1`.
+
+## Session: 2026-11-24 - Added "What we have done" summaries to phase docs
+**Time:** 2026-11-24T17:45:00Z  
+**Agent:** Kilo  
+**Phase:** Docs/memory (P1-P8 status clarity)
+
+### Completed
+- [x] Added explicit ## What we have done sections to changes/phase-1-ui-task-core.md, phase-2-hermes-runtime.md, phase-3-browser-execution.md, phase-4-approvals-vault-connectors.md, phase-5-temporal-reliability.md, phase-6-browseros-upgrade.md, phase-7-memory-skills-proactivity.md, phase-8-hardening-release.md.
+- [x] Kept existing checklist/evidence/blocker structure; no code/behavior changes.
+- [x] Updated changes/CURRENT_STATE.md timestamp and Latest Completed to reflect docs normalization.
+
+### Verification
+- Reviewed updated phase headers/sections via PowerShell reads; all 8 active phase docs contain ## What we have done.
+
+### Remaining / Blocked
+- No change to technical blockers: OAuth creds, real BrowserOS endpoint/runtime, real Temporal+provider sandbox depth, Drizzle migration-history alignment, P8 ops/legal/manual evidence, live UI E2E surface.
+
+## Session: 2026-11-24 - P5 Temporal reconciliation e2e + Drizzle migration alignment probe
+**Time:** 2026-11-24T23:35:00Z  
+**Agent:** Kilo  
+**Phase:** P5, P0/DB
+
+### Completed
+- [x] Ran env-gated Temporal reconciliation e2e: HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1 pnpm -C tests/integration exec vitest run src/temporal-reconciliation-e2e.test.ts PASS (1/1, 39.9s). Verified schedule tick reconciled uncertain receipt; HELM_RECONCILIATION_FAULT_INJECT=lookup_error path kept receipt uncertain and did not blind-retry.
+- [x] Probed Drizzle migration-history alignment on existing local DB (no destructive reset): added migrations config to packages/db/drizzle.config.ts; seeded drizzle.__drizzle_migrations with 0000 hash (381065015f0d59dbeec110964aec0c7dfdd00b8efbf571407aac71ba92155056, created_at 1795514897883) only when missing; pnpm -C packages/db exec drizzle-kit migrate --config drizzle.config.ts reported "migrations applied successfully".
+- [x] Updated changes/phase-5-temporal-reliability.md evidence and changes/CURRENT_STATE.md.
+
+### Verification
+- Temporal reconciliation e2e PASS (1/1).
+- Drizzle migrate command exited successfully on local DB with seeded journal; no table drops/resets performed.
+
+### Remaining / Blocked
+- [ ] P5: real-provider no-duplicate proof and real Temporal server schedule/monitor/fault-injection depth (needs provider sandbox/Temporal env).
+- [ ] P0: confirm Drizzle alignment on a fresh CI/empty DB and codify CI-safe non-interactive path; no destructive reset without explicit approval.
+- [ ] Other blockers unchanged (OAuth creds, BrowserOS runtime, P8 ops/legal/manual, self-improvement approval, live UI E2E surface).
+
+## Session: 2026-11-24 - Drizzle alignment CI-safe hardening + local Temporal e2e
+**Time:** 2026-11-24T23:50:00Z  
+**Agent:** Kilo  
+**Phase:** P0/DB, P5
+
+### Completed
+- [x] Ran env-gated Temporal reconciliation e2e: HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1 pnpm -C tests/integration exec vitest run src/temporal-reconciliation-e2e.test.ts PASS (1/1). Schedule tick reconciled uncertain receipt; fault injection preserved no-blind-retry.
+- [x] Hardened Drizzle migration-history alignment (non-destructive): packages/db/drizzle.config.ts explicit migrations table/schema config; added scripts/align-drizzle-journal.mjs (journal-driven, idempotent, seeds only when baseline probe passes and journal row missing; uses docker psql, no destructive reset) and packages/db script db:migrate:align.
+- [x] Verified alignment behavior: existing DB migrate/alignment idempotent; fresh temp DB helm_migrate_test -> drizzle-kit migrate applied successfully, created 17 tables and 0000 journal row; temp DB dropped. Removed accidental 0001 journal seed after confirming 0000 baseline already contains P7 tables and 0001 is legacy/manual idempotent SQL not in drizzle journal.
+
+### Verification
+- Temporal reconciliation e2e PASS (1/1).
+- 
+ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
+- Fresh DB pnpm -C packages/db exec drizzle-kit migrate --config drizzle.config.ts PASS (17 tables).
+
+### Remaining / Blocked
+- [ ] P0: confirm alignment script in CI/fresh clone workflow as needed; no destructive reset without explicit approval.
+- [ ] P5: real-provider no-duplicate proof and deeper real Temporal server schedule/monitor/fault-injection evidence.
+- [ ] External/ops/legal/self-improvement blockers unchanged.
+
+## Session: 2026-11-24 - OAuth config troubleshooting + local unblocked checks
+**Time:** 2026-11-25T01:35:00Z  
+**Agent:** Kilo  
+**Phase:** P4/P5 (blocked by OAuth consent/config), P0 maintenance
+
+### Completed
+- [x] Diagnosed web UI "Loading..." / 401: stale API process lacked dev auth env; restarted API with dev auth. Confirmed web 5173/API 8787/browser-worker 8790 healthy.
+- [x] Diagnosed OAuth connect 503 GOOGLE_CLIENT_ID not configured: API process not loading expected env; restarted API with root .env (DOTENV_CONFIG_PATH). /v1/connectors/oauth/start returns 200 authUrl.
+- [x] Identified active OAuth mismatch: running API sent client_id=410003408932... while .env had 417283600887...; restarted API so auth start now uses .env client 417283600887-cdp9ggfe5sfj650fv6b0u0t09o1in21o with redirect http://localhost:8787/v1/connectors/google/callback.
+- [x] Verified Google-side redirect URI form issue: user placed callback URL in Authorized JavaScript origins (invalid path); instructed to keep origins empty and put exact callback in Authorized redirect URIs.
+- [x] Ran local unblocked checks: @helm/shared temporal.test.ts PASS (3/3), @helm/api browser-adapter/identity-policy/oauth PASS (15/15).
+
+### Blocked / User action required
+- [ ] Real Google OAuth consent/connect E2E still blocked by Google Cloud config/consent: edirect_uri_mismatch / invalid request during consent for test Gmail. User must add redirect URI on the exact active OAuth client and add sign-in Gmail as Test user in Testing consent screen.
+- [ ] Real-provider no-duplicate/uncertain reconcile proof blocked until OAuth connects successfully.
+
+### Remaining
+- [ ] After OAuth connected: verify Gmail/Calendar account status/test/read, approval-gated send/create with idempotency receipts, no-duplicate/uncertain reconcile evidence; update phase-4/5/current state.

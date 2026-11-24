@@ -6,6 +6,13 @@
 ## Goal
 Production readiness: security, reliability, observability, backup/restore/export, compliance, release gates.
 
+## What we have done
+- **CI/release baseline**: CI green with lint/typecheck/build/test and report-only dependency audit. Latest green `45441229198` (`8471aef`), prior `45438392752` (`e6f79d4`).
+- **Observability redaction**: Expanded Pino redaction for `sessionToken`, `vaultKey`, `encryptedValue`, `pkceVerifier`, `pkceVerifierEncrypted` and wildcard variants; regression `packages/observability/src/redaction.test.ts` PASS (1/1).
+- **Backup/restore**: Scripts `scripts/backup-db.ps1`, `scripts/restore-db.ps1`; dry-run evidence in `changes/P8-backup-restore-dry-run.md` (backup `backups/helm-20261124-161337.dump`, restore to temp `helm_restore_test`, `pg_restore` exit 0, 17 tables verified, temp DB dropped, `helm` untouched).
+- **Data controls**: Task export endpoints capped by `HELM_TASK_EXPORT_MAX`; delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`, transactional delete + audit. Env-gated `task-export-delete-api` PASS (1/1).
+- **P8 docs/evidence**: Hardening, security/privacy, threat-model baseline, PII retention baseline/implementation notes, release evidence, dependency audit triage; `.env.example` documents P8 controls.
+
 ## Checklist
 
 ### Completed

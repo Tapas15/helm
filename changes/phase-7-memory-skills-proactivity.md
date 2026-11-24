@@ -6,6 +6,13 @@
 ## Goal
 Personal assistant intelligence over time: agent-owned identity, memory, skills, proactivity, with explicit approval/safety boundaries.
 
+## What we have done
+- **Identity model/routes**: Shared identity contracts; DB-backed identity routes (status, list, create helm-owned, policy read/PATCH, connector-account binding). Helm-owned identity create defaults to restrictive policy.
+- **Policy enforcement**: `backend/api/src/lib/identity-policy.ts` helper; wired into Gmail send, Calendar create/update/delete, and browser external action (flag-aware `HELM_IDENTITY_ENFORCEMENT=1`, bound `identityId` in browser session metadata). Identity policy unit tests PASS (4/4).
+- **P7 data layer**: P7 DB tables/schema manually applied and verified (17 public tables); migration-history alignment tracked separately in P0.
+- **Memory/skills/proactivity scaffolds**: Memory notes create/list/delete behind `HELM_MEMORY_ENABLED`; skills/proactivity rules behind flags with status/CRUD/PATCH. No autonomous execution.
+- **Self-improvement gate**: Design doc exists (`DESIGN-self-improvement-loop.md`); routes/reporting keep `selfImprovement.allowed=false`, `requiresExplicitApproval=true`. Not implemented/activated.
+
 ## Checklist
 
 ### Completed

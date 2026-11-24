@@ -6,6 +6,16 @@
 ## Goal
 Real visible browser work with Playwright worker, live preview, takeover/return control, deterministic execution baseline.
 
+## What we have done
+- **Playwright browser worker**: Create/get/navigate/click/fill/snapshot/screenshot/close with token auth.
+- **Live preview**: CDP screencast WS stream (`/v1/sessions/:id/stream`) proxied by API; web renders with polling fallback.
+- **Takeover/return control**: Request/resume endpoints, API proxy, web buttons, task `waiting_input` on takeover and requeue on resume, events/audit. Worker/runtime pauses/resumes; persists `activeBrowserSessionId`.
+- **Evidence/artifacts**: Screenshot/DOM snapshot files with sha256/size/metadata; `browser_artifacts` rows.
+- **Guarded external actions**: `POST /v1/browser/sessions/:id/external-action` requires approved `approvalId` + matching `actionHash` + idempotency receipt; dedupe same receipt; executing claim 409. Runtime/browser-task high-risk path routes through guarded API.
+- **Ownership/authz/recovery hardening**: Session ownership checks, guarded routes, browser WS bearer authz via shared resolver; legacy unbound sessions hard-blocked 403 `legacy-unbound-session-hard-block`; `POST /v1/browser/sessions/:id/rebind`.
+- **Crash recovery**: Browser crash/stale-target/in-memory-loss recovery restores persisted session and retries action once.
+- **Regression coverage**: Env-gated integration suite includes ownership/guarded/takeover/stream-status/ws-authz/restart-recovery/session-create/legacy-rebind tests; smoke evidence in `BROWSER_SMOKE_2026-11-22.md`.
+
 ## Checklist
 
 ### Completed

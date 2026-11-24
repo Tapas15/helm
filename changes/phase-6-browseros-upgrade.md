@@ -6,6 +6,13 @@
 ## Goal
 Improve browser execution with optional external BrowserOS adapter behind Helm `BrowserExecutor`/adapter contract, while keeping Playwright default fallback and Helm original.
 
+## What we have done
+- **Adapter boundary**: `backend/api/src/lib/browser-adapter.ts` implements `BrowserOSAdapter`/`PlaywrightBrowserAdapter` boundary, `BrowserOSAdapterStub`, `createBrowserAdapter`, and `BrowserOSHttpAdapter` when `BROWSER_ADAPTER=browseros` with `BROWSEROS_BASE_URL`/`BROWSEROS_TOKEN`.
+- **Safe default/fallback**: Playwright remains default behavior; no BrowserOS/Obscura/Hermes code copied.
+- **API/dispatch hooks**: `GET /v1/browser/adapter/status`; `HELM_BROWSER_ADAPTER_DISPATCH` flag; adapter-aware browser routes/session lookup; request/requestBinary dispatch supported.
+- **Contract tests**: `backend/api/src/lib/browser-adapter.test.ts` PASS (6/6).
+- **Commits**: `e5391c1`,`a91885a`,`9dc78e6`,`4bfc19c`,`69361b3` recorded in state history.
+
 ## IP/License Guardrail
 - [x] No BrowserOS/Obscura/Hermes source code copying.
 - [x] External adapter isolated behind contract; no AGPL/copyleft code vendored into Helm.

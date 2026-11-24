@@ -6,6 +6,16 @@
 ## Goal
 Visible task system with realtime updates. User creates task from chat and sees live state transitions; refresh/reconnect reconstructs timeline; pause/resume/cancel/retry works.
 
+## What we have done
+- **Chat/task core UI**: Web chat creates tasks and shows task list/detail, timeline, approvals/evidence/receipts panels.
+- **Realtime events**: SSE `GET /v1/events/stream?taskId=&after=` with heartbeat; `useTaskEventStream` handles dedupe/order/stale indicator. Env-gated `events-sse-api` PASS (3/3, cursor resume + invalid cursor validation).
+- **Task controls**: Pause/resume/cancel/retry with CAS/state guards, audit, and task events. Env-gated `task-lifecycle-api` PASS (4/4, includes invalid transition).
+- **Idempotency/follow-up guards**: Task create path guards duplicate/follow-up behavior.
+- **Browser visibility**: WS screencast preview with polling fallback; takeover-only remote input baseline.
+- **Auth wiring**: Web session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot; dev `x-user-id` fallback only when `HELM_ALLOW_DEV_AUTH=1` and `HELM_REQUIRE_AUTH!=1`.
+- **Task data controls**: Export endpoints `GET /v1/tasks/:id/export`, `POST /v1/tasks/export` capped by `HELM_TASK_EXPORT_MAX` (default 200, hard max 500). Delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`, transactional delete + audit. Env-gated `task-export-delete-api` PASS (1/1).
+- **Validation**: Task list limit validation; web typecheck/lint PASS in prior evidence.
+
 ## Checklist
 
 ### Completed

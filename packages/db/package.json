@@ -18,6 +18,7 @@
     "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:align": "node ../../scripts/align-drizzle-journal.mjs",
     "db:push": "drizzle-kit push",
     "db:seed": "pnpm build && node dist/seed.js"
   },
