@@ -30,7 +30,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 4 Approvals/Vault/Connectors | 88% | Vault/connector contracts, Gmail read/send, Calendar read/create/update/delete approval-gated with uncertain reconcile; real OAuth E2E blocked on external creds |
 | Phase 5 Temporal Reliability | 50% | Feature-flagged routing for Gmail/Calendar/browser external actions; stub/real-dedupe/mock-side-effect/rollback E2E proofs; runbook added |
 | Phase 6 BrowserOS Upgrade | 25% | Adapter interface + Playwright default + BrowserOS stub; adapter status/request/requestBinary dispatch + adapter-aware session lookup behind HELM_BROWSER_ADAPTER_DISPATCH; real BrowserOS endpoint/parity pending |
-| Phase 7 Memory/Skills/Proactivity | 35% | Identity contracts/status/create/policy read (helm-owned default), restrictive default policy, identities/identity_policies/memory_notes/skills/proactivity_rules schema, DB-backed notes/skills/proactivity rules behind flags with PATCH; self-improvement gated/design-only (no activation) |
+| Phase 7 Memory/Skills/Proactivity | 38% | Identity contracts/status/list/create/policy read (helm-owned default), restrictive default policy, identities/identity_policies/memory_notes/skills/proactivity_rules schema, DB-backed notes/skills/proactivity rules behind flags with PATCH/delete; self-improvement gated/design-only (no activation) |
 | Phase 8 Hardening/Release | 20% | Backup/restore scripts+runbooks, security/privacy/release-evidence checklists added; drills, scans/threat model, PII lifecycle, compliance signoff pending |
 
 > Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**

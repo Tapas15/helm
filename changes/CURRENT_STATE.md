@@ -1,6 +1,6 @@
 # Current State â€” Helm
 
-**Last updated:** 2026-11-24T03:18:00Z (unblocked-only pass: P7 patch routes, P8 drill runbook)
+**Last updated:** 2026-11-24T03:28:00Z (unblocked-only: identity list, memory delete, docs sync)
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
 **Next move:** Real session/OIDC UX and web token flow; encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation. Keep live UI E2E evidence when browser automation surface is available.
 
@@ -19,7 +19,7 @@
 - **Phase 4 - Approvals/Vault/Connectors:** `[~]` 88%. Approval/receipts hardened; auth session scaffold; local vault/CredentialBroker; Gmail read/send and Calendar read/create/update/delete approval-gated with actionHash+idempotency+receipts+uncertain reconcile; web connector UI. Pending: real Google OAuth E2E (external creds), diagnostics/sync UX, token refresh/revoke hardening against real provider.
 - **Phase 5 - Temporal Reliability:** `[~]` 55%. ADR-002, compose profile healthy, shared flags, `@helm/temporal-worker` scaffold, guarded Gmail/Calendar/browser external-action activities, API feature-flag routing, stub integration PASS (`7497b0c`), real Temporal workflowId-dedupe E2E PASS (`528551c`), mock-provider side-effect E2E PASS (`1ecca7b`), runtime rollback E2E PASS (`1748e15`), runbook. Pending: real provider no-duplicate proof (external sandbox), reconciliation workflow/schedules/monitors.
 - **Phase 6 - BrowserOS Adapter:** `[~]` 25%. Adapter interface + Playwright default + BrowserOS stub; adapter status endpoint, `HELM_BROWSER_ADAPTER_DISPATCH` flag, request/requestBinary dispatch, adapter-aware session lookup (`e5391c1`,`a91885a`,`9dc78e6`,`4bfc19c`). Pending: full typed route migration, real BrowserOS endpoint/protocol, parity/security tests.
-- **Phase 7 - Memory/Skills/Proactivity:** `[~]` 35%. Identity contracts/status/create/policy read (helm-owned default, delegated disabled), restrictive default policy, `identities/identity_policies/memory_notes/skills/proactivity_rules` schema, DB-backed notes/skills/proactivity rules behind flags, PATCH for skills/proactivity rules (`28f4c11`,`458dfcc`). Pending: identity vault linkage/policy enforcement/UI, skill execution/proactivity scheduler; self-improvement activation requires explicit approval.
+- **Phase 7 - Memory/Skills/Proactivity:** `[~]` 38%. Identity contracts/status/list/create/policy read (helm-owned default, delegated disabled), restrictive default policy, `identities/identity_policies/memory_notes/skills/proactivity_rules` schema, DB-backed notes/skills/proactivity rules behind flags, PATCH for skills/proactivity rules, memory note delete (`28f4c11`,`458dfcc`,`65eee27`). Pending: identity vault linkage/policy enforcement/UI, skill execution/proactivity scheduler; self-improvement activation requires explicit approval.
 - **Phase 8 - Hardening/Compliance:** `[~]` 32%. Backup/restore scripts+runbooks+drill runbook, security/privacy checklist, release-evidence, threat-model and PII-retention baselines (`8004a5a`,`5c0a123`). Pending: drill execution evidence, CI security scan/threat model execution, PII retention/export/delete implementation, compliance/provenance signoff.
 
 
