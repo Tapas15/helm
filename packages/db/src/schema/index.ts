@@ -233,6 +233,36 @@ export const memoryNotes = pgTable("memory_notes", {
   index("memory_notes_user_created_idx").on(t.userId, t.createdAt),
 ]);
 
+export const skills = pgTable("skills", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").notNull().default(true),
+  source: text("source").notNull().default("local"),
+  config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("skills_user_enabled_idx").on(t.userId, t.enabled),
+]);
+
+export const proactivityRules = pgTable("proactivity_rules", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  triggerKind: text("trigger_kind").notNull().default("cron"),
+  triggerConfig: jsonb("trigger_config").notNull().default(sql`'{}'::jsonb`),
+  actionKind: text("action_kind").notNull().default("draft"),
+  actionConfig: jsonb("action_config").notNull().default(sql`'{}'::jsonb`),
+  requireApproval: boolean("require_approval").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("proactivity_rules_user_enabled_idx").on(t.userId, t.enabled),
+]);
+
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
