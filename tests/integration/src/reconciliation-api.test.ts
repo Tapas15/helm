@@ -1,11 +1,11 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDb } from "@helm/db";
-import { actionReceipts, tasks, users } from "@helm/db";
+import { actionReceipts, taskEvents, tasks, users } from "@helm/db";
 import { eq } from "drizzle-orm";
 
 const run = process.env.HELM_RECONCILIATION_API_TEST === "1";
@@ -57,6 +57,7 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
   let apiChild: ChildProcessWithoutNullStreams | null = null;
   let mockChild: ChildProcessWithoutNullStreams | null = null;
   let conn: ReturnType<typeof createDb> | undefined;
+  afterEach(async () => { await stopChild(apiChild); apiChild = null; await stopChild(mockChild); mockChild = null; });
   afterAll(async () => { await stopChild(apiChild); await stopChild(mockChild); if (conn) await conn.pool.end(); });
 
   it("records lookup attempt for uncertain gmail receipt without blind retry", async () => {
@@ -106,6 +107,57 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     const ev = (after1?.evidence ?? {}) as Record<string, unknown>;
     expect(typeof ev.lastReconcileAttemptAt).toBe("string");
 
-    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 90000);
+
+  it("marks uncertain gmail receipt executed when lookup proves external message", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const taskId = uid("tsk");
+    const receiptId = uid("rcpt");
+    const idem = `task:${taskId}:action:ah_recon:${receiptId}`;
+    const mockPort = await getFreePort();
+    const mockBase = `http://127.0.0.1:${mockPort}`;
+    const mockCode = [
+      "const http=require('node:http');",
+      "http.createServer((req,res)=>{",
+      " const u=req.url||'';",
+      " if(u.startsWith('/gmail/v1/users/me/messages?')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({messages:[{id:'msg_1',threadId:'thr_1'}]}));return;}",
+      " if(u.startsWith('/gmail/v1/users/me/messages/msg_1')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({id:'msg_1',threadId:'thr_1',payload:{headers:[{name:'X-Helm-Idempotency',value:process.env.EXPECT_IDEM},{name:'Subject',value:'hi'},{name:'To',value:'a@b.com'}]}}));return;}",
+      " res.writeHead(404,{'content-type':'application/json'});res.end(JSON.stringify({error:{message:'not found'}}));",
+      `}).listen(${mockPort},'127.0.0.1');`,
+    ].join("");
+    mockChild = spawn(process.execPath, ["-e", mockCode], { env: { ...process.env, EXPECT_IDEM: idem }, stdio: "pipe" }) as ChildProcessWithoutNullStreams;
+    mockChild.stdout.on("data",()=>{}); mockChild.stderr.on("data",()=>{});
+    await delay(300);
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_GMAIL_API_BASE: mockBase,
+      HELM_TEST_CONNECTOR_HTTP: "1",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon2", prompt: "recon2", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "gmail.send", actionHash: "ah_recon2",
+      idempotencyKey: idem, status: "uncertain",
+      evidence: { accountId: "cac_test", subject: "hi", to: ["a@b.com"] },
+      createdAt: now,
+    }).onConflictDoNothing();
+    const r1 = await api(apiBase, "/v1/reconciliation/run", { method: "POST", body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
+    expect(r1.status).toBe(200);
+    expect(r1.json?.ok).toBe(true);
+    expect(r1.json?.reconciled).toBeGreaterThanOrEqual(1);
+    const [after1] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+    expect(after1?.status).toBe("executed");
+    expect(after1?.externalRef).toBe("msg_1");
+    const ev = (after1?.evidence ?? {}) as Record<string, unknown>;
+    expect(ev.reconciled).toBe(true);
+    expect(ev.reconcileOutcome).toBe("executed");
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
   }, 90000);
 });
