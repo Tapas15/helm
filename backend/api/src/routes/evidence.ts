@@ -40,9 +40,11 @@ export function receiptRoutes(db: Database) {
   app.get("/", async (c) => {
     const userId = c.get("userId");
     const taskId = c.req.query("taskId");
+    const status = c.req.query("status");
     const where = taskId ? and(eq(actionReceipts.userId, userId), eq(actionReceipts.taskId, taskId)) : eq(actionReceipts.userId, userId);
     const rows = await db.select().from(actionReceipts).where(where).orderBy(desc(actionReceipts.createdAt)).limit(100);
-    return c.json({ receipts: rows });
+    const filtered = status ? rows.filter((r) => r.status === status) : rows;
+    return c.json({ receipts: filtered });
   });
 
   app.post("/:id/reconcile", async (c) => {
