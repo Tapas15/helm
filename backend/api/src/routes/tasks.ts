@@ -1,6 +1,6 @@
 ﻿import { Hono } from "hono";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { tasks, taskEvents, taskMessages, auditLog, type Database } from "@helm/db";
+import { actionReceipts, approvals, browserArtifacts, tasks, taskEvents, taskMessages, auditLog, type Database } from "@helm/db";
 import {
   CreateTaskInput,
   HELM_ERROR_CODES,
@@ -166,6 +166,21 @@ export function taskRoutes(db: Database) {
       .limit(1);
     if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
     return c.json({ task });
+  });
+
+  app.get("/:id/export", async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId))).limit(1);
+    if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
+    const [messages, events, approvalsRows, receipts, artifacts] = await Promise.all([
+      db.select().from(taskMessages).where(and(eq(taskMessages.taskId, id), eq(taskMessages.userId, userId))).orderBy(taskMessages.createdAt).limit(500),
+      db.select().from(taskEvents).where(and(eq(taskEvents.taskId, id), eq(taskEvents.userId, userId))).orderBy(taskEvents.sequence).limit(2000),
+      db.select().from(approvals).where(and(eq(approvals.taskId, id), eq(approvals.userId, userId))).orderBy(desc(approvals.requestedAt)).limit(200),
+      db.select().from(actionReceipts).where(and(eq(actionReceipts.taskId, id), eq(actionReceipts.userId, userId))).orderBy(desc(actionReceipts.createdAt)).limit(200),
+      db.select().from(browserArtifacts).where(and(eq(browserArtifacts.taskId, id), eq(browserArtifacts.userId, userId))).orderBy(desc(browserArtifacts.createdAt)).limit(200),
+    ]);
+    return c.json({ ok: true, exportedAt: new Date().toISOString(), task, messages, events, approvals: approvalsRows, receipts, artifacts });
   });
 
   app.get("/:id/messages", async (c) => {
