@@ -1316,3 +1316,42 @@ eceipt.reconciled task event. Added ackend/api/src/routes/reconciliation.ts (GE
 
 **Pending (blocked/external)**
 - Real Google OAuth E2E/no-duplicate proof; real BrowserOS endpoint/protocol/parity; full backup/restore drill with artifacts/vault-key scope; Drizzle migration-history alignment for manual P7 baseline; interactive live UI smoke; PII retention/export/delete policy+implementation; compliance/provenance/submission signoff.
+
+
+## Session: 2026-11-24 - P5 reconciliation schedule/fault-injection hardening + CI + docs sync
+**Time:** 2026-11-24T17:00:00Z  
+**Agent:** Kilo  
+**Phase:** P5 (also docs/CI)
+
+### Completed
+- [x] Fixed CI failure from prior run: `e6f79d4` (`ci: build before test and stabilize shared package-entry tests`) changed `.github/workflows/ci.yml` to Build before Test; `packages/shared/src/reconciliation.test.ts` and `temporal.test.ts` import `./temporal.js`. GitHub Actions run `45438392752` PASS.
+- [x] Restored stashed P5 WIP and stabilized it. Added Temporal reconciliation schedule config/helpers in `packages/shared/src/temporal.ts` (`HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ENABLED`, `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID`).
+- [x] Added API schedule/fault-injection hooks: `backend/api/src/lib/temporal.ts` (`maybeStartReconciliationSchedule`, `getTemporalReconciliationScheduleStatus`), `backend/api/src/lib/reconciliation.ts` (`HELM_RECONCILIATION_FAULT_INJECT` guards preserving no-blind-retry), `backend/api/src/routes/reconciliation.ts` (`temporalSchedule` in status, dev-gated `POST /schedule/ensure`).
+- [x] Added Temporal worker reconciliation workflow/activity/schedule bootstrap: `backend/temporal-worker/src/workflows.ts` (`helmReconciliationWorkflow`), `backend/temporal-worker/src/activities.ts` (`reconcileUncertainReceiptsActivity`), `backend/temporal-worker/src/index.ts` (schedule ensure/update).
+- [x] Added env-gated integration scaffold: `tests/integration/src/temporal-reconciliation-e2e.test.ts` (schedule tick + lookup fault no-blind-retry case).
+- [x] Updated docs/state: `.env.example`, `changes/phase-5-temporal-reliability.md`, `changes/CURRENT_STATE.md`, `changes/FIX_LOG.md`.
+- [x] Synced stale progress docs to CURRENT_STATE: `README.md`, `ROADMAP.md` overall 70.0% and phase percentages corrected (`d18cea5`).
+- [x] Commit/push: `8471aef` `feat: add temporal reconciliation schedule and fault-injection guards`. GitHub Actions run `45441229198` PASS.
+
+### Verification
+- `pnpm --filter @helm/shared test -- temporal.test.ts` PASS (3/3)
+- `pnpm --filter @helm/shared typecheck` PASS
+- `pnpm --filter @helm/api typecheck` PASS
+- `pnpm --filter @helm/temporal-worker typecheck` PASS
+- `pnpm --filter @helm/api test -- browser-adapter.test.ts identity-policy.test.ts oauth.test.ts` PASS (15/15)
+- CI `45438392752` PASS; CI `45441229198` PASS
+
+### Remaining / Blocked (not completed)
+- [ ] P5: real-provider no-duplicate proof (needs Google creds/sandbox).
+- [ ] P5: real Temporal server schedule/monitor/fault-injection E2E depth.
+- [ ] P4: real Google OAuth connect/callback/Gmail/Calendar E2E (needs `GOOGLE_CLIENT_ID/SECRET`, redirect URI, test accounts).
+- [ ] P6: real BrowserOS endpoint/protocol/parity/security tests; `browseros-cli` not found.
+- [ ] P7: broader identity-policy coverage, identity vault linkage/UI, skill execution/proactivity scheduler; self-improvement activation requires explicit user approval.
+- [ ] P8: full backup/restore drill with artifacts/vault-key scope, CI scan gating decisions, threat-model execution, PII retention/export/delete policy+implementation, compliance/provenance/Dubai submission signoff.
+- [ ] P0/DB: CI-safe non-interactive Drizzle migration-history alignment for manual P7 baseline; no destructive reset without explicit approval.
+- [ ] P1/P3: live interactive UI/browser smoke evidence in browser automation surface.
+
+### Safety / Invariants
+- No blind retry of uncertain external writes; reconciliation remains DB-canonical and lookup-first.
+- Fault-injection env guards are test-only; lookup/activity faults keep uncertain receipts uncertain.
+- Schedule ensure endpoint guarded by `HELM_ALLOW_DEV_AUTH=1`.
