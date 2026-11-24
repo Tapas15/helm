@@ -473,7 +473,7 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     }).onConflictDoNothing();
     const r = await api(apiBase, "/v1/reconciliation/dry-run", { method: "POST", body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
     expect(r.status).toBe(200);
-    const j = await r.json() as any;
+    const j = r.json as any;
     expect(j.ok).toBe(true);
     expect(j.dryRun).toBe(true);
     expect(j.scanned).toBeGreaterThanOrEqual(1);
