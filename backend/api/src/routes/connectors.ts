@@ -10,8 +10,8 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
 const CONNECTORS = [
-  { id: "google-gmail", kind: "oauth", displayName: "Gmail (Google)", capabilities: ["gmail.read", "gmail.send"], scopes: ["https://www.googleapis.com/auth/gmail.readonly"], enabled: true },
-  { id: "google-calendar", kind: "oauth", displayName: "Google Calendar", capabilities: ["calendar.read", "calendar.write"], scopes: ["https://www.googleapis.com/auth/calendar.readonly"], enabled: true },
+  { id: "google-gmail", kind: "oauth", displayName: "Gmail (Google)", capabilities: ["gmail.read", "gmail.send"], scopes: ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"], enabled: true },
+  { id: "google-calendar", kind: "oauth", displayName: "Google Calendar", capabilities: ["calendar.read", "calendar.write"], scopes: ["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/calendar.events"], enabled: true },
 ] as const;
 
 async function exchangeGoogleCode(input: { code: string; clientId: string; clientSecret: string; redirectUri: string; codeVerifier: string }) {
