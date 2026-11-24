@@ -140,4 +140,17 @@ describe("browser adapter factory", () => {
     const a = new BrowserOSMcpAdapter("http://127.0.0.1:9210/mcp", { client });
     await expect(a.createSession({ initialUrl: "https://example.com" })).rejects.toThrow(/Missing required MCP tools/);
   });
+
+  it("BrowserOSMcpAdapter exposes capability report", async () => {
+    const client = new BrowserOSMcpClient("http://127.0.0.1:9210/mcp");
+    (client as any).ensureInitialized = vi.fn().mockResolvedValue(undefined);
+    (client as any).ensureCapabilities = vi.fn().mockResolvedValue({ ok: true, checkedAt: "2026-11-24T00:00:00.000Z", tools: ["tabs","navigate","snapshot","screenshot"], missing: [] });
+    const a = new BrowserOSMcpAdapter("http://127.0.0.1:9210/mcp", { client });
+    const r = await a.request("/v1/capabilities", { method: "GET" });
+    expect(r.status).toBe(200);
+    const body = JSON.parse(r.text);
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe("browseros-mcp");
+    expect(body.missing).toEqual([]);
+  });
 });

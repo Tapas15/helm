@@ -100,6 +100,10 @@ export class BrowserOSMcpAdapter implements BrowserOSAdapter {
     try {
       const method = (init?.method ?? "GET").toUpperCase();
       const body = parseBody(init);
+      if (path === "/v1/capabilities" && method === "GET") {
+        const caps = await this.exec.capabilities();
+        return jsonResponse(200, { provider: "browseros-mcp", ...caps });
+      }
       const m = path.match(/^\/v1\/sessions(?:\/([^/]+)(?:\/(navigate|click|fill|snapshot|screenshot|close|takeover\/request|takeover\/resume|external-action|stream\/status))?)?$/);
       if (!m) return jsonResponse(404, { error: { code: "NOT_FOUND", message: `Unsupported BrowserOS MCP adapter path: ${path}` } });
       const [, sessionId, action] = m;

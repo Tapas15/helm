@@ -152,8 +152,6 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
     if (s.session.control.owner === "user" && !allowDuringTakeover) return { ok: false, sessionId, action, error: { code: "TAKEOVER_ACTIVE", message: "BrowserOS session is under user takeover", retryable: true } };
     if (s.pageId == null) return { ok: false, sessionId, action, error: { code: "NO_PAGE", message: "BrowserOS session has no page", retryable: false } };
     try {
-      const caps = await this.client.ensureCapabilities();
-      if (!caps.ok) throw new Error(`Missing required MCP tools: ${caps.missing.join(", ")}`);
       const data = await fn(s, s.pageId);
       s.session.updatedAt = new Date().toISOString();
       this.scheduleClose(sessionId);
@@ -162,6 +160,11 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
       s.session.status = "error"; s.session.updatedAt = new Date().toISOString();
       return { ok: false, sessionId, action, url: s.session.currentUrl, error: this.classifyError(e) };
     }
+  }
+
+  async capabilities(): Promise<{ ok: boolean; tools: string[]; missing: string[]; checkedAt: string }> {
+    await this.client.ensureInitialized();
+    return this.client.ensureCapabilities();
   }
 
   async navigate(sessionId: string, input: unknown): Promise<BrowserActionResult> {
