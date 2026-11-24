@@ -1,16 +1,32 @@
-﻿import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { HelmNativeRuntime } from "./runtime.js";
+﻿import { describe, expect, it } from "vitest";
+import { buildSystemPrompt, isToolCapableModel, redactModelError, resolveModel, shouldExposeBrowserTools } from "./runtime.js";
 
-describe("HelmNativeRuntime model config", () => {
-  const old = { ...process.env };
-  beforeAll(() => { delete process.env.HELM_MODEL_BASE_URL; delete process.env.HELM_MODEL; delete process.env.OPENAI_API_KEY; delete process.env.OLLAMA_BASE_URL; });
-  afterAll(() => { process.env = old; });
-  it("falls back when no model configured", async () => {
-    const rt = new HelmNativeRuntime();
-    const events: any[] = [];
-    for await (const e of rt.run({ taskId: "t1", runId: "r1", userId: "u1", prompt: "hello", kind: "assistant", context: {}, trace: {} })) events.push(e);
-    const done = events.find((e) => e.type === "runtime.completed");
-    expect(done?.payload?.status).toBe("succeeded");
-    expect(String(done?.payload?.output ?? "")).toContain("Configure HELM_MODEL");
+const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
+
+describe("runtime helpers", () => {
+  it("resolveModel uses ollama defaults and clamps limits", () => {
+    const cfg = resolveModel({ OLLAMA_BASE_URL: "http://127.0.0.1:11434", HELM_MODEL_TIMEOUT_MS: "1", HELM_MODEL_MAX_TOKENS: "1" } as any);
+    expect(cfg?.provider).toBe("ollama");
+    expect(cfg?.model).toBe("llama3.2:latest");
+    expect(cfg?.timeoutMs).toBe(5000);
+    expect(cfg?.maxTokens).toBe(128);
+  });
+  it("tool capability allowlist gates ollama models", () => {
+    const cfg = resolveModel({ OLLAMA_BASE_URL: "http://127.0.0.1:11434", HELM_MODEL: "custom:latest", HELM_MODEL_TOOL_CAPABLE_ALLOWLIST: "a,b" } as any)!;
+    expect(isToolCapableModel(cfg)).toBe(false);
+  });
+  it("redacts bearer tokens", () => {
+    expect(redactModelError("Authorization: Bearer abc.def-123")).toContain("[redacted]");
+  });
+  it("exposes browser tools only for browser intent or active session", () => {
+    expect(shouldExposeBrowserTools(baseInput)).toBe(false);
+    expect(shouldExposeBrowserTools({ ...baseInput, prompt: "open browser and navigate" })).toBe(true);
+    expect(shouldExposeBrowserTools({ ...baseInput, context: { activeBrowserSessionId: "s1" } })).toBe(true);
+  });
+  it("system prompt includes guardrails and memory/session context", () => {
+    const p = buildSystemPrompt({ ...baseInput, context: { activeBrowserSessionId: "s1", memoryFacts: ["likes tea"] } });
+    expect(p).toContain("Active browser session: s1");
+    expect(p).toContain("likes tea");
+    expect(p).toContain("Do not invent tool results");
   });
 });

@@ -9,24 +9,24 @@ type ChatMsg = { role: "system" | "user" | "assistant" | "tool"; content: string
 
 const DEFAULT_TOOL_CAPABLE_ALLOWLIST = ["llama3.2:latest", "llama3.2:3b", "qwen2.5:latest", "qwen2.5:3b"];
 
-function resolveModel(): ModelConfig | null {
-  const model = process.env.HELM_MODEL ?? process.env.OPENAI_MODEL ?? (process.env.OLLAMA_BASE_URL ? "llama3.2:latest" : "");
-  const apiKey = process.env.HELM_MODEL_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
-  const baseUrl = (process.env.HELM_MODEL_BASE_URL ?? process.env.OPENAI_BASE_URL ?? (process.env.OLLAMA_BASE_URL ? `${process.env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "");
+export function resolveModel(env: NodeJS.ProcessEnv = process.env): ModelConfig | null {
+  const model = env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : "");
+  const apiKey = env.HELM_MODEL_API_KEY ?? env.OPENAI_API_KEY ?? "";
+  const baseUrl = (env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "");
   if (!model || !baseUrl) return null;
-  const provider = process.env.HELM_MODEL_PROVIDER ?? (baseUrl.includes("11434") || process.env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
-  const timeoutMs = Math.max(5000, Number(process.env.HELM_MODEL_TIMEOUT_MS ?? 120000));
-  const maxTokens = Math.max(128, Number(process.env.HELM_MODEL_MAX_TOKENS ?? 1024));
-  const allowlist = (process.env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(",")).split(",").map(s => s.trim()).filter(Boolean);
+  const provider = env.HELM_MODEL_PROVIDER ?? (baseUrl.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
+  const timeoutMs = Math.max(5000, Number(env.HELM_MODEL_TIMEOUT_MS ?? 120000));
+  const maxTokens = Math.max(128, Number(env.HELM_MODEL_MAX_TOKENS ?? 1024));
+  const allowlist = (env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(",")).split(",").map(s => s.trim()).filter(Boolean);
   return { baseUrl, apiKey: apiKey || undefined, model, provider, timeoutMs, maxTokens, allowlist };
 }
 
-function isToolCapableModel(cfg: ModelConfig): boolean {
+export function isToolCapableModel(cfg: ModelConfig): boolean {
   if (cfg.provider !== "ollama") return true;
   return cfg.allowlist.some(m => m.toLowerCase() === cfg.model.toLowerCase());
 }
 
-function redactModelError(text: string): string {
+export function redactModelError(text: string): string {
   return text.replace(/Bearer\s+[A-Za-z0-9._\-]+/g, "Bearer [redacted]").slice(0, 300);
 }
 
@@ -36,7 +36,7 @@ const BROWSER_TOOLS = [
   { type: "function", function: { name: "browser_click", description: "Click selector in browser. High-risk side effect: requires approved approvalId/actionHash/idempotencyKey.", parameters: { type: "object", properties: { sessionId: { type: "string" }, selector: { type: "string" }, approvalId: { type: "string" }, actionHash: { type: "string" }, idempotencyKey: { type: "string" } }, required: ["sessionId", "selector", "approvalId", "actionHash", "idempotencyKey"] } } },
 ];
 
-function shouldExposeBrowserTools(input: AgentRuntimeInput): boolean {
+export function shouldExposeBrowserTools(input: AgentRuntimeInput): boolean {
   const ctx = (input.context ?? {}) as any;
   if (input.kind === "browser") return true;
   if (ctx.activeBrowserSessionId) return true;
@@ -73,7 +73,7 @@ async function runTool(name: string, args: any): Promise<string> {
   return JSON.stringify({ error: `unknown tool ${name}` });
 }
 
-function buildSystemPrompt(input: AgentRuntimeInput): string {
+export function buildSystemPrompt(input: AgentRuntimeInput): string {
   const ctx = (input.context ?? {}) as any;
   const persona = String(ctx.persona ?? "You are Helm, a personal AI operator.");
   const facts = Array.isArray(ctx.memoryFacts) ? ctx.memoryFacts.slice(-8).map((f: any) => `- ${String(f)}`).join("\n") : "";
@@ -178,7 +178,7 @@ export class HelmNativeRuntime implements AgentRuntime {
   async *run(input: AgentRuntimeInput): AsyncIterable<AgentRuntimeEvent> {
     if (input.kind === "browser") { for await (const evt of runBrowserTask(input)) yield evt; return; }
     const trace = { ...input.trace, taskId: input.taskId, runId: input.runId, userId: input.userId, agentId: "helm-native" };
-    const model = resolveModel();
+    const model = resolveModel(process.env);
     yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null } };
     yield { type: "runtime.planning", ts: now(), trace, message: "Planning task", payload: { prompt: input.prompt.slice(0, 500) } };
     const needsApproval = /\b(buy|purchase|checkout|pay|payment|order|place order|submit|send email|delete)\b/i.test(input.prompt);

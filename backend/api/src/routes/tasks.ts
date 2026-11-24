@@ -183,6 +183,35 @@ export function taskRoutes(db: Database) {
     return c.json({ ok: true, exportedAt: new Date().toISOString(), task, messages, events, approvals: approvalsRows, receipts, artifacts });
   });
 
+  app.post("/export", async (c) => {
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({} as any));
+    const limit = Number.isFinite(body?.limit) ? Math.min(Math.max(Math.floor(body.limit), 1), 200) : 50;
+    const rows = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.updatedAt)).limit(limit);
+    return c.json({ ok: true, exportedAt: new Date().toISOString(), scope: "user", count: rows.length, tasks: rows });
+  });
+
+  app.post("/:id/delete", async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const confirm = c.req.header("x-helm-confirm-delete") === "yes";
+    const enabled = process.env.HELM_ALLOW_TASK_DELETE === "1";
+    if (!enabled) return c.json(errorBody(HELM_ERROR_CODES.FORBIDDEN, "Task deletion disabled; set HELM_ALLOW_TASK_DELETE=1 for explicit admin/dev operation", false), 403);
+    if (!confirm) return c.json(errorBody(HELM_ERROR_CODES.VALIDATION_ERROR, "Set x-helm-confirm-delete: yes to confirm destructive task delete", false), 400);
+    const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId))).limit(1);
+    if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
+    await db.transaction(async (tx) => {
+      await tx.delete(browserArtifacts).where(and(eq(browserArtifacts.taskId, id), eq(browserArtifacts.userId, userId)));
+      await tx.delete(actionReceipts).where(and(eq(actionReceipts.taskId, id), eq(actionReceipts.userId, userId)));
+      await tx.delete(approvals).where(and(eq(approvals.taskId, id), eq(approvals.userId, userId)));
+      await tx.delete(taskEvents).where(and(eq(taskEvents.taskId, id), eq(taskEvents.userId, userId)));
+      await tx.delete(taskMessages).where(and(eq(taskMessages.taskId, id), eq(taskMessages.userId, userId)));
+      await tx.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    });
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: id, action: "task.delete", resourceType: "task", resourceId: id, decision: "allow", reason: "explicit_confirmed_delete", metadata: { enabled, confirm } });
+    return c.json({ ok: true, deletedTaskId: id });
+  });
+
   app.get("/:id/messages", async (c) => {
     const userId = c.get("userId");
     const id = c.req.param("id");
