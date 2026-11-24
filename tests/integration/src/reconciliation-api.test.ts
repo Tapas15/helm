@@ -310,4 +310,49 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect(finalRow?.externalRef).toBe("msg_sched");
     await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
   }, 120000);
+
+  it("reconciles uncertain calendar delete as executed when event is absent", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const taskId = uid("tsk");
+    const receiptId = uid("rcpt");
+    const idem = `task:${taskId}:action:ah_caldel:${receiptId}`;
+    const mockPort = await getFreePort();
+    const mockBase = `http://127.0.0.1:${mockPort}`;
+    const mockCode = [
+      "const http=require('node:http');",
+      "http.createServer((req,res)=>{",
+      " const u=req.url||'';",
+      " if(u.includes('/calendar/v3/calendars/primary/events/evt_gone')){res.writeHead(404,{'content-type':'application/json'});res.end(JSON.stringify({error:{code:404,message:'Not Found'}}));return;}",
+      " res.writeHead(404,{'content-type':'application/json'});res.end(JSON.stringify({error:{message:'not found'}}));",
+      `}).listen(${mockPort},'127.0.0.1');`,
+    ].join("");
+    mockChild = spawn(process.execPath, ["-e", mockCode], { stdio: "pipe" }) as ChildProcessWithoutNullStreams;
+    mockChild.stdout.on("data",()=>{}); mockChild.stderr.on("data",()=>{});
+    await delay(300);
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_CALENDAR_API_BASE: mockBase,
+      HELM_TEST_CONNECTOR_HTTP: "1",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon-caldel", prompt: "recon-caldel", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "calendar.delete_event", actionHash: "ah_caldel",
+      idempotencyKey: idem, status: "uncertain",
+      evidence: { accountId: "cac_test", calendarId: "primary", eventId: "evt_gone" },
+      createdAt: now,
+    }).onConflictDoNothing();
+    const r1 = await api(apiBase, "/v1/reconciliation/run", { method: "POST", body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
+    expect(r1.status).toBe(200);
+    const [after1] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+    expect(after1?.status).toBe("executed");
+    expect(after1?.externalRef).toBe("evt_gone");
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 90000);
 });

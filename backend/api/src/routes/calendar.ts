@@ -35,6 +35,29 @@ export async function lookupCalendarCreate(db: Database, vault: DbCredentialBrok
   return { ok: true as const, externalRef: String(match.id), htmlLink: match.htmlLink ? String(match.htmlLink) : null, matchedBy: "summary_start_fallback", checked: Math.min(items.length, 10) };
 }
 
+export async function lookupCalendarEventById(db: Database, vault: DbCredentialBroker, userId: string, receipt: { idempotencyKey: string; evidence: unknown }, expectedPresent: boolean) {
+  const evidence = (receipt.evidence ?? {}) as Record<string, unknown>;
+  const accountId = typeof evidence.accountId === "string" ? evidence.accountId : null;
+  const calendarId = typeof evidence.calendarId === "string" ? evidence.calendarId : "primary";
+  const eventId = typeof evidence.eventId === "string" ? evidence.eventId : (typeof evidence.externalRef === "string" ? evidence.externalRef : null);
+  if (!accountId || !eventId) return { ok: false as const, reason: "missing_reconcile_metadata" };
+  const token = await getValidGoogleAccessToken(vault, userId, accountId);
+  if (!token.token) return { ok: false as const, reason: token.reason ?? "missing_token" };
+  const calendarBase = process.env.HELM_CALENDAR_API_BASE ?? "https://www.googleapis.com";
+  const url = `${calendarBase}/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token.token}` } });
+  const json = await res.json().catch(() => null);
+  if (expectedPresent) {
+    if (res.status === 404) return { ok: false as const, reason: "not_found" };
+    if (!res.ok) return { ok: false as const, reason: json?.error?.message ?? "calendar_lookup_failed" };
+    return { ok: true as const, externalRef: String(json?.id ?? eventId), htmlLink: json?.htmlLink ? String(json.htmlLink) : null, matchedBy: "event_id_lookup" };
+  }
+  if (res.status === 404 || res.status === 410) return { ok: true as const, externalRef: String(eventId), matchedBy: "event_absent" };
+  if (!res.ok) return { ok: false as const, reason: json?.error?.message ?? "calendar_lookup_failed" };
+  // Event still present - uncertain delete should not be marked executed.
+  return { ok: false as const, reason: "event_still_present" };
+}
+
 export function calendarRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const vault = new DbCredentialBroker(db);

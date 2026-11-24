@@ -3,7 +3,7 @@ import { actionReceipts, auditLog, taskEvents, type Database } from "@helm/db";
 import { createLogger } from "@helm/observability";
 import { DbCredentialBroker } from "./vault.js";
 import { lookupGmailSend } from "../routes/gmail.js";
-import { lookupCalendarCreate } from "../routes/calendar.js";
+import { lookupCalendarCreate, lookupCalendarEventById } from "../routes/calendar.js";
 
 const log = createLogger({ name: "helm-reconciliation" });
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -38,6 +38,16 @@ export async function reconcileUncertainReceipts(db: Database, opts?: { limit?: 
         else lookupReason = lookup.reason ?? "not_found";
       } else if (row.actionKind === "calendar.create_event") {
         const lookup = await lookupCalendarCreate(db, vault, row.userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence });
+        autoLookup = lookup as Record<string, unknown>;
+        if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
+        else lookupReason = lookup.reason ?? "not_found";
+      } else if (row.actionKind === "calendar.update_event") {
+        const lookup = await lookupCalendarEventById(db, vault, row.userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence }, true);
+        autoLookup = lookup as Record<string, unknown>;
+        if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
+        else lookupReason = lookup.reason ?? "not_found";
+      } else if (row.actionKind === "calendar.delete_event") {
+        const lookup = await lookupCalendarEventById(db, vault, row.userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence }, false);
         autoLookup = lookup as Record<string, unknown>;
         if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
         else lookupReason = lookup.reason ?? "not_found";

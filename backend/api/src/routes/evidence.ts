@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import path from "node:path";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { lookupGmailSend } from "./gmail.js";
-import { lookupCalendarCreate } from "./calendar.js";
+import { lookupCalendarCreate, lookupCalendarEventById } from "./calendar.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
@@ -68,6 +68,16 @@ export function receiptRoutes(db: Database) {
     } else if (row.actionKind === "calendar.create_event") {
       const vault = new DbCredentialBroker(db);
       const lookup = await lookupCalendarCreate(db, vault, userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence });
+      autoLookup = lookup as Record<string, unknown>;
+      if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
+    } else if (row.actionKind === "calendar.update_event") {
+      const vault = new DbCredentialBroker(db);
+      const lookup = await lookupCalendarEventById(db, vault, userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence }, true);
+      autoLookup = lookup as Record<string, unknown>;
+      if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
+    } else if (row.actionKind === "calendar.delete_event") {
+      const vault = new DbCredentialBroker(db);
+      const lookup = await lookupCalendarEventById(db, vault, userId, { idempotencyKey: row.idempotencyKey, evidence: row.evidence }, false);
       autoLookup = lookup as Record<string, unknown>;
       if (lookup.ok) { resolvedOutcome = "executed"; resolvedExternalRef = lookup.externalRef; }
     }
