@@ -1,6 +1,6 @@
-﻿# Phase 5 - Temporal Reliability Layer
+# Phase 5 - Temporal Reliability Layer
 
-**Status:** `[~]` P5-A planning/infra scaffold started (2026-11-23)  
+**Status:** `[~]` P5-D/E partial: routing proofs + DB-canonical uncertain-receipt reconciliation baseline (2026-11-24)  
 **Blueprint refs:** Phase 5, `08-Temporal-Reliable-Execution.md`, `changes/ADR-002-temporal-scope.md`
 
 ## Goal
@@ -14,8 +14,8 @@ Durable execution for real tasks: Temporal workflows, signals/queries, idempoten
 - [~] P5-D: API Temporal client routing added behind `HELM_TEMPORAL_ENABLED=external-write` for `gmail.send` and `calendar.create_event` (`f55eb8a`). Returns 202 + workflowId/runId when routed; fail-closed 503 on Temporal routing failure. DB/direct guarded path remains default fallback. Added stub test mode + internal activity secret loop guard + env-gated stub routing integration (`7497b0c`, PASS 1/1). Real Temporal server E2E added: compose dynamic config fixed, workflowId dedupe/idempotency proven against running Temporal (`528551c`, PASS 1/1). Mock-provider side-effect E2E added: worker restart/idempotent receipt (<=1 per idempotency key) and uncertain reconciliation path PASS (`1ecca7b`, 1/1).
 
 ## Remaining
-- [ ] P5-D: Real external provider no-duplicate proof (Google creds/sandbox) and fault-injected uncertain-outcome proof.
-- [ ] P5-C/D scope: add `browser.external_action` Temporal activity/routing; reconciliation workflow for uncertain receipts.
+- [~] P5-D: Added DB-canonical reconciliation service + `/v1/reconciliation/status|run` + optional in-process scheduler (`HELM_RECONCILIATION_*`) for uncertain receipts; lookup-first, no blind retry. Real external provider no-duplicate proof (Google creds/sandbox) and fault-injected uncertain-outcome proof remain external/manual.
+- [~] P5-C/D scope: `browser.external_action` Temporal activity/routing present; uncertain receipt reconciliation baseline present. Temporal-native reconciliation workflow/schedule/monitor still pending.
 - [ ] P5-E: Retry policies by action class; non-retryable `PolicyDenied/ValidationError/ApprovalRejected/UncertainExternalOutcome` (scaffolded in workflow, needs integration proof).
 - [ ] P5-F: Schedules/monitors; dead-letter/operator runbooks; observability.
 - [ ] Disable flag rollback proof.

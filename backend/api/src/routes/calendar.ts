@@ -19,7 +19,8 @@ export async function lookupCalendarCreate(db: Database, vault: DbCredentialBrok
   if (!accountId || !summary || !startIso || !endIso) return { ok: false as const, reason: "missing_reconcile_metadata" };
   const token = await getValidGoogleAccessToken(vault, userId, accountId);
   if (!token.token) return { ok: false as const, reason: token.reason ?? "missing_token" };
-  const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+  const calendarBase = process.env.HELM_CALENDAR_API_BASE ?? "https://www.googleapis.com";
+  const url = new URL(`${calendarBase}/calendar/v3/calendars/primary/events`);
   url.searchParams.set("q", summary);
   url.searchParams.set("timeMin", new Date(Date.parse(startIso) - 5 * 60_000).toISOString());
   url.searchParams.set("timeMax", new Date(Date.parse(endIso) + 24 * 60 * 60_000).toISOString());
@@ -48,7 +49,8 @@ export function calendarRoutes(db: Database) {
     if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Calendar token not found"), 404);
     const maxResults = Math.min(Number(c.req.query("maxResults") ?? 10), 25);
     const timeMin = c.req.query("timeMin") ?? new Date().toISOString();
-    const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+    const calendarBase = process.env.HELM_CALENDAR_API_BASE ?? "https://www.googleapis.com";
+  const url = new URL(`${calendarBase}/calendar/v3/calendars/primary/events`);
     url.searchParams.set("maxResults", String(maxResults));
     url.searchParams.set("singleEvents", "true");
     url.searchParams.set("orderBy", "startTime");

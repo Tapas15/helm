@@ -187,3 +187,18 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Audit/event IDs:** pending commit.
 - **Status:** verified
 
+
+## FIX-20261124-reconciliation-uncertain-receipt-baseline
+- **Date:** 2026-11-24T03:45:00Z
+- **Reporter:** agent
+- **Severity:** high
+- **Component:** api/reconciliation, receipts, temporal-ops
+- **Symptom:** Uncertain external receipts could be manually reconciled, but there was no scheduler/route baseline for lookup-first reconciliation; operators lacked a no-blind-retry automation path.
+- **Root cause:** P5 reconciliation workflow/monitors not implemented; only manual /v1/receipts/:id/reconcile existed.
+- **Evidence:** ackend/api/src/routes/evidence.ts manual reconcile only; changes/phase-5-temporal-reliability.md listed reconciliation workflow pending.
+- **Fix applied:** Added ackend/api/src/lib/reconciliation.ts DB-canonical lookup-first reconciler (Gmail/Calendar lookup, no blind retry, audit log + task event on reconcile), ackend/api/src/routes/reconciliation.ts (GET /status, POST /run user-scoped; scope=all dev/internal only), wired into API index with optional interval scheduler behind HELM_RECONCILIATION_*; added env vars in .env.example; added report-only pnpm audit --audit-level=high CI step; added shared reconciliation invariant test.
+- **Verification:** pnpm --filter @helm/shared build PASS; pnpm --filter @helm/api typecheck PASS; pnpm --filter @helm/shared test PASS (8 files, 25 tests).
+- **Regression test:** packages/shared/src/reconciliation.test.ts (routing invariants); follow-up needed for env-gated API reconciliation integration with mock provider lookup.
+- **Risk/rollback:** Low-medium; scheduler is flag-off by default. Rollback by setting HELM_RECONCILIATION_ENABLED=0 and removing route/scheduler wiring.
+- **Audit/event IDs:** receipt.reconciled audit/task event emitted by scheduler on successful lookup.
+- **Status:** partial (local baseline verified; real provider/Temporal-native schedule/monitor pending).

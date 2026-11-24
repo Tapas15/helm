@@ -21,9 +21,11 @@ import { memoryRoutes } from "./routes/memory.js";
 import { skillsRoutes } from "./routes/skills.js";
 import { proactivityRoutes } from "./routes/proactivity.js";
 import { identityRoutes } from "./routes/identity.js";
+import { reconciliationRoutes } from "./routes/reconciliation.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
 import { resolveAuth } from "./lib/auth.js";
+import { reconcileUncertainReceipts } from "./lib/reconciliation.js";
 import type { AppEnv } from "./types.js";
 
 const port = Number(process.env.PORT ?? 8787);
@@ -48,6 +50,7 @@ app.route("/v1/identity", identityRoutes(db));
 app.route("/v1/memory", memoryRoutes(db));
 app.route("/v1/skills", skillsRoutes(db));
 app.route("/v1/proactivity", proactivityRoutes(db));
+app.route("/v1/reconciliation", reconciliationRoutes(db));
 app.route("/v1/tasks", taskRoutes(db));
 app.route("/v1/events", eventRoutes(db));
 app.route("/v1/approvals", approvalRoutes(db));
@@ -65,8 +68,21 @@ app.onError((err, c) => {
   return c.json(helmErrorToApiError(helmError.toJSON()), 500);
 });
 
+let reconcileTimer: ReturnType<typeof setInterval> | null = null;
 async function main() {
   await ensureDevUser(db, log);
+  if (process.env.HELM_RECONCILIATION_ENABLED === "1") {
+    const intervalMs = Math.max(Number(process.env.HELM_RECONCILIATION_INTERVAL_MS ?? 60_000), 10_000);
+    const olderThanMs = Math.max(Number(process.env.HELM_RECONCILIATION_OLDER_THAN_MS ?? 60_000), 0);
+    const limit = Math.min(Math.max(Number(process.env.HELM_RECONCILIATION_LIMIT ?? 20), 1), 100);
+    const tick = async () => {
+      try { const r = await reconcileUncertainReceipts(db, { olderThanMs, limit }); if (r.scanned > 0) log.info({ reconciliation: r }, "reconciliation tick"); }
+      catch (err) { log.warn({ err }, "reconciliation tick failed"); }
+    };
+    reconcileTimer = setInterval(() => { void tick(); }, intervalMs);
+    void tick();
+    log.info({ intervalMs, olderThanMs, limit }, "reconciliation scheduler enabled");
+  }
   const server = serve({ fetch: app.fetch, port }, () => log.info({ port }, "helm-api listening"));
   const wss = new WebSocketServer({ noServer: true });
   server.on("upgrade", (req, socket, head) => {
@@ -106,7 +122,7 @@ async function main() {
       socket.destroy();
     }
   });
-  const shutdown = async () => { log.info({ signal: "shutdown" }, "shutting down"); server.close(); await pool.end(); process.exit(0); };
+  const shutdown = async () => { log.info({ signal: "shutdown" }, "shutting down"); if (reconcileTimer) clearInterval(reconcileTimer); server.close(); await pool.end(); process.exit(0); };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }

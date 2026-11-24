@@ -1285,3 +1285,10 @@ untime.completed)
 - [ ] External creds/sandboxes/runtime decisions: Google OAuth E2E, real-provider Temporal proof, BrowserOS real endpoint.
 - [ ] Ops/legal/manual: backup/restore drill evidence, CI security scan/threat model execution, PII retention/export/delete implementation, compliance signoff.
 - [ ] Self-improvement activation requires explicit user approval.
+
+## 2026-11-24 - Unblocked P5 reconciliation baseline / P8 report-only hardening
+- **Plan:** Implement local-only P5 uncertain-receipt reconciliation baseline and P8 report-only hardening where no external creds/manual ops required. No external side-effect blind retries; preserve approval/actionHash/idempotency/receipt invariants.
+- **Done:** Added DB-canonical econcileUncertainReceipts service (ackend/api/src/lib/reconciliation.ts) with lookup-first Gmail/Calendar reconciliation, no blind retry, attempt metadata, audit log + eceipt.reconciled task event. Added ackend/api/src/routes/reconciliation.ts (GET /status, POST /run, user-scoped; scope=all dev-only). Wired route+scheduler into ackend/api/src/index.ts behind HELM_RECONCILIATION_*. Added .env.example vars. Added CI report-only dependency audit step. Added shared reconciliation invariant test.
+- **Verification:** pnpm --filter @helm/shared build PASS; pnpm --filter @helm/api typecheck PASS (after timer type fix); pnpm --filter @helm/shared test PASS (8 files, 25 tests).
+- **Files:** backend/api/src/lib/reconciliation.ts, backend/api/src/routes/reconciliation.ts, backend/api/src/index.ts, .github/workflows/ci.yml, .env.example, packages/shared/src/reconciliation.test.ts, changes/CURRENT_STATE.md, changes/FIX_LOG.md, changes/phase-5-temporal-reliability.md, changes/P5-P8-PRACTICAL-STATUS.md, changes/P5-P8-reconciliation-hardening.md.
+- **Next:** Add env-gated integration test for reconciliation run (mock Gmail/Calendar lookup), then Temporal-native reconciliation schedule/monitor/fault injection; real provider no-duplicate proof blocked on external sandbox/creds.
