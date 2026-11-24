@@ -20,6 +20,11 @@ export const REDACT_PATHS = [
   "credentials",
   "privateKey",
   "clientSecret",
+  "sessionToken",
+  "vaultKey",
+  "encryptedValue",
+  "pkceVerifier",
+  "pkceVerifierEncrypted",
   "*.authorization",
   "*.cookie",
   "*.set-cookie",
@@ -35,6 +40,11 @@ export const REDACT_PATHS = [
   "*.credentials",
   "*.privateKey",
   "*.clientSecret",
+  "*.sessionToken",
+  "*.vaultKey",
+  "*.encryptedValue",
+  "*.pkceVerifier",
+  "*.pkceVerifierEncrypted",
 ] as const;
 
 export const REDACT_CENSOR = "[REDACTED]";

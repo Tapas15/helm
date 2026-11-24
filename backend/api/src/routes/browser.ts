@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
-import { actionReceipts, approvals, auditLog, browserArtifacts, taskEvents, tasks, type Database } from "@helm/db";
+import { actionReceipts, approvals, auditLog, browserArtifacts, identityPolicies, taskEvents, tasks, type Database } from "@helm/db";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
 import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
@@ -244,6 +244,17 @@ export function browserRoutes(db: Database) {
     const auth = await requireApprovedAction(db, userId, input);
     if (!auth.ok) return c.json(auth.body as any, auth.status as any);
     const approval = auth.approval;
+    // Optional identity policy enforcement: only when HELM_IDENTITY_ENFORCEMENT=1 and session metadata binds identityId.
+    if (process.env.HELM_IDENTITY_ENFORCEMENT === "1") {
+      const sessionRes = await proxy(`/v1/sessions/${c.req.param("id")}`, { method: "GET" });
+      const sessionJson = JSON.parse(sessionRes.text || "{}");
+      const identityId = sessionJson?.session?.metadata?.identityId;
+      if (typeof identityId === "string" && identityId) {
+        const [policy] = await db.select().from(identityPolicies).where(and(eq(identityPolicies.identityId, identityId), eq(identityPolicies.userId, userId))).limit(1);
+        if (!policy) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Identity enforcement enabled: no identity policy found for browser session identity"), 403);
+        if (!policy.allowExternalWrites || !policy.requireApproval) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Identity policy denies external browser action"), 403);
+      }
+    }
 
     const temporalCfg = readTemporalConfig(process.env);
     const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;

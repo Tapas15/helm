@@ -1,12 +1,12 @@
-## 2026-11-23T01:20:00Z — Session: Restart/recovery smoke proof
+## 2026-11-23T01:20:00Z ï¿½ Session: Restart/recovery smoke proof
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "Ok go next"
 
 ### Commands run + results
 - Captured pre-restart state for `task_769be87cba8448959c4ff9f365d78906`: `succeeded`, artifacts=3, receipts=1, events=19.
-- Stopped API/worker/browser-worker/web dev processes; restarted all four — **PASS** (5174/8787/8790 health 200).
-- Post-restart query for same task — **PASS**, identical persisted state: `succeeded`, artifacts=3, receipts=1, events=19.
+- Stopped API/worker/browser-worker/web dev processes; restarted all four ï¿½ **PASS** (5174/8787/8790 health 200).
+- Post-restart query for same task ï¿½ **PASS**, identical persisted state: `succeeded`, artifacts=3, receipts=1, events=19.
 
 ### Completed
 - [x] Restart/recovery smoke proof for persisted DB-backed task/event/receipt/artifact state.
@@ -16,7 +16,7 @@
 - [ ] Live/interactive preview (WS/CDP) instead of polling.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T01:00:00Z — Session: Evidence/receipts surfaced in web UI
+## 2026-11-23T01:00:00Z ï¿½ Session: Evidence/receipts surfaced in web UI
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok next step"
@@ -26,15 +26,15 @@
 - `changes/CURRENT_STATE.md`: updated to ~47%, evidence UI marked visible.
 
 ### Commands run + results
-- `pnpm --filter @helm/web typecheck` — **PASS**.
-- Restarted web dev — **PASS** (5174 200).
+- `pnpm --filter @helm/web typecheck` ï¿½ **PASS**.
+- Restarted web dev ï¿½ **PASS** (5174 200).
 
 ### Remaining
 - [ ] Live/interactive browser preview (WS/CDP) instead of polling.
 - [ ] Recovery/restart hardening and smoke proof.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T00:45:00Z — Session: Guarded runtime external actions + evidence APIs
+## 2026-11-23T00:45:00Z ï¿½ Session: Guarded runtime external actions + evidence APIs
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok next step"
@@ -48,9 +48,9 @@
 - `changes/CURRENT_STATE.md`: updated to ~45%.
 
 ### Commands run + results
-- `pnpm --filter @helm/api build` — **PASS** (after repairing index.ts corruption).
-- `pnpm --filter @helm/worker build` — **PASS**.
-- Restarted API/worker — **PASS**.
+- `pnpm --filter @helm/api build` ï¿½ **PASS** (after repairing index.ts corruption).
+- `pnpm --filter @helm/worker build` ï¿½ **PASS**.
+- Restarted API/worker ï¿½ **PASS**.
 - Smoke: risky browser task -> `waiting_approval`; approve -> `succeeded`; `/v1/receipts?taskId=...` shows executed receipt with result; `browser.external_action.executed` task event recorded; artifacts present.
 
 ### Remaining
@@ -58,7 +58,7 @@
 - [ ] Live/interactive preview (WS/CDP) instead of polling.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-23T00:10:00Z — Session: Takeover pause/resume wired through worker/runtime
+## 2026-11-23T00:10:00Z ï¿½ Session: Takeover pause/resume wired through worker/runtime
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok complete next step"
@@ -72,10 +72,10 @@
 - `changes/CURRENT_STATE.md`: updated to ~42%, Phase 3 55%.
 
 ### Commands run + results
-- `pnpm --filter @helm/shared build` — **PASS**.
-- `pnpm --filter @helm/worker build` — **PASS**.
-- `pnpm --filter @helm/api build` — **PASS**.
-- Restarted worker/API — **PASS**.
+- `pnpm --filter @helm/shared build` ï¿½ **PASS**.
+- `pnpm --filter @helm/worker build` ï¿½ **PASS**.
+- `pnpm --filter @helm/api build` ï¿½ **PASS**.
+- Restarted worker/API ï¿½ **PASS**.
 - Smoke: browser task succeeded; takeover request -> task `waiting_input`; resume -> task requeued and final `succeeded`. Event timeline shows `browser.takeover.requested`, `browser.takeover.resumed`, second run completed.
 
 ### Remaining
@@ -83,7 +83,7 @@
 - [ ] Surface artifacts/receipts in UI; live WS/CDP preview.
 - [ ] Regression tests/fix-log entries.
 
-## 2026-11-22T23:45:00Z — Session: Takeover state/event persistence baseline
+## 2026-11-22T23:45:00Z ï¿½ Session: Takeover state/event persistence baseline
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "next step"
@@ -93,8 +93,8 @@
 - `changes/CURRENT_STATE.md`: updated to ~40%, Phase 3 50%, takeover persistence noted.
 
 ### Commands run + results
-- `pnpm --filter @helm/api build` — **PASS**.
-- Restarted API — **PASS** (8787 health 200).
+- `pnpm --filter @helm/api build` ï¿½ **PASS**.
+- Restarted API ï¿½ **PASS** (8787 health 200).
 - Smoke: manual session for existing task + takeover request -> API 200; task moved to `waiting_input` with `state.takeover.active=true`; `browser.takeover.requested` task event recorded.
 
 ### Remaining
@@ -102,7 +102,7 @@
 - [ ] Route real runtime/browser-task external actions through guarded external-action path.
 - [ ] Add regression tests/fix-log entries.
 
-## 2026-11-22T23:15:00Z — Session: External browser action approval+idempotency gate
+## 2026-11-22T23:15:00Z ï¿½ Session: External browser action approval+idempotency gate
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "next move"
@@ -116,9 +116,9 @@
 - `changes/phase-3-browser-execution.md`, `changes/phase-4-approvals-vault-connectors.md`, `changes/CURRENT_STATE.md`: updated status/evidence.
 
 ### Commands run + results
-- `pnpm --filter @helm/shared build` — **PASS**.
-- `pnpm --filter @helm/browser-worker --filter @helm/api build` — **PASS** (after `POLICY_DENIED` -> `FORBIDDEN` fix).
-- Restarted browser-worker/API — **PASS** (8790/8787 health 200).
+- `pnpm --filter @helm/shared build` ï¿½ **PASS**.
+- `pnpm --filter @helm/browser-worker --filter @helm/api build` ï¿½ **PASS** (after `POLICY_DENIED` -> `FORBIDDEN` fix).
+- Restarted browser-worker/API ï¿½ **PASS** (8790/8787 health 200).
 - Smoke: risky browser task -> `waiting_approval`; external action before approval -> **403 FORBIDDEN**; approve -> task `succeeded`; external action with approved `actionHash`+`approvalId`+idempotency key -> **200 executed** with receipt+artifact; replay same key -> **200 deduped** same receipt. DB `action_receipts` shows executed receipt.
 
 ### Completed
@@ -129,7 +129,7 @@
 - [ ] Persist/emit takeover state as task/session events; agent pause/resume around takeover.
 - [ ] Add regression tests/fix-log entries for gate behavior.
 
-## 2026-11-22T22:40:00Z — Session: Live preview baseline, takeover controls, evidence/receipt groundwork
+## 2026-11-22T22:40:00Z ï¿½ Session: Live preview baseline, takeover controls, evidence/receipt groundwork
 
 **Agent:** Kilo (Glyph Cluster)
 **Request:** "ok move next" / "ok update in changes too"
@@ -147,11 +147,11 @@
 - DB applied manually: `action_receipts`, `browser_artifacts` created in Docker `infra-postgres-1`.
 
 ### Commands run + results
-- `pnpm --filter @helm/browser-worker --filter @helm/api build` — **PASS** (after dist-path toggle workaround).
-- `pnpm --filter @helm/shared --filter @helm/db build` — **PASS**.
-- `pnpm --filter @helm/browser-worker --filter @helm/api --filter @helm/worker build` — **PASS**.
-- `pnpm --filter @helm/web typecheck` — **PASS**.
-- Restarted browser-worker/API/worker/web dev processes — **PASS** (`8790/8787/5174` healthy).
+- `pnpm --filter @helm/browser-worker --filter @helm/api build` ï¿½ **PASS** (after dist-path toggle workaround).
+- `pnpm --filter @helm/shared --filter @helm/db build` ï¿½ **PASS**.
+- `pnpm --filter @helm/browser-worker --filter @helm/api --filter @helm/worker build` ï¿½ **PASS**.
+- `pnpm --filter @helm/web typecheck` ï¿½ **PASS**.
+- Restarted browser-worker/API/worker/web dev processes ï¿½ **PASS** (`8790/8787/5174` healthy).
 - Browser task smoke: `Visit example.com and capture evidence` -> `succeeded`; session stayed `ready` for preview.
 - DB evidence: `browser_artifacts` contains screenshot + dom_snapshot rows with sha256/size.
 
@@ -1288,7 +1288,9 @@ untime.completed)
 
 ## 2026-11-24 - Unblocked P5 reconciliation baseline / P8 report-only hardening
 - **Plan:** Implement local-only P5 uncertain-receipt reconciliation baseline and P8 report-only hardening where no external creds/manual ops required. No external side-effect blind retries; preserve approval/actionHash/idempotency/receipt invariants.
-- **Done:** Added DB-canonical econcileUncertainReceipts service (ackend/api/src/lib/reconciliation.ts) with lookup-first Gmail/Calendar reconciliation, no blind retry, attempt metadata, audit log + eceipt.reconciled task event. Added ackend/api/src/routes/reconciliation.ts (GET /status, POST /run, user-scoped; scope=all dev-only). Wired route+scheduler into ackend/api/src/index.ts behind HELM_RECONCILIATION_*. Added .env.example vars. Added CI report-only dependency audit step. Added shared reconciliation invariant test.
+- **Done:** Added DB-canonical 
+econcileUncertainReceipts service (ackend/api/src/lib/reconciliation.ts) with lookup-first Gmail/Calendar reconciliation, no blind retry, attempt metadata, audit log + 
+eceipt.reconciled task event. Added ackend/api/src/routes/reconciliation.ts (GET /status, POST /run, user-scoped; scope=all dev-only). Wired route+scheduler into ackend/api/src/index.ts behind HELM_RECONCILIATION_*. Added .env.example vars. Added CI report-only dependency audit step. Added shared reconciliation invariant test.
 - **Verification:** pnpm --filter @helm/shared build PASS; pnpm --filter @helm/api typecheck PASS (after timer type fix); pnpm --filter @helm/shared test PASS (8 files, 25 tests).
 - **Files:** backend/api/src/lib/reconciliation.ts, backend/api/src/routes/reconciliation.ts, backend/api/src/index.ts, .github/workflows/ci.yml, .env.example, packages/shared/src/reconciliation.test.ts, changes/CURRENT_STATE.md, changes/FIX_LOG.md, changes/phase-5-temporal-reliability.md, changes/P5-P8-PRACTICAL-STATUS.md, changes/P5-P8-reconciliation-hardening.md.
 - **Next:** Add env-gated integration test for reconciliation run (mock Gmail/Calendar lookup), then Temporal-native reconciliation schedule/monitor/fault injection; real provider no-duplicate proof blocked on external sandbox/creds.
@@ -1298,3 +1300,19 @@ untime.completed)
 - **Done:** Added PATCH /v1/identity/:id/policy in ackend/api/src/routes/identity.ts (allowedDomains/allowedRecipients/allowExternalWrites/requireApproval). Enforces invariant: external writes cannot disable approval through this route. Existing create/status/list/read behavior preserved.
 - **Verification:** pnpm --filter @helm/api typecheck PASS.
 - **Next:** Wire identity policy enforcement into guarded external-write routes/UI (careful, DB-canonical, no invariant weakening); blocked work remains external/manual.
+
+## 2026-11-24 (unblocked hardening: browser identity enforcement, adapter tests, redaction)
+
+**Done**
+- **P7 browser identity enforcement (flag-aware):** `backend/api/src/routes/browser.ts` external-action route now enforces identity policy when `HELM_IDENTITY_ENFORCEMENT=1` and owned browser session metadata contains bound `identityId`. It checks for policy existence and denies when `allowExternalWrites`/`requireApproval` are not satisfied. Preserves existing approval/actionHash/idempotency/receipt invariants.
+- **P6 adapter contract tests:** Added `backend/api/src/lib/browser-adapter.test.ts` (3 tests) covering default Playwright factory, BrowserOS stub when endpoint/token missing, and BrowserOS HTTP adapter when configured. PASS.
+- **P8 observability redaction:** Extended `packages/observability/src/redaction.ts` to redact `sessionToken`, `vaultKey`, `encryptedValue`, `pkceVerifier`, `pkceVerifierEncrypted` and wildcard variants. Added regression `packages/observability/src/redaction.test.ts` (PASS). Removed stale compiled redaction artifacts from `packages/observability/src`.
+
+**Verification**
+- `pnpm --filter @helm/api typecheck` PASS.
+- `pnpm --filter @helm/api test -- browser-adapter` PASS (3/3).
+- `pnpm --filter @helm/observability test` PASS (1/1) after rebuild/cleanup.
+- `pnpm --filter @helm/shared test` PASS (8 files, 25 tests).
+
+**Pending (blocked/external)**
+- Real Google OAuth E2E/no-duplicate proof; real BrowserOS endpoint/protocol/parity; full backup/restore drill with artifacts/vault-key scope; Drizzle migration-history alignment for manual P7 baseline; interactive live UI smoke; PII retention/export/delete policy+implementation; compliance/provenance/submission signoff.
