@@ -1,9 +1,9 @@
 # Planning Missing Items ? Helm
 
 **Date:** 2026-11-23 (legacy checklist)  
-**Status:** Superseded for day-to-day tracking by `STATUS.md`, `CURRENT_STATE.md`, and `phase-*.md`. Keep for historical gap analysis; do not treat unchecked items here as authoritative without cross-checking phase docs.
+**Status:** Superseded for day-to-day tracking by `CURRENT_STATE.md`, `CURRENT_STATE.md`, and `phase-*.md`. Keep for historical gap analysis; do not treat unchecked items here as authoritative without cross-checking phase docs.
 
-Use `STATUS.md` for current %/remaining/blockers. Use phase docs for checklist evidence.
+Use `CURRENT_STATE.md` for current %/remaining/blockers. Use phase docs for checklist evidence.
 
 ---
 ## P0 Foundation / Repo

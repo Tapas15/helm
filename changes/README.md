@@ -1,16 +1,15 @@
-﻿# Helm - Change & Journey Tracker
+# Helm - Change & Journey Tracker
 
 > **START HERE if you have zero context.**
 
 ## Read Order (new session / no context)
-1. `STATUS.md` - **one-page memory dashboard** (%, remaining, blockers, invariants, latest completed)
-2. `CURRENT_STATE.md` - authoritative snapshot + context memory + update protocol
-3. `SESSION_LOG.md` - latest entries at bottom (append each session)
+1. `CURRENT_STATE.md` - **current project status dashboard** (%, remaining, blockers, invariants, latest completed)
+2. `phase-1-ui-task-core.md` ... `phase-8-hardening-release.md` - phase checklists/evidence (active execution detail)
+3. `SESSION_LOG.md` - session-by-session history
 4. `DECISIONS.md` - decisions/assumptions/ADRs
-5. `REPLACEABILITY_OBSERVABILITY_AUDIT_PLAN.md` - cross-cutting requirements (must follow)
-6. `FIX_LOG.md` - problems/fixes/audit trail
-7. Active phase doc from table below
-8. `RUNBOOK.md` - commands
+5. `FIX_LOG.md` - problems/fixes/audit trail
+6. `RUNBOOK.md` - commands
+7. `archive/` - historical/superseded snapshots (phase-0 foundation, old detailed state)
 
 ## Project Identity
 - **Helm** = personal AI operating assistant platform we are building from scratch.
@@ -27,11 +26,11 @@
 - Replaceable adapters; contracts in `packages/shared`.
 - No silent failures; structured errors + agent trace + audit.
 
-## Phase Index (source of truth for phase status)
+## Phase Index (phase 1-8 active; phase 0 archived)
 
 | Phase | Status | % | Doc | Summary |
 |---|---|---:|---|---|
-| 0 | `[~]` | 91 | [phase-0-foundation.md](./phase-0-foundation.md) | Dev baseline + CI green; Drizzle migration-history alignment pending |
+| 0 | `[~]` | 91 | [archive/phase-0-foundation.md](./archive/phase-0-foundation.md) | Historical baseline; migration-history alignment still pending |
 | 1 | `[~]` | 91 | [phase-1-ui-task-core.md](./phase-1-ui-task-core.md) | Chat/SSE/controls/preview; live UI E2E and cursor-resume proof pending |
 | 2 | `[~]` | 73 | [phase-2-hermes-runtime.md](./phase-2-hermes-runtime.md) | Helm-native runtime/tool policy/model override; live real-flow E2E pending |
 | 3 | `[~]` | 93 | [phase-3-browser-execution.md](./phase-3-browser-execution.md) | Playwright/WS preview/takeover/guarded actions; live smoke/richer controls pending |
@@ -43,12 +42,11 @@
 
 ## Mandatory Update Protocol (no user prompt needed)
 After every meaningful work batch, update:
-1. `STATUS.md` - one-page %, remaining, blockers, latest completed
-2. `CURRENT_STATE.md` - snapshot, context memory, next move, evidence
-3. `SESSION_LOG.md` - append session entry (commands, pass/fail, files, blockers)
-4. Active `phase-*.md` - checklist + evidence
-5. `FIX_LOG.md` - any non-trivial fix/incident (regression + audit/safety note)
-6. `DECISIONS.md` - decisions/ADRs/assumptions
-7. Repo-root `README.md`/`ROADMAP.md` when percentages/progress change
-8. This README table/status if changed
+1. `CURRENT_STATE.md` - current %, remaining, blockers, latest completed, where-detail links
+2. `SESSION_LOG.md` - append session entry (commands, pass/fail, files, blockers)
+3. Active `phase-1`..`phase-8` docs - checklist + evidence
+4. `FIX_LOG.md` - any non-trivial fix/incident (regression + audit/safety note)
+5. `DECISIONS.md` - decisions/ADRs/assumptions
+6. Repo-root `README.md`/`ROADMAP.md` when percentages/progress change
+7. This README table/status if changed
 Commit docs with code when work is committed.
