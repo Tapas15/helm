@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldUseTemporalForAction, readTemporalConfig } from "@helm/shared";
+import { shouldUseTemporalForAction, readTemporalConfig } from "./temporal.js";
 
 describe("reconciliation invariants", () => {
   it("temporal external-write mode covers gmail/calendar/browser writes", () => {

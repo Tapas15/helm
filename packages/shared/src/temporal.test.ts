@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
+import { readTemporalConfig, shouldUseTemporalForAction } from "./temporal.js";
 
 describe("temporal rollback flag", () => {
   it("disables routing when HELM_TEMPORAL_ENABLED is off", () => {
