@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDb } from "@helm/db";
-import { actionReceipts, users } from "@helm/db";
+import { actionReceipts, tasks, users } from "@helm/db";
 import { eq } from "drizzle-orm";
 
 const run = process.env.HELM_RECONCILIATION_API_TEST === "1";
@@ -86,11 +86,13 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     });
     await waitForHttp(`${apiBase}/health`, 45000);
 
+    const taskId = uid("tsk");
     const receiptId = uid("rcpt");
     const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon", prompt: "recon", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
     await db.insert(actionReceipts).values({
-      id: receiptId, userId: "usr_local_dev", taskId: "tsk_recon", actionKind: "gmail.send", actionHash: "ah_recon",
-      idempotencyKey: `task:tsk_recon:action:ah_recon:${receiptId}`, status: "uncertain",
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "gmail.send", actionHash: "ah_recon",
+      idempotencyKey: `task:${taskId}:action:ah_recon:${receiptId}`, status: "uncertain",
       evidence: { accountId: "cac_test", subject: "hi", to: ["a@b.com"] },
       createdAt: now,
     }).onConflictDoNothing();
@@ -104,6 +106,6 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     const ev = (after1?.evidence ?? {}) as Record<string, unknown>;
     expect(typeof ev.lastReconcileAttemptAt).toBe("string");
 
-    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId));
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(tasks).where(eq(tasks.id, taskId));
   }, 90000);
 });
