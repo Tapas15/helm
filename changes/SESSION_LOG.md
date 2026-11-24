@@ -1464,3 +1464,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 ### Blocked / Remaining
 - [ ] End-to-end retry-policy/action-class proof per action class, including uncertain-outcome handling in real Temporal runtime.
 - [ ] Real-provider no-duplicate proof and deeper real Temporal schedule/monitor/fault-injection/operator depth.
+
+## 2026-11-24T22:45:00Z - P6 BrowserOS MCP adapter (external runtime)
+
+- **Boundary**: User confirmed external-adapter OK. No BrowserOS code copied into Helm; BrowserOS neo used as external local MCP runtime at http://127.0.0.1:9210/mcp.
+- **Code**: Added ackend/api/src/lib/browseros-mcp-client.ts (JSON-RPC streamable HTTP/SSE MCP client), ackend/api/src/lib/browseros-mcp-executor.ts (maps Helm BrowserExecutor actions to BrowserOS MCP tools with artifact capture), and BrowserOSMcpAdapter in ackend/api/src/lib/browser-adapter.ts. createBrowserAdapter now prefers BROWSEROS_MCP_URL, then legacy BROWSEROS_BASE_URL+BROWSEROS_TOKEN, then stub; Playwright remains default.
+- **Verification**: pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS. rowser-adapter.test.ts PASS (7/7). Env-gated smoke HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com PASS (1/1) - create session, screenshot, snapshot, close.
+- **Remaining P6**: full action parity/security review, capability fallback hardening, default dispatch after parity, CI evidence.

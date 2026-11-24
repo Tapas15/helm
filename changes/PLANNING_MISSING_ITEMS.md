@@ -109,3 +109,8 @@
 - [ ] `HelmError` wiring end-to-end; no silent failures; trace fields in all critical paths.
 - [ ] Idempotency/audit coverage matrix for every mutating endpoint/tool.
 - [ ] ADRs: canonical event schema (AG-UI extension vs custom), secret vault, observability stack, BrowserOS/Obscura external adapter policy.
+
+## 2026-11-24 - P6 BrowserOS MCP adapter (verified slice)
+- Added external BrowserOS MCP adapter path (BROWSEROS_MCP_URL, streamable HTTP /mcp) behind existing browser adapter contract; Playwright default unchanged. User confirmed external-adapter OK; no BrowserOS code copied.
+- Evidence: API typecheck PASS; rowser-adapter.test.ts 7/7 PASS; env-gated MCP smoke PASS (create/screenshot/snapshot/close on https://example.com).
+- Still missing for P6: full action parity (click/fill/selector/takeover/error semantics), security/compliance review, capability detection/fallback, default-dispatch decision, CI/fresh evidence.

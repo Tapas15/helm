@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it, afterEach } from "vitest";
-import { BrowserOSAdapterStub, BrowserOSHttpAdapter, createBrowserAdapter } from "./browser-adapter.js";
+import { BrowserOSAdapterStub, BrowserOSHttpAdapter, BrowserOSMcpAdapter, createBrowserAdapter } from "./browser-adapter.js";
 
 const env = { ...process.env };
 afterEach(() => { process.env = { ...env }; });
@@ -9,14 +9,23 @@ describe("browser adapter factory", () => {
     delete process.env.BROWSER_ADAPTER;
     expect(createBrowserAdapter().kind).toBe("playwright");
   });
-  it("returns browseros stub when endpoint/token missing", () => {
+  it("returns browseros stub when endpoint/token/mcp missing", () => {
     process.env.BROWSER_ADAPTER = "browseros";
+    delete process.env.BROWSEROS_MCP_URL;
     delete process.env.BROWSEROS_BASE_URL;
     delete process.env.BROWSEROS_TOKEN;
     expect(createBrowserAdapter()).toBeInstanceOf(BrowserOSAdapterStub);
   });
-  it("returns browseros http adapter when endpoint/token present", () => {
+  it("returns browseros mcp adapter when mcp url present", () => {
     process.env.BROWSER_ADAPTER = "browseros";
+    process.env.BROWSEROS_MCP_URL = "http://127.0.0.1:9210/mcp";
+    delete process.env.BROWSEROS_BASE_URL;
+    delete process.env.BROWSEROS_TOKEN;
+    expect(createBrowserAdapter()).toBeInstanceOf(BrowserOSMcpAdapter);
+  });
+  it("returns browseros http adapter when endpoint/token present and mcp absent", () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    delete process.env.BROWSEROS_MCP_URL;
     process.env.BROWSEROS_BASE_URL = "http://127.0.0.1:9999";
     process.env.BROWSEROS_TOKEN = "tok";
     expect(createBrowserAdapter()).toBeInstanceOf(BrowserOSHttpAdapter);
