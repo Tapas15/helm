@@ -27,6 +27,16 @@ export async function reconcileUncertainReceipts(db: Database, opts?: { limit?: 
   const out: ReconcileResult = { scanned: rows.length, reconciled: 0, failed: 0, skipped: 0, errors: [] };
   for (const row of rows) {
     try {
+      if (process.env.HELM_RECONCILIATION_FAULT_INJECT === "lookup_error") {
+        throw new Error("injected_reconciliation_lookup_error");
+      }
+      if (process.env.HELM_RECONCILIATION_FAULT_INJECT === "lookup_not_found" && row.actionKind.startsWith("gmail.")) {
+        await db.update(actionReceipts).set({
+          evidence: { ...(row.evidence as Record<string, unknown> ?? {}), lastReconcileAttemptAt: new Date().toISOString(), lastReconcileLookup: { ok: false, reason: "injected_not_found" }, lastReconcileReason: "injected_not_found" },
+        }).where(and(eq(actionReceipts.id, row.id), eq(actionReceipts.status, "uncertain")));
+        out.skipped++;
+        continue;
+      }
       let resolvedOutcome: "executed" | "failed" | null = null;
       let resolvedExternalRef: string | null = row.externalRef;
       let autoLookup: Record<string, unknown> | null = null;

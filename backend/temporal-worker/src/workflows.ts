@@ -25,6 +25,7 @@ export const statusQuery = defineQuery<HelmTaskWorkflowState>("getStatus");
 
 const activities = proxyActivities<{
   executeApprovedAction(input: HelmTaskWorkflowInput & { approvalId: string }): Promise<{ receiptId: string; status: string; externalRef?: string | null; raw?: unknown }>;
+  reconcileUncertainReceiptsActivity(input: { limit?: number; olderThanMs?: number }): Promise<{ scanned: number; reconciled: number; failed: number; skipped: number }>;
 }>({
   startToCloseTimeout: "2 minutes",
   retry: {
@@ -62,4 +63,10 @@ export async function helmExternalActionWorkflow(input: HelmTaskWorkflowInput): 
     state.error = e instanceof Error ? e.message : String(e);
     return state;
   }
+}
+
+
+export type ReconciliationWorkflowInput = { limit?: number; olderThanMs?: number };
+export async function helmReconciliationWorkflow(input: ReconciliationWorkflowInput = {}): Promise<{ scanned: number; reconciled: number; failed: number; skipped: number }> {
+  return activities.reconcileUncertainReceiptsActivity(input);
 }

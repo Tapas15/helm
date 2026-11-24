@@ -1,5 +1,6 @@
 import { createDb } from "@helm/db";
 import { createLogger } from "@helm/observability";
+import { reconcileUncertainReceipts } from "../../api/src/lib/reconciliation.js";
 
 type ExecuteInput = {
   taskId: string; userId: string; actionKind: string; actionHash: string;
@@ -98,6 +99,23 @@ export function createActivities() {
         return { receiptId: String(r.json?.data?.receiptId ?? r.json?.receiptId ?? ""), status: "executed", externalRef: r.json?.data?.artifact?.artifactId ?? null, raw: r.json };
       }
       throw new Error(`Unsupported temporal actionKind: ${input.actionKind}`);
+    },
+
+    async reconcileUncertainReceiptsActivity(input: { limit?: number; olderThanMs?: number } = {}) {
+      if (process.env.HELM_RECONCILIATION_FAULT_INJECT === "activity_error") {
+        throw new Error("injected_reconciliation_activity_error");
+      }
+      const { db, pool } = createDb(process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/helm");
+      try {
+        const result = await reconcileUncertainReceipts(db, {
+          limit: input.limit,
+          olderThanMs: input.olderThanMs,
+        });
+        log.info({ reconciliation: result }, "temporal.reconcileUncertainReceiptsActivity");
+        return { scanned: result.scanned, reconciled: result.reconciled, failed: result.failed, skipped: result.skipped, errors: result.errors.length };
+      } finally {
+        await pool.end();
+      }
     },
   };
 }

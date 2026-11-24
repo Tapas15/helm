@@ -14,4 +14,9 @@ describe("temporal rollback flag", () => {
     expect(shouldUseTemporalForAction(cfg, "browser.external_action")).toBe(true);
     expect(shouldUseTemporalForAction(cfg, "task.plan")).toBe(false);
   });
+
+  it("reads reconciliation schedule config", () => {
+    const cfg = readTemporalConfig({ HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID: "helm-recon-test" } as any);
+    expect(cfg.reconciliationScheduleId).toBe("helm-recon-test");
+  });
 });

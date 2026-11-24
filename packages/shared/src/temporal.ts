@@ -9,6 +9,7 @@ export const TemporalConfig = z.object({
   address: z.string().default("localhost:7233"),
   namespace: z.string().default("default"),
   taskQueue: z.string().default("helm-main"),
+  reconciliationScheduleId: z.string().default("helm-reconciliation-schedule"),
 });
 export type TemporalConfig = z.infer<typeof TemporalConfig>;
 
@@ -22,6 +23,7 @@ export function readTemporalConfig(env: NodeJS.ProcessEnv = process.env): Tempor
     address: env.TEMPORAL_ADDRESS ?? "localhost:7233",
     namespace: env.TEMPORAL_NAMESPACE ?? "default",
     taskQueue: env.TEMPORAL_TASK_QUEUE ?? "helm-main",
+    reconciliationScheduleId: env.HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID ?? "helm-reconciliation-schedule",
   });
 }
 

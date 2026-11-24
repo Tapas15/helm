@@ -228,6 +228,8 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect(st.status).toBe(200);
     expect(st.json?.ok).toBe(true);
     expect(st.json?.enabled).toBe(false);
+    expect(st.json?.temporalSchedule?.scheduleId).toBeTruthy();
+    expect(String(st.json?.policy)).toContain("no-blind-retry");
     const r = await api(apiBase, "/v1/reconciliation/run", { method: "POST", body: JSON.stringify({ scope: "all", olderThanMs: 0, limit: 1 }) });
     expect(r.status).toBe(200);
     expect(r.json?.ok).toBe(true);
