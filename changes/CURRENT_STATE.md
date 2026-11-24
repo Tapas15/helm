@@ -11,7 +11,7 @@
 
 ## Current Status Snapshot
 
-- **Overall:** ~71% (P0-P8 equal-weight avg); usable prototype baseline remains strong, but tracker aligned to per-phase math. Unblocked hardening/test/scaffold increment applied.
+- **Overall:** ~68% (67.7% P0-P8 equal-weight avg); usable prototype baseline remains strong; tracker aligned to per-phase math. Unblocked hardening/test/scaffold increment applied.
 - **Phase 0 - Foundation:** `[~]` 91%.
 - **Phase 1 - UI/Task Core:** `[~]` 91%. Chat-first UI, SSE timeline, approvals/evidence/receipts, WS preview + polling fallback, takeover controls, idempotency/follow-up guards. Added SSE stream regression (`events-sse-api` PASS 3/3, includes cursor resume + invalid cursor validation), invalid control transition regression (`task-lifecycle-api` PASS 4/4), and task-list limit validation. Web now has session-token sign-in/sign-out flow and sends bearer auth on fetch/SSE/WS/screenshot (dev `x-user-id` fallback only when `HELM_ALLOW_DEV_AUTH=1` and `HELM_REQUIRE_AUTH!=1`). Dev web `http://localhost:5173`.
 - **Phase 2 - Agent Runtime:** `[~]` 60%. Local Ollama streaming + basic tool-calling loop; guardrails/allowlist/timeout/max_tokens/redaction; browser-intent gating; smoke PASS. Added exported runtime helpers + worker vitest config and unit/behavior tests (`backend/worker/src/runtime.test.ts`, `runtime.behavior.test.ts`, 7/7 PASS) covering model resolution/clamping, tool allowlist, redaction, browser-tool gating, prompt guardrails, and high-risk approval gating. Pending: richer tool registry/policy, provider/model selection UI, proper thread abstraction.
