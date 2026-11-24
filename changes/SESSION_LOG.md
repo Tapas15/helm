@@ -1271,3 +1271,17 @@ untime.completed)
 - [ ] BrowserOS real endpoint/protocol/parity - runtime/protocol decision.
 - [ ] Backup/restore drill execution, CI security scan/threat model execution, PII retention/export/delete implementation, compliance/provenance signoff - ops/legal/manual.
 - [ ] Self-improvement activation - explicit user approval required.
+## Session: 2026-11-24 - Unblocked-only continuation (P7 endpoints)
+**Time:** 2026-11-24T03:29:00Z  
+**Agent:** Kilo  
+**Phase:** P7
+
+### Completed (no external dependency)
+- [x] Added `GET /v1/identity/` list endpoint.
+- [x] Added `DELETE /v1/memory/notes/:id` behind `HELM_MEMORY_ENABLED`.
+- [x] Verification: `pnpm --filter @helm/api typecheck` PASS. Docs synced (`65eee27`,`caa7eae`).
+
+### Blocked / explicit approval
+- [ ] External creds/sandboxes/runtime decisions: Google OAuth E2E, real-provider Temporal proof, BrowserOS real endpoint.
+- [ ] Ops/legal/manual: backup/restore drill evidence, CI security scan/threat model execution, PII retention/export/delete implementation, compliance signoff.
+- [ ] Self-improvement activation requires explicit user approval.
