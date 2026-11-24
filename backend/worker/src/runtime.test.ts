@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, hasApprovalForAction, historyMessages, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, evaluateToolPolicy, hasApprovalForAction, historyMessages, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
 
 const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" }, thread: [] };
 
@@ -50,5 +50,10 @@ describe("runtime helpers", () => {
     expect(cfg?.maxTokens).toBe(128);
     const msgs = historyMessages({ ...baseInput, thread: [{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }] } as any);
     expect(msgs).toEqual([{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }]);
+  });
+  it("enforces tool policy for unknown/high-risk browser tools", () => {
+    expect(evaluateToolPolicy("unknown", {}, {})).toMatchObject({ ok: false });
+    expect(evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a" }, {})).toMatchObject({ ok: false });
+    expect(evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a", approvalId: "apr", actionHash: "ah", idempotencyKey: "ik" }, { approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah"] })).toMatchObject({ ok: true });
   });
 });

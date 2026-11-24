@@ -36,6 +36,31 @@ export const RUNTIME_TOOL_REGISTRY = [
   { name: "browser_click", risk: "high", requiresApproval: true, description: "Click selector in browser. High-risk side effect: requires approved approvalId/actionHash/idempotencyKey.", parameters: { type: "object", properties: { sessionId: { type: "string" }, selector: { type: "string" }, approvalId: { type: "string" }, actionHash: { type: "string" }, idempotencyKey: { type: "string" } }, required: ["sessionId", "selector", "approvalId", "actionHash", "idempotencyKey"] } },
 ] as const;
 
+export function getRuntimeToolPolicy(name: string) {
+  return RUNTIME_TOOL_REGISTRY.find(t => t.name === name) ?? null;
+}
+
+export function evaluateToolPolicy(name: string, args: any, ctx: Record<string, unknown>) {
+  const tool = getRuntimeToolPolicy(name);
+  if (!tool) return { ok: false as const, error: `unknown tool ${name}` };
+  if (name.startsWith("browser_")) {
+    const norm = normalizeBrowserToolArgs(args, String(ctx.activeBrowserSessionId ?? "").trim());
+    if (!norm.ok) return { ok: false as const, error: norm.error, args: norm.args };
+    args = norm.args;
+  }
+  if (tool.requiresApproval) {
+    const approvalId = String(args.approvalId ?? "").trim();
+    const actionHash = String(args.actionHash ?? "").trim();
+    const idempotencyKey = String(args.idempotencyKey ?? "").trim();
+    if (!approvalId || !actionHash || !idempotencyKey) return { ok: false as const, error: `${name} requires approvalId, actionHash, and idempotencyKey`, args };
+    const approvedHashes = Array.isArray(ctx.approvedActionHashes) ? ctx.approvedActionHashes.map(String) : [];
+    const approvedKinds = Array.isArray(ctx.approvedActionKinds) ? ctx.approvedActionKinds.map(String) : [];
+    const kindOk = approvedKinds.includes("external.high_risk") || approvedKinds.includes(`browser.${name.replace("browser_", "")}`);
+    if (!kindOk || !approvedHashes.includes(actionHash)) return { ok: false as const, error: `${name} blocked: matching approved actionHash/kind required`, args };
+  }
+  return { ok: true as const, args, tool };
+}
+
 const BROWSER_TOOLS = RUNTIME_TOOL_REGISTRY.map(t => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
 export function isHighRiskPrompt(prompt: string): boolean {
@@ -170,16 +195,14 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
     for (const tc of toolCalls) {
       const name = tc.function?.name ?? "unknown";
       let args: any = {}; try { args = JSON.parse(tc.function?.arguments || "{}"); } catch {}
-      if (name.startsWith("browser_")) {
-        const norm = normalizeBrowserToolArgs(args, String((input.context as any)?.activeBrowserSessionId ?? "").trim());
-        args = norm.args;
-        if (!norm.ok) {
-          const result = JSON.stringify({ error: norm.error });
-          yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
-          yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result } };
-          messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
-          continue;
-        }
+      const policy = evaluateToolPolicy(name, args, (input.context ?? {}) as Record<string, unknown>);
+      args = (policy as any).args ?? args;
+      if (!policy.ok) {
+        const result = JSON.stringify({ error: policy.error });
+        yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
+        yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result, policy: "denied" } };
+        messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
+        continue;
       }
       yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
       const result = await runTool(name, args);
