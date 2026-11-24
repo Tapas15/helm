@@ -160,4 +160,54 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect(ev.reconcileOutcome).toBe("executed");
     await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
   }, 90000);
+
+  it("marks uncertain calendar receipt executed when lookup proves external event", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const taskId = uid("tsk");
+    const receiptId = uid("rcpt");
+    const idem = `task:${taskId}:action:ah_cal:${receiptId}`;
+    const mockPort = await getFreePort();
+    const mockBase = `http://127.0.0.1:${mockPort}`;
+    const mockCode = [
+      "const http=require('node:http');",
+      "http.createServer((req,res)=>{",
+      " const u=req.url||'';",
+      " if(u.startsWith('/calendar/v3/calendars/primary/events')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({items:[{id:'evt_1',summary:'Standup',start:{dateTime:'2026-11-25T10:00:00Z'},end:{dateTime:'2026-11-25T10:30:00Z'},htmlLink:'https://calendar/e/1'}]}));return;}",
+      " res.writeHead(404,{'content-type':'application/json'});res.end(JSON.stringify({error:{message:'not found'}}));",
+      `}).listen(${mockPort},'127.0.0.1');`,
+    ].join("");
+    mockChild = spawn(process.execPath, ["-e", mockCode], { stdio: "pipe" }) as ChildProcessWithoutNullStreams;
+    mockChild.stdout.on("data",()=>{}); mockChild.stderr.on("data",()=>{});
+    await delay(300);
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_CALENDAR_API_BASE: mockBase,
+      HELM_TEST_CONNECTOR_HTTP: "1",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon-cal", prompt: "recon-cal", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "calendar.create_event", actionHash: "ah_cal",
+      idempotencyKey: idem, status: "uncertain",
+      evidence: { accountId: "cac_test", summary: "Standup", startIso: "2026-11-25T10:00:00Z", endIso: "2026-11-25T10:30:00Z" },
+      createdAt: now,
+    }).onConflictDoNothing();
+    const r1 = await api(apiBase, "/v1/reconciliation/run", { method: "POST", body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
+    expect(r1.status).toBe(200);
+    expect(r1.json?.ok).toBe(true);
+    expect(r1.json?.reconciled).toBeGreaterThanOrEqual(1);
+    const [after1] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+    expect(after1?.status).toBe("executed");
+    expect(after1?.externalRef).toBe("evt_1");
+    const ev = (after1?.evidence ?? {}) as Record<string, unknown>;
+    expect(ev.reconciled).toBe(true);
+    expect(ev.reconcileOutcome).toBe("executed");
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 90000);
 });
