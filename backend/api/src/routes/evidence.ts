@@ -41,10 +41,12 @@ export function receiptRoutes(db: Database) {
     const userId = c.get("userId");
     const taskId = c.req.query("taskId");
     const status = c.req.query("status");
+    const limitRaw = Number(c.req.query("limit") ?? 100);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.floor(limitRaw), 1), 200) : 100;
     const where = taskId ? and(eq(actionReceipts.userId, userId), eq(actionReceipts.taskId, taskId)) : eq(actionReceipts.userId, userId);
-    const rows = await db.select().from(actionReceipts).where(where).orderBy(desc(actionReceipts.createdAt)).limit(100);
-    const filtered = status ? rows.filter((r) => r.status === status) : rows;
-    return c.json({ receipts: filtered });
+    const rows = await db.select().from(actionReceipts).where(where).orderBy(desc(actionReceipts.createdAt)).limit(status ? 200 : limit);
+    const filtered = (status ? rows.filter((r) => r.status === status) : rows).slice(0, limit);
+    return c.json({ receipts: filtered, limit });
   });
 
   app.post("/:id/reconcile", async (c) => {
