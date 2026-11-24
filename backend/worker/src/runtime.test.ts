@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
 
 const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
 
@@ -32,5 +32,11 @@ describe("runtime helpers", () => {
   it("normalizes missing browser sessionId from active context", () => {
     expect(normalizeBrowserToolArgs({ url: "https://example.com" }, "s1")).toEqual({ ok: true, args: { url: "https://example.com", sessionId: "s1" } });
     expect(normalizeBrowserToolArgs({ sessionId: "undefined" }, "")).toMatchObject({ ok: false });
+  });
+  it("exposes tool registry and high-risk prompt classifier", () => {
+    expect(RUNTIME_TOOL_REGISTRY.map(t => t.name)).toEqual(["browser_navigate","browser_snapshot","browser_click"]);
+    expect(RUNTIME_TOOL_REGISTRY.find(t => t.name === "browser_click")?.requiresApproval).toBe(true);
+    expect(isHighRiskPrompt("please buy this")).toBe(true);
+    expect(isHighRiskPrompt("summarize this page")).toBe(false);
   });
 });

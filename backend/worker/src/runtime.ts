@@ -30,11 +30,17 @@ export function redactModelError(text: string): string {
   return text.replace(/Bearer\s+[A-Za-z0-9._\-]+/g, "Bearer [redacted]").slice(0, 300);
 }
 
-const BROWSER_TOOLS = [
-  { type: "function", function: { name: "browser_navigate", description: "Navigate an existing browser session to a URL. Low-risk observation/navigation.", parameters: { type: "object", properties: { sessionId: { type: "string" }, url: { type: "string" } }, required: ["sessionId", "url"] } } },
-  { type: "function", function: { name: "browser_snapshot", description: "Capture a text snapshot of current browser page.", parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] } } },
-  { type: "function", function: { name: "browser_click", description: "Click selector in browser. High-risk side effect: requires approved approvalId/actionHash/idempotencyKey.", parameters: { type: "object", properties: { sessionId: { type: "string" }, selector: { type: "string" }, approvalId: { type: "string" }, actionHash: { type: "string" }, idempotencyKey: { type: "string" } }, required: ["sessionId", "selector", "approvalId", "actionHash", "idempotencyKey"] } } },
-];
+export const RUNTIME_TOOL_REGISTRY = [
+  { name: "browser_navigate", risk: "low", requiresApproval: false, description: "Navigate an existing browser session to a URL. Low-risk observation/navigation.", parameters: { type: "object", properties: { sessionId: { type: "string" }, url: { type: "string" } }, required: ["sessionId", "url"] } },
+  { name: "browser_snapshot", risk: "low", requiresApproval: false, description: "Capture a text snapshot of current browser page.", parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] } },
+  { name: "browser_click", risk: "high", requiresApproval: true, description: "Click selector in browser. High-risk side effect: requires approved approvalId/actionHash/idempotencyKey.", parameters: { type: "object", properties: { sessionId: { type: "string" }, selector: { type: "string" }, approvalId: { type: "string" }, actionHash: { type: "string" }, idempotencyKey: { type: "string" } }, required: ["sessionId", "selector", "approvalId", "actionHash", "idempotencyKey"] } },
+] as const;
+
+const BROWSER_TOOLS = RUNTIME_TOOL_REGISTRY.map(t => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+
+export function isHighRiskPrompt(prompt: string): boolean {
+  return /\b(buy|purchase|checkout|pay|payment|order|place order|submit|send email|delete)\b/i.test(prompt);
+}
 
 export function shouldExposeBrowserTools(input: AgentRuntimeInput): boolean {
   const ctx = (input.context ?? {}) as any;
@@ -185,7 +191,7 @@ export class HelmNativeRuntime implements AgentRuntime {
     const model = resolveModel(process.env);
     yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null } };
     yield { type: "runtime.planning", ts: now(), trace, message: "Planning task", payload: { prompt: input.prompt.slice(0, 500) } };
-    const needsApproval = /\b(buy|purchase|checkout|pay|payment|order|place order|submit|send email|delete)\b/i.test(input.prompt);
+    const needsApproval = isHighRiskPrompt(input.prompt);
     const approved = Boolean((input.context as any)?.approvalGranted) || (Array.isArray((input.context as any)?.approvedActionKinds) && (input.context as any).approvedActionKinds.includes("external.high_risk"));
     if (needsApproval && !approved) {
       yield { type: "runtime.tool.proposed", ts: now(), trace: { ...trace, tool: "approval.request" }, message: "High-risk action requires approval", payload: { action: "external.high_risk", reason: "User prompt appears to request a high-risk/external action", approvalRequired: true, actionHash: randomUUID() } };
