@@ -28,7 +28,8 @@ export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, u
   const json = await res.json().catch(() => null);
   if (!res.ok) return { ok: false as const, reason: json?.error?.message ?? "gmail_lookup_failed" };
   const msgs = Array.isArray(json?.messages) ? json.messages as Array<{ id?: string; threadId?: string }> : [];
-  for (const m of msgs) {
+  const maxChecks = 10;
+  for (const m of msgs.slice(0, maxChecks)) {
     if (!m?.id) continue;
     const detailRes = await fetch(`${gmailBase}/gmail/v1/users/me/messages/${encodeURIComponent(m.id)}?format=metadata&metadataHeaders=X-Helm-Idempotency&metadataHeaders=Subject&metadataHeaders=To`, { headers: { authorization: `Bearer ${token.token}` } });
     const detail = await detailRes.json().catch(() => null);
@@ -38,14 +39,14 @@ export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, u
     const hdrSubject = headers.find((h) => String(h.name ?? "").toLowerCase() === "subject")?.value ?? "";
     const hdrTo = headers.find((h) => String(h.name ?? "").toLowerCase() === "to")?.value ?? "";
     if (idem && idem === receipt.idempotencyKey) {
-      return { ok: true as const, externalRef: String(m.id), threadId: detail?.threadId ? String(detail.threadId) : (m.threadId ? String(m.threadId) : null), matchedBy: "idempotency_header" };
+      return { ok: true as const, externalRef: String(m.id), threadId: detail?.threadId ? String(detail.threadId) : (m.threadId ? String(m.threadId) : null), matchedBy: "idempotency_header", checked: msgs.length };
     }
-    // Weak fallback: subject+recipient match when no idempotency header present.
+    // Weak fallback only when no idempotency header present.
     if (!idem && hdrSubject === subject && (to.length === 0 || to.some((t) => hdrTo.includes(t)))) {
-      return { ok: true as const, externalRef: String(m.id), threadId: detail?.threadId ? String(detail.threadId) : (m.threadId ? String(m.threadId) : null), matchedBy: "subject_recipient_fallback" };
+      return { ok: true as const, externalRef: String(m.id), threadId: detail?.threadId ? String(detail.threadId) : (m.threadId ? String(m.threadId) : null), matchedBy: "subject_recipient_fallback", checked: msgs.length };
     }
   }
-  return { ok: false as const, reason: "not_found" };
+  return { ok: false as const, reason: "not_found", checked: Math.min(msgs.length, maxChecks) };
 }
 
 export function gmailRoutes(db: Database) {

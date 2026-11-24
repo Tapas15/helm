@@ -30,9 +30,9 @@ export async function lookupCalendarCreate(db: Database, vault: DbCredentialBrok
   const json = await res.json().catch(() => null);
   if (!res.ok) return { ok: false as const, reason: json?.error?.message ?? "calendar_lookup_failed" };
   const items = Array.isArray(json?.items) ? json.items as Array<Record<string, any>> : [];
-  const match = items.find((i) => String(i?.summary ?? "") === summary && String(i?.start?.dateTime ?? i?.start?.date ?? "") === startIso);
-  if (!match?.id) return { ok: false as const, reason: "not_found" };
-  return { ok: true as const, externalRef: String(match.id), htmlLink: match.htmlLink ? String(match.htmlLink) : null, matchedBy: "summary_start_fallback" };
+  const match = items.slice(0, 10).find((i) => String(i?.summary ?? "") === summary && String(i?.start?.dateTime ?? i?.start?.date ?? "") === startIso);
+  if (!match?.id) return { ok: false as const, reason: "not_found", checked: Math.min(items.length, 10) };
+  return { ok: true as const, externalRef: String(match.id), htmlLink: match.htmlLink ? String(match.htmlLink) : null, matchedBy: "summary_start_fallback", checked: Math.min(items.length, 10) };
 }
 
 export function calendarRoutes(db: Database) {
