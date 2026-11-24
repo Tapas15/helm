@@ -48,5 +48,28 @@ export function identityRoutes(db: Database) {
     }
     return c.json({ ok: true, policy: row });
   });
+  app.patch("/:id/policy", async (c) => {
+    const userId = c.get("userId");
+    const identityId = c.req.param("id");
+    const body = await c.req.json().catch(() => ({} as any));
+    const [identity] = await db.select({ id: identities.id }).from(identities).where(and(eq(identities.id, identityId), eq(identities.userId, userId))).limit(1);
+    if (!identity) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Identity not found"), 404);
+    const [existing] = await db.select().from(identityPolicies).where(and(eq(identityPolicies.identityId, identityId), eq(identityPolicies.userId, userId))).limit(1);
+    if (!existing) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Identity policy not found"), 404);
+    const asStringArray = (v: unknown, max = 50): string[] | null => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").map((x) => x.trim().slice(0, 320)).filter(Boolean).slice(0, max) : null;
+    const patch: Partial<{ allowedDomains: string[]; allowedRecipients: string[]; allowExternalWrites: boolean; requireApproval: boolean; updatedAt: Date }> = { updatedAt: new Date() };
+    const allowedDomains = asStringArray(body?.allowedDomains);
+    const allowedRecipients = asStringArray(body?.allowedRecipients);
+    if (allowedDomains) patch.allowedDomains = allowedDomains;
+    if (allowedRecipients) patch.allowedRecipients = allowedRecipients;
+    if (typeof body?.allowExternalWrites === "boolean") patch.allowExternalWrites = body.allowExternalWrites;
+    if (typeof body?.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
+    if (Object.keys(patch).length === 1) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "No valid policy fields to update"), 400);
+    if (patch.allowExternalWrites === true && (patch.requireApproval === false || (patch.requireApproval === undefined && existing.requireApproval === false))) {
+      return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "External writes require requireApproval=true"), 403);
+    }
+    const [updated] = await db.update(identityPolicies).set(patch).where(and(eq(identityPolicies.id, existing.id), eq(identityPolicies.userId, userId))).returning();
+    return c.json({ ok: true, policy: updated });
+  });
   return app;
 }
