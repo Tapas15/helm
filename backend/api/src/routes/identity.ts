@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { identities, identityPolicies, type Database } from "@helm/db";
+import { connectorAccounts, identities, identityPolicies, type Database } from "@helm/db";
 import { HELM_ERROR_CODES, IdentityClass } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
@@ -70,6 +70,20 @@ export function identityRoutes(db: Database) {
     }
     const [updated] = await db.update(identityPolicies).set(patch).where(and(eq(identityPolicies.id, existing.id), eq(identityPolicies.userId, userId))).returning();
     return c.json({ ok: true, policy: updated });
+  });
+  app.post("/:id/bind-connector-account", async (c) => {
+    const userId = c.get("userId");
+    const identityId = c.req.param("id");
+    const body = await c.req.json().catch(() => ({} as any));
+    const accountId = typeof body?.accountId === "string" ? body.accountId.trim() : "";
+    if (!accountId) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "accountId required"), 400);
+    const [identity] = await db.select({ id: identities.id }).from(identities).where(and(eq(identities.id, identityId), eq(identities.userId, userId))).limit(1);
+    if (!identity) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Identity not found"), 404);
+    const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, accountId), eq(connectorAccounts.userId, userId))).limit(1);
+    if (!account) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
+    const metadata = { ...(account.metadata as Record<string, unknown> ?? {}), identityId };
+    const [updated] = await db.update(connectorAccounts).set({ metadata, updatedAt: new Date() }).where(and(eq(connectorAccounts.id, accountId), eq(connectorAccounts.userId, userId))).returning();
+    return c.json({ ok: true, account: updated });
   });
   return app;
 }
