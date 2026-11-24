@@ -1,7 +1,7 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, hasApprovalForAction, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, hasApprovalForAction, historyMessages, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
 
-const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
+const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" }, thread: [] };
 
 describe("runtime helpers", () => {
   it("resolveModel uses ollama defaults and clamps limits", () => {
@@ -42,5 +42,13 @@ describe("runtime helpers", () => {
     expect(hasApprovalForAction({ approvalGranted: true })).toBe(true);
     expect(hasApprovalForAction({ approvedActionKinds: ["external.high_risk"] })).toBe(true);
     expect(hasApprovalForAction({ approvedActionKinds: ["other"] })).toBe(false);
+  });
+  it("resolves model overrides and prefers thread history", () => {
+    const cfg = resolveModel({ OLLAMA_BASE_URL: "http://127.0.0.1:11434" } as any, { model: "qwen2.5:latest", provider: "ollama", timeoutMs: 1000, maxTokens: 64 });
+    expect(cfg?.model).toBe("qwen2.5:latest");
+    expect(cfg?.timeoutMs).toBe(5000);
+    expect(cfg?.maxTokens).toBe(128);
+    const msgs = historyMessages({ ...baseInput, thread: [{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }] } as any);
+    expect(msgs).toEqual([{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }]);
   });
 });

@@ -32,6 +32,14 @@ export const AgentRuntimeEvent = z.object({
 });
 export type AgentRuntimeEvent = z.infer<typeof AgentRuntimeEvent>;
 
+export const RuntimeThreadMessage = z.object({
+  role: z.enum(["user", "assistant", "system", "tool"]),
+  content: z.string(),
+  ts: z.string().datetime().optional(),
+  name: z.string().optional(),
+});
+export type RuntimeThreadMessage = z.infer<typeof RuntimeThreadMessage>;
+
 export const AgentRuntimeInput = z.object({
   taskId: z.string(),
   runId: z.string(),
@@ -40,6 +48,7 @@ export const AgentRuntimeInput = z.object({
   kind: z.string().default("assistant"),
   model: z.string().optional(),
   context: z.record(z.unknown()).default({}),
+  thread: z.array(RuntimeThreadMessage).default([]),
   trace: TraceContext.default({}),
 });
 export type AgentRuntimeInput = z.infer<typeof AgentRuntimeInput>;

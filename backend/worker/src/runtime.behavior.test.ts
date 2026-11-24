@@ -1,7 +1,7 @@
 ﻿import { describe, expect, it } from "vitest";
 import { HelmNativeRuntime } from "./runtime.js";
 
-const base = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
+const base = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" }, thread: [] };
 
 describe("HelmNativeRuntime", () => {
   it("emits waiting_approval for high-risk prompt without approval", async () => {

@@ -9,14 +9,14 @@ type ChatMsg = { role: "system" | "user" | "assistant" | "tool"; content: string
 
 const DEFAULT_TOOL_CAPABLE_ALLOWLIST = ["llama3.2:latest", "llama3.2:3b", "qwen2.5:latest", "qwen2.5:3b"];
 
-export function resolveModel(env: NodeJS.ProcessEnv = process.env): ModelConfig | null {
-  const model = env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : "");
-  const apiKey = env.HELM_MODEL_API_KEY ?? env.OPENAI_API_KEY ?? "";
-  const baseUrl = (env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "");
+export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { model?: string; provider?: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; maxTokens?: number }): ModelConfig | null {
+  const model = override?.model ?? env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : "");
+  const apiKey = override?.apiKey ?? env.HELM_MODEL_API_KEY ?? env.OPENAI_API_KEY ?? "";
+  const baseUrl = (override?.baseUrl ?? env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "");
   if (!model || !baseUrl) return null;
-  const provider = env.HELM_MODEL_PROVIDER ?? (baseUrl.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
-  const timeoutMs = Math.max(5000, Number(env.HELM_MODEL_TIMEOUT_MS ?? 120000));
-  const maxTokens = Math.max(128, Number(env.HELM_MODEL_MAX_TOKENS ?? 1024));
+  const provider = override?.provider ?? env.HELM_MODEL_PROVIDER ?? (baseUrl.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
+  const timeoutMs = Math.max(5000, Number(override?.timeoutMs ?? env.HELM_MODEL_TIMEOUT_MS ?? 120000));
+  const maxTokens = Math.max(128, Number(override?.maxTokens ?? env.HELM_MODEL_MAX_TOKENS ?? 1024));
   const allowlist = (env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(",")).split(",").map(s => s.trim()).filter(Boolean);
   return { baseUrl, apiKey: apiKey || undefined, model, provider, timeoutMs, maxTokens, allowlist };
 }
@@ -108,9 +108,11 @@ export function buildSystemPrompt(input: AgentRuntimeInput): string {
   return `${persona}\n${guardrails}\n${browser}${facts ? `\nRelevant memory:\n${facts}` : ""}`;
 }
 
-function historyMessages(input: AgentRuntimeInput): ChatMsg[] {
+export function historyMessages(input: AgentRuntimeInput): ChatMsg[] {
+  const fromThread = Array.isArray((input as any).thread) ? (input as any).thread : [];
   const ctx = (input.context ?? {}) as any;
-  const rows = Array.isArray(ctx.recentMessages) ? ctx.recentMessages : [];
+  const fromCtx = Array.isArray(ctx.recentMessages) ? ctx.recentMessages : [];
+  const rows = fromThread.length ? fromThread : fromCtx;
   return rows.slice(-12).flatMap((m: any) => {
     const role = m?.role;
     const content = String(m?.content ?? "").trim();
@@ -194,7 +196,9 @@ export class HelmNativeRuntime implements AgentRuntime {
   async *run(input: AgentRuntimeInput): AsyncIterable<AgentRuntimeEvent> {
     if (input.kind === "browser") { for await (const evt of runBrowserTask(input)) yield evt; return; }
     const trace = { ...input.trace, taskId: input.taskId, runId: input.runId, userId: input.userId, agentId: "helm-native" };
-    const model = resolveModel(process.env);
+    const ctx = (input.context ?? {}) as any;
+    const override = ctx.modelOverride && typeof ctx.modelOverride === "object" ? ctx.modelOverride : undefined;
+    const model = resolveModel(process.env, override);
     yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null } };
     yield { type: "runtime.planning", ts: now(), trace, message: "Planning task", payload: { prompt: input.prompt.slice(0, 500) } };
     const needsApproval = isHighRiskPrompt(input.prompt);
