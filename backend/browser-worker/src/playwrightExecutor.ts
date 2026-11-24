@@ -1,4 +1,4 @@
-﻿import { chromium, type Browser, type BrowserContext, type Page, type CDPSession } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Page, type CDPSession } from "playwright";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,8 +10,8 @@ import { BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, Browse
 type PersistedSession = { session: BrowserSession; storageStatePath: string };
 type SessionState = { session: BrowserSession; browser: Browser; context: BrowserContext; page: Page; cdp: CDPSession | null; lastScreenshotBase64?: string; lastFrame?: string; closeTimer?: NodeJS.Timeout; emitter: EventEmitter; storageStatePath: string };
 const PREVIEW_TTL_MS = 5 * 60_000;
-const ARTIFACT_DIR = process.env.BROWSER_ARTIFACT_DIR ?? path.resolve(process.cwd(), ".data", "browser-artifacts");
-const STATE_DIR = process.env.BROWSER_STATE_DIR ?? path.resolve(process.cwd(), ".data", "browser-sessions");
+const _ARTIFACT_DIR = process.env.HELM_ARTIFACT_DIR ?? "artifacts";
+const _STATE_DIR = process.env.HELM_STATE_DIR ?? ".helm-state";
 
 async function saveArtifact(artifactDir: string, sessionId: string, kind: string, ext: string, buf: Buffer, mime: string, metadata: Record<string, unknown>) {
   await mkdir(artifactDir, { recursive: true });

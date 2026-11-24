@@ -1,4 +1,4 @@
-import { createDb } from "./index.js";
+﻿import { createDb } from "./index.js";
 import { users } from "./schema/index.js";
 export const DEV_USER_ID = "usr_local_dev";
 export const DEV_USER_EMAIL = "dev@helm.local";
@@ -24,7 +24,7 @@ export async function seedDevUser(connectionString) {
     }
 }
 async function main() {
-    // @ts-ignore - dotenv optional at runtime in dist
+    // @ts-expect-error - dotenv optional at runtime in dist
     const mod = await import("dotenv");
     mod.config?.();
     const result = await seedDevUser();

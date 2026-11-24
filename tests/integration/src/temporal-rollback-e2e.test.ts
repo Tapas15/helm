@@ -1,4 +1,4 @@
-﻿import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import http from "node:http";
 import { createDb } from "@helm/db";
-import { approvals, connectorAccounts, tasks, users, actionReceipts } from "@helm/db";
-import { and, eq } from "drizzle-orm";
+import { approvals, connectorAccounts, tasks, users } from "@helm/db";
 
 const run = process.env.HELM_TEMPORAL_ROLLBACK_E2E === "1";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");

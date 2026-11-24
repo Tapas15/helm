@@ -1,4 +1,4 @@
-﻿import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeInput, AgentRuntimeResult } from "@helm/shared";
 import { runBrowserTask } from "./browserTask.js";
 
@@ -27,7 +27,7 @@ export function isToolCapableModel(cfg: ModelConfig): boolean {
 }
 
 export function redactModelError(text: string): string {
-  return text.replace(/Bearer\s+[A-Za-z0-9._\-]+/g, "Bearer [redacted]").slice(0, 300);
+  return text.replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted]").slice(0, 300);
 }
 
 export const RUNTIME_TOOL_REGISTRY = [
@@ -164,9 +164,9 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
     } catch (err) {
       clearTimeout(timeout);
       const msg = err instanceof Error && err.name === "AbortError" ? `Model request timed out after ${cfg.timeoutMs}ms` : (err instanceof Error ? err.message : String(err));
-      throw new Error(msg);
+      throw new Error(msg, { cause: err });
     }
-    if (!res.ok || !res.body) { clearTimeout(timeout); const text = await res.text().catch(() => ""); throw new Error(`Model request failed (${res.status}): ${redactModelError(text)}`); }
+    if (!res.ok || !res.body) { clearTimeout(timeout); const text = await res.text().catch(() => ""); throw new Error(`Model request failed (${res.status}): ${redactModelError(text)}`, { cause: { status: res.status } }); }
     const reader = res.body.getReader(); const decoder = new TextDecoder(); let buf = ""; let content = ""; const toolCalls: any[] = [];
     try {
       while (true) {

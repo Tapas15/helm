@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs"
   },
   "dependencies": {
     "@helm/db": "workspace:*",

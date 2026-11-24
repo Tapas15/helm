@@ -27,7 +27,7 @@ export async function seedDevUser(connectionString?: string) {
 }
 
 async function main() {
-  // @ts-ignore - dotenv optional at runtime in dist
+  // @ts-expect-error - dotenv optional at runtime in dist
   const mod = await import("dotenv");
   mod.config?.();
   const result = await seedDevUser();
