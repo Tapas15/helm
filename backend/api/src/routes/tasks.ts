@@ -186,9 +186,10 @@ export function taskRoutes(db: Database) {
   app.post("/export", async (c) => {
     const userId = c.get("userId");
     const body = await c.req.json().catch(() => ({} as any));
-    const limit = Number.isFinite(body?.limit) ? Math.min(Math.max(Math.floor(body.limit), 1), 200) : 50;
+    const max = Math.min(Math.max(Number(process.env.HELM_TASK_EXPORT_MAX ?? 200), 1), 500);
+    const limit = Number.isFinite(body?.limit) ? Math.min(Math.max(Math.floor(body.limit), 1), max) : Math.min(50, max);
     const rows = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.updatedAt)).limit(limit);
-    return c.json({ ok: true, exportedAt: new Date().toISOString(), scope: "user", count: rows.length, tasks: rows });
+    return c.json({ ok: true, exportedAt: new Date().toISOString(), scope: "user", count: rows.length, max, tasks: rows });
   });
 
   app.post("/:id/delete", async (c) => {
