@@ -73,6 +73,13 @@ async function runTool(name: string, args: any): Promise<string> {
   return JSON.stringify({ error: `unknown tool ${name}` });
 }
 
+export function normalizeBrowserToolArgs(args: any, activeSessionId = ""): { ok: true; args: any } | { ok: false; args: any; error: string } {
+  const bad = (v: any) => !v || ["undefined","null","none"].includes(String(v).trim().toLowerCase());
+  const out = { ...(args ?? {}) };
+  if (bad(out.sessionId) && !bad(activeSessionId)) out.sessionId = activeSessionId;
+  if (bad(out.sessionId)) return { ok: false, args: out, error: "No active browser session. Create/start a browser task first, then retry with a valid sessionId." };
+  return { ok: true, args: out };
+}
 export function buildSystemPrompt(input: AgentRuntimeInput): string {
   const ctx = (input.context ?? {}) as any;
   const persona = String(ctx.persona ?? "You are Helm, a personal AI operator.");
@@ -150,13 +157,10 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
       const name = tc.function?.name ?? "unknown";
       let args: any = {}; try { args = JSON.parse(tc.function?.arguments || "{}"); } catch {}
       if (name.startsWith("browser_")) {
-        const bad = (v: any) => !v || ["undefined","null","none"].includes(String(v).trim().toLowerCase());
-        if (bad(args.sessionId)) {
-          const active = String((input.context as any)?.activeBrowserSessionId ?? "").trim();
-          if (!bad(active)) args.sessionId = active;
-        }
-        if (bad(args.sessionId)) {
-          const result = JSON.stringify({ error: "No active browser session. Create/start a browser task first, then retry with a valid sessionId." });
+        const norm = normalizeBrowserToolArgs(args, String((input.context as any)?.activeBrowserSessionId ?? "").trim());
+        args = norm.args;
+        if (!norm.ok) {
+          const result = JSON.stringify({ error: norm.error });
           yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
           yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result } };
           messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });

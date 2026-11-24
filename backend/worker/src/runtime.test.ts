@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, isToolCapableModel, redactModelError, resolveModel, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, shouldExposeBrowserTools } from "./runtime.js";
 
 const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
 
@@ -28,5 +28,9 @@ describe("runtime helpers", () => {
     expect(p).toContain("Active browser session: s1");
     expect(p).toContain("likes tea");
     expect(p).toContain("Do not invent tool results");
+  });
+  it("normalizes missing browser sessionId from active context", () => {
+    expect(normalizeBrowserToolArgs({ url: "https://example.com" }, "s1")).toEqual({ ok: true, args: { url: "https://example.com", sessionId: "s1" } });
+    expect(normalizeBrowserToolArgs({ sessionId: "undefined" }, "")).toMatchObject({ ok: false });
   });
 });
