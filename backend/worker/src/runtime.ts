@@ -39,7 +39,13 @@ export const RUNTIME_TOOL_REGISTRY = [
 const BROWSER_TOOLS = RUNTIME_TOOL_REGISTRY.map(t => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
 export function isHighRiskPrompt(prompt: string): boolean {
-  return /\b(buy|purchase|checkout|pay|payment|order|place order|submit|send email|delete)\b/i.test(prompt);
+  return /\b(buy|purchase|checkout|pay|payment|order|place order|submit|send email|delete|transfer|wire)\b/i.test(prompt);
+}
+
+export function hasApprovalForAction(ctx: Record<string, unknown>, actionKind = "external.high_risk"): boolean {
+  if (ctx.approvalGranted === true) return true;
+  const kinds = Array.isArray(ctx.approvedActionKinds) ? ctx.approvedActionKinds.map(String) : [];
+  return kinds.includes(actionKind);
 }
 
 export function shouldExposeBrowserTools(input: AgentRuntimeInput): boolean {
@@ -192,7 +198,7 @@ export class HelmNativeRuntime implements AgentRuntime {
     yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null } };
     yield { type: "runtime.planning", ts: now(), trace, message: "Planning task", payload: { prompt: input.prompt.slice(0, 500) } };
     const needsApproval = isHighRiskPrompt(input.prompt);
-    const approved = Boolean((input.context as any)?.approvalGranted) || (Array.isArray((input.context as any)?.approvedActionKinds) && (input.context as any).approvedActionKinds.includes("external.high_risk"));
+    const approved = hasApprovalForAction((input.context ?? {}) as Record<string, unknown>, "external.high_risk");
     if (needsApproval && !approved) {
       yield { type: "runtime.tool.proposed", ts: now(), trace: { ...trace, tool: "approval.request" }, message: "High-risk action requires approval", payload: { action: "external.high_risk", reason: "User prompt appears to request a high-risk/external action", approvalRequired: true, actionHash: randomUUID() } };
       yield { type: "runtime.completed", ts: now(), trace, message: "Waiting for approval", payload: { status: "waiting_approval", output: "Planned. High-risk action detected; waiting for explicit approval before external side effects." } };

@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, hasApprovalForAction, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
 
 const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" } };
 
@@ -37,6 +37,10 @@ describe("runtime helpers", () => {
     expect(RUNTIME_TOOL_REGISTRY.map(t => t.name)).toEqual(["browser_navigate","browser_snapshot","browser_click"]);
     expect(RUNTIME_TOOL_REGISTRY.find(t => t.name === "browser_click")?.requiresApproval).toBe(true);
     expect(isHighRiskPrompt("please buy this")).toBe(true);
+    expect(isHighRiskPrompt("wire funds")).toBe(true);
     expect(isHighRiskPrompt("summarize this page")).toBe(false);
+    expect(hasApprovalForAction({ approvalGranted: true })).toBe(true);
+    expect(hasApprovalForAction({ approvedActionKinds: ["external.high_risk"] })).toBe(true);
+    expect(hasApprovalForAction({ approvedActionKinds: ["other"] })).toBe(false);
   });
 });
