@@ -1,6 +1,6 @@
 # Current State â€” Helm
 
-**Last updated:** 2026-11-24T13:35:00Z (unblocked: P4 oauth helper/revoke hardening tests, P2 runtime registry/guards, P8 export/delete env-gated integration; typecheck PASS)
+**Last updated:** 2026-11-24T15:30:00Z (unblocked batch: P2/P4/P6/P7/P8 hardening+tests; typecheck/tests PASS)
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
 **Next move:** Real session/OIDC UX and web token flow; encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation. Keep live UI E2E evidence when browser automation surface is available.
 
