@@ -447,4 +447,40 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect((ev.lastReconcileLookup as any)?.reason).toBe("event_still_present");
     await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
   }, 90000);
+
+  it("dry-run lists uncertain candidates without mutating receipts", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const taskId = uid("tsk");
+    const receiptId = uid("rcpt");
+    const idem = `task:${taskId}:action:ah_dryrun:${receiptId}`;
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_TEST_CONNECTOR_HTTP: "1",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon-dry", prompt: "recon-dry", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "gmail.send", actionHash: "ah_dryrun",
+      idempotencyKey: idem, status: "uncertain",
+      evidence: { accountId: "cac_test", to: "a@example.com" },
+      createdAt: now,
+    }).onConflictDoNothing();
+    const r = await api(apiBase, "/v1/reconciliation/dry-run", { method: "POST", body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
+    expect(r.status).toBe(200);
+    const j = await r.json() as any;
+    expect(j.ok).toBe(true);
+    expect(j.dryRun).toBe(true);
+    expect(j.scanned).toBeGreaterThanOrEqual(1);
+    expect(j.candidates.some((c: any) => c.id === receiptId)).toBe(true);
+    const [after] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+    expect(after?.status).toBe("uncertain");
+    expect((after?.evidence as any)?.lastReconcileAttemptAt).toBeFalsy();
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 90000);
 });
