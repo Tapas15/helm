@@ -1471,3 +1471,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Code**: Added ackend/api/src/lib/browseros-mcp-client.ts (JSON-RPC streamable HTTP/SSE MCP client), ackend/api/src/lib/browseros-mcp-executor.ts (maps Helm BrowserExecutor actions to BrowserOS MCP tools with artifact capture), and BrowserOSMcpAdapter in ackend/api/src/lib/browser-adapter.ts. createBrowserAdapter now prefers BROWSEROS_MCP_URL, then legacy BROWSEROS_BASE_URL+BROWSEROS_TOKEN, then stub; Playwright remains default.
 - **Verification**: pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS. rowser-adapter.test.ts PASS (7/7). Env-gated smoke HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com PASS (1/1) - create session, screenshot, snapshot, close.
 - **Remaining P6**: full action parity/security review, capability fallback hardening, default dispatch after parity, CI evidence.
+
+## 2026-11-24T23:05:00Z - P6 BrowserOS MCP hardening
+
+- **Code**: rowseros-mcp-client.ts gained timeout (BROWSEROS_MCP_TIMEOUT_MS, default 30s) + capability detection (	ools/list, required tools). rowseros-mcp-executor.ts classifies errors (BROWSEROS_TIMEOUT/UNAVAILABLE/CAPABILITY_MISSING/SELECTOR_NOT_FOUND), checks capabilities before create/action, and annotates create failures. Smoke test treats screenshot as best-effort due local MCP timeout; snapshot remains required.
+- **Verification**: API typecheck PASS; rowser-adapter.test.ts PASS (8/8); env-gated MCP smoke PASS (1/1) with 45s timeout; screenshot timed out once and was classified retryable.
+- **Policy**: Playwright remains default; no silent fallback/default dispatch change. External runtime only.
