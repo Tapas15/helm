@@ -1,14 +1,26 @@
 
 type McpResult = { ok: true; result: any; sessionId?: string } | { ok: false; error: { code?: number; message: string; data?: unknown }; sessionId?: string };
 
+export type BrowserOSMcpCapabilityReport = {
+  ok: boolean;
+  checkedAt: string;
+  tools: string[];
+  missing: string[];
+};
+
+const DEFAULT_REQUIRED_TOOLS = ["tabs", "navigate", "snapshot", "screenshot"];
+
 export class BrowserOSMcpClient {
   private url: string;
   private sessionId: string | null = null;
   private nextId = 1;
   private initPromise: Promise<void> | null = null;
+  private timeoutMs: number;
+  private capabilities: BrowserOSMcpCapabilityReport | null = null;
 
-  constructor(url: string) {
+  constructor(url: string, opts?: { timeoutMs?: number }) {
     this.url = url;
+    this.timeoutMs = opts?.timeoutMs ?? Number(process.env.BROWSEROS_MCP_TIMEOUT_MS ?? 30000);
   }
 
   private async parseResponse(res: Response): Promise<{ sessionId?: string; messages: any[] }> {
@@ -41,10 +53,19 @@ export class BrowserOSMcpClient {
       "accept": "application/json, text/event-stream",
     };
     if (includeSession && this.sessionId) headers["mcp-session-id"] = this.sessionId;
-    const res = await fetch(this.url, { method: "POST", headers, body: JSON.stringify(body) });
-    const parsed = await this.parseResponse(res);
-    if (parsed.sessionId) this.sessionId = parsed.sessionId;
-    return { ...parsed, status: res.status };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await fetch(this.url, { method: "POST", headers, body: JSON.stringify(body), signal: controller.signal });
+      const parsed = await this.parseResponse(res);
+      if (parsed.sessionId) this.sessionId = parsed.sessionId;
+      return { ...parsed, status: res.status };
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") throw new Error(`MCP request timed out after ${this.timeoutMs}ms`, { cause: e });
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async ensureInitialized(): Promise<void> {
@@ -85,9 +106,26 @@ export class BrowserOSMcpClient {
     return r.result?.tools ?? [];
   }
 
+  async ensureCapabilities(required: string[] = DEFAULT_REQUIRED_TOOLS): Promise<BrowserOSMcpCapabilityReport> {
+    if (this.capabilities && required.every(t => this.capabilities!.tools.includes(t))) return this.capabilities;
+    const tools = await this.listTools();
+    const names = tools.map((t: any) => String(t?.name ?? "")).filter(Boolean);
+    const missing = required.filter(t => !names.includes(t));
+    this.capabilities = { ok: missing.length === 0, checkedAt: new Date().toISOString(), tools: names, missing };
+    return this.capabilities;
+  }
+
+  getCapabilities() { return this.capabilities; }
+
   async callTool(name: string, args: Record<string, unknown> = {}): Promise<any> {
     const r = await this.call("tools/call", { name, arguments: args });
-    if (!r.ok) throw new Error(r.error.message);
+    if (!r.ok) {
+      const msg = r.error.message || `MCP tool ${name} failed`;
+      const err = new Error(msg);
+      (err as any).code = r.error.code;
+      (err as any).data = r.error.data;
+      throw err;
+    }
     return r.result;
   }
 

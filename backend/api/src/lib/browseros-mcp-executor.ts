@@ -107,6 +107,8 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
     this.sessions.set(id, state);
     try {
       await this.client.ensureInitialized();
+      const caps = await this.client.ensureCapabilities();
+      if (!caps.ok) throw new Error(`Missing required MCP tools: ${caps.missing.join(", ")}`);
       state.mcpSessionId = this.client.getSessionId() ?? undefined;
       const newArgs: Record<string, unknown> = { action: "new" };
       if (input.initialUrl) newArgs.url = input.initialUrl;
@@ -125,12 +127,24 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
       return session;
     } catch (e) {
       session.status = "error"; session.updatedAt = new Date().toISOString();
-      throw e;
+      const err = e instanceof Error ? e : new Error(String(e));
+      (err as any).code = this.classifyError(err).code;
+      throw err;
     }
   }
 
   async listSessions(): Promise<BrowserSession[]> { return [...this.sessions.values()].map(s => s.session).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)); }
   async getSession(sessionId: string): Promise<BrowserSession | null> { return this.ensure(sessionId)?.session ?? null; }
+
+  private classifyError(e: unknown): { code: string; message: string; retryable: boolean } {
+    const msg = e instanceof Error ? e.message : String(e);
+    const lower = msg.toLowerCase();
+    if (lower.includes("timed out") || lower.includes("timeout")) return { code: "BROWSEROS_TIMEOUT", message: msg, retryable: true };
+    if (lower.includes("selector not found")) return { code: "SELECTOR_NOT_FOUND", message: msg, retryable: false };
+    if (lower.includes("initialize") || lower.includes("econnrefused") || lower.includes("fetch failed")) return { code: "BROWSEROS_UNAVAILABLE", message: msg, retryable: true };
+    if (lower.includes("missing required mcp tools")) return { code: "BROWSEROS_CAPABILITY_MISSING", message: msg, retryable: false };
+    return { code: "BROWSEROS_ACTION_FAILED", message: msg, retryable: false };
+  }
 
   private async withPage(sessionId: string, action: string, fn: (s: SessionState, pageId: number) => Promise<Record<string, unknown> | undefined>, allowDuringTakeover = false): Promise<BrowserActionResult> {
     const s = this.ensure(sessionId);
@@ -138,13 +152,15 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
     if (s.session.control.owner === "user" && !allowDuringTakeover) return { ok: false, sessionId, action, error: { code: "TAKEOVER_ACTIVE", message: "BrowserOS session is under user takeover", retryable: true } };
     if (s.pageId == null) return { ok: false, sessionId, action, error: { code: "NO_PAGE", message: "BrowserOS session has no page", retryable: false } };
     try {
+      const caps = await this.client.ensureCapabilities();
+      if (!caps.ok) throw new Error(`Missing required MCP tools: ${caps.missing.join(", ")}`);
       const data = await fn(s, s.pageId);
       s.session.updatedAt = new Date().toISOString();
       this.scheduleClose(sessionId);
       return { ok: true, sessionId, action, url: s.session.currentUrl, title: s.session.title, data };
     } catch (e) {
       s.session.status = "error"; s.session.updatedAt = new Date().toISOString();
-      return { ok: false, sessionId, action, url: s.session.currentUrl, error: { code: "BROWSEROS_ACTION_FAILED", message: e instanceof Error ? e.message : String(e), retryable: false } };
+      return { ok: false, sessionId, action, url: s.session.currentUrl, error: this.classifyError(e) };
     }
   }
 

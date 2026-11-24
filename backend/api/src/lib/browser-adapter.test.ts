@@ -95,4 +95,11 @@ describe("browser adapter factory", () => {
       expect(new Uint8Array(r.body)).toEqual(Uint8Array.from([1,2,3]));
     } finally { globalThis.fetch = orig; }
   });
+
+  it("BrowserOSMcpAdapter maps unsupported path to 404 JSON", async () => {
+    const a = new BrowserOSMcpAdapter("http://127.0.0.1:9210/mcp");
+    const r = await a.request("/v1/unknown", { method: "GET" });
+    expect(r.status).toBe(404);
+    expect(JSON.parse(r.text).error.code).toBe("NOT_FOUND");
+  });
 });
