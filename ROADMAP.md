@@ -64,7 +64,7 @@ timeline
 **`~70%`** complete (Phases 0–8, equal weight)
 
 ```text
-[█████████████████████░] 87%
+[██████████████░░░░░░] 70%
 ```
 
 **Prototype baseline usable.** Major reliability, security, connector, and release gaps remain.
@@ -88,14 +88,14 @@ timeline
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
 | **P0 Foundation / Repo** | 91% | Past / stabilizing | `██████████████████░░` |
-| **P1 UI / Task Core** | 90% | Past / polishing | `██████████████████░░` |
-| **P2 Agent Runtime** | 56% | **Present** | `███████████░░░░░░░░░` |
+| **P1 UI / Task Core** | 91% | Past / polishing | `██████████████████░░` |
+| **P2 Agent Runtime** | 73% | **Present** | `███████████████░░░░░` |
 | **P3 Browser Execution** | 93% | **Present** | `███████████████████░` |
-| **P4 Approvals / Vault / Connectors** | 59% | **Present** | `████████████░░░░░░░░` |
-| **P5 Temporal / Reliability** | 5% | Future | `█░░░░░░░░░░░░░░░░░░░` |
-| **P6 BrowserOS Deterministic Upgrade** | 0% | Future | `░░░░░░░░░░░░░░░░░░░░` |
-| **P7 Memory / Skills / Proactivity** | 0% | Future | `░░░░░░░░░░░░░░░░░░░░` |
-| **P8 Hardening / Release** | 5% | Future | `█░░░░░░░░░░░░░░░░░░░` |
+| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `██████████████████░░` |
+| **P5 Temporal / Reliability** | 68% | **Present** | `██████████████░░░░░░` |
+| **P6 BrowserOS Deterministic Upgrade** | 34% | **Present** | `███████░░░░░░░░░░░░░` |
+| **P7 Memory / Skills / Proactivity** | 48% | **Present** | `██████████░░░░░░░░░░` |
+| **P8 Hardening / Release** | 43% | Future / active prep | `█████████░░░░░░░░░░░` |
 
 ---
 
@@ -345,6 +345,7 @@ flowchart TB
 **Helm is being built to be useful, inspectable, and safe — not just impressive.**
 
 </div>
+
 
 
 
