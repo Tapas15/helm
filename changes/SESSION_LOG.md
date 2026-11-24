@@ -1231,3 +1231,24 @@ untime.completed)
 - [ ] BrowserOS real endpoint/protocol/parity tests - needs BrowserOS runtime/protocol decision.
 - [ ] Backup/restore drill execution, CI security scan/threat model, PII retention/export/delete, compliance/provenance signoff - manual/ops/legal.
 - [ ] Self-improvement activation - requires explicit user approval before implementation/activation.
+## Session: 2026-11-24 - P7/P8 unblocked completion pass
+**Time:** 2026-11-24T03:08:00Z  
+**Agent:** Kilo  
+**Phase:** P7/P8
+
+### Completed (no external help)
+- [x] P7: `skills` + `proactivity_rules` schema; `/v1/skills` and `/v1/proactivity` flagged status/CRUD routes (disabled by default; self-improvement not activated) (`28f4c11`).
+- [x] P7: identity policy read endpoint and restrictive default policy already in place (`d5b7087`,`08eb681`).
+- [x] P8: threat-model baseline and PII-retention baseline docs (`8004a5a`).
+- [x] Docs synced (`5529984`).
+
+### Verification
+- `pnpm --filter @helm/db typecheck` PASS
+- `pnpm --filter @helm/api typecheck` PASS
+
+### Blocked / external or explicit approval
+- [ ] Real Google OAuth E2E - needs `GOOGLE_CLIENT_ID/SECRET`.
+- [ ] Real-provider Temporal no-duplicate proof - needs sandbox/creds.
+- [ ] BrowserOS real endpoint/protocol/parity - needs runtime/protocol decision.
+- [ ] Backup/restore drill execution, CI security scan/threat model execution, PII retention/export/delete implementation, compliance/provenance signoff - ops/legal/manual.
+- [ ] Self-improvement activation - explicit user approval required.
