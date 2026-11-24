@@ -6,6 +6,7 @@ import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { getValidGoogleAccessToken } from "./connector-accounts.js";
+import { enforceIdentityPolicyForConnectorAccount } from "../lib/identity-policy.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
@@ -105,6 +106,8 @@ export function calendarRoutes(db: Database) {
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write");
+    if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
 
     const temporalCfg = readTemporalConfig(process.env);
     const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
