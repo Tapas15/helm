@@ -1,6 +1,6 @@
 # Current State â€” Helm
 
-**Last updated:** 2026-11-24T04:06:00Z (unblocked-only: reconciliation API proof PASS, identity policy PATCH)
+**Last updated:** 2026-11-24T10:08:00Z (unblocked-only: P7 DB migration artifact/applied, reconciliation 9/9)
 **Active phases:** Phase 1 UI/Task Core (`[~]`), Phase 3 Browser Execution (`[~]`), Phase 4 Approvals/Vault/Connectors (`[~]`)  
 **Next move:** Real session/OIDC UX and web token flow; encrypted vault provider + connector registry persistence/OAuth/Gmail/Calendar/reconciliation. Keep live UI E2E evidence when browser automation surface is available.
 
