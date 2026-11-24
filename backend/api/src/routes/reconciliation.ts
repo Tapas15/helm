@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { actionReceipts, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
@@ -37,12 +37,21 @@ export function reconciliationRoutes(db: Database) {
     const limit = typeof body?.limit === "number" ? body.limit : undefined;
     const olderThanMs = typeof body?.olderThanMs === "number" ? body.olderThanMs : undefined;
     const scope = body?.scope === "all" ? "all" : "user";
-    // scope=all is restricted to dev/internal mode; default user-scoped.
     if (scope === "all" && process.env.HELM_ALLOW_DEV_AUTH !== "1") {
       return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "scope=all requires internal/dev mode"), 403);
     }
     const result = await reconcileUncertainReceipts(db, { limit, olderThanMs, userId: scope === "all" ? undefined : userId });
     return c.json({ ok: true, ...result });
+  });
+
+  app.post("/dry-run", async (c) => {
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({} as any));
+    const limit = Number.isFinite(body?.limit) ? Math.min(Math.max(Math.floor(body.limit), 1), 100) : 20;
+    const olderThanMs = Number.isFinite(body?.olderThanMs) ? Math.max(Math.floor(body.olderThanMs), 0) : 60_000;
+    const cutoff = new Date(Date.now() - olderThanMs);
+    const rows = await db.select().from(actionReceipts).where(and(eq(actionReceipts.userId, userId), eq(actionReceipts.status, "uncertain"), lt(actionReceipts.createdAt, cutoff))).orderBy(desc(actionReceipts.createdAt)).limit(limit);
+    return c.json({ ok: true, dryRun: true, scanned: rows.length, candidates: rows.map((r) => ({ id: r.id, actionKind: r.actionKind, idempotencyKey: r.idempotencyKey, createdAt: r.createdAt, externalRef: r.externalRef })) });
   });
 
   return app;
