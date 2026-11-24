@@ -20,6 +20,11 @@ export function identityRoutes(db: Database) {
       delegated: { supported: false, note: "User-delegated bridge requires explicit approval and narrow scopes; not enabled by default." },
     });
   });
+  app.get("/", async (c) => {
+    const userId = c.get("userId");
+    const rows = await db.select().from(identities).where(eq(identities.userId, userId)).orderBy(desc(identities.createdAt)).limit(100);
+    return c.json({ ok: true, identities: rows });
+  });
   app.post("/", async (c) => {
     const userId = c.get("userId");
     const body = await c.req.json().catch(() => ({} as any));

@@ -31,5 +31,13 @@ export function memoryRoutes(db: Database) {
     const [row] = await db.insert(memoryNotes).values({ id: uid("mem"), userId, identityId: typeof body?.identityId === "string" ? body.identityId : null, kind: typeof body?.kind === "string" ? body.kind.slice(0, 50) : "note", content: content.slice(0, 4000), metadata: { source: "api" }, createdAt: now, updatedAt: now }).returning();
     return c.json({ ok: true, note: row }, 201);
   });
+  app.delete("/notes/:id", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [row] = await db.delete(memoryNotes).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning({ id: memoryNotes.id });
+    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
+    return c.json({ ok: true, deletedId: row.id });
+  });
   return app;
 }
