@@ -1292,3 +1292,9 @@ untime.completed)
 - **Verification:** pnpm --filter @helm/shared build PASS; pnpm --filter @helm/api typecheck PASS (after timer type fix); pnpm --filter @helm/shared test PASS (8 files, 25 tests).
 - **Files:** backend/api/src/lib/reconciliation.ts, backend/api/src/routes/reconciliation.ts, backend/api/src/index.ts, .github/workflows/ci.yml, .env.example, packages/shared/src/reconciliation.test.ts, changes/CURRENT_STATE.md, changes/FIX_LOG.md, changes/phase-5-temporal-reliability.md, changes/P5-P8-PRACTICAL-STATUS.md, changes/P5-P8-reconciliation-hardening.md.
 - **Next:** Add env-gated integration test for reconciliation run (mock Gmail/Calendar lookup), then Temporal-native reconciliation schedule/monitor/fault injection; real provider no-duplicate proof blocked on external sandbox/creds.
+
+## 2026-11-24 - Unblocked P7 identity policy PATCH
+- **Plan:** Add local-only identity policy management hardening with safety invariant; no external deps.
+- **Done:** Added PATCH /v1/identity/:id/policy in ackend/api/src/routes/identity.ts (allowedDomains/allowedRecipients/allowExternalWrites/requireApproval). Enforces invariant: external writes cannot disable approval through this route. Existing create/status/list/read behavior preserved.
+- **Verification:** pnpm --filter @helm/api typecheck PASS.
+- **Next:** Wire identity policy enforcement into guarded external-write routes/UI (careful, DB-canonical, no invariant weakening); blocked work remains external/manual.
