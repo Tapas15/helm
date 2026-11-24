@@ -1,3 +1,5 @@
+> **Snapshot/historical document.** For current status use `CURRENT_STATE.md` and `phase-1`..`phase-8`. This file may contain old percentages/status.
+
 # Helm - P5-P8 Current Practical Status
 
 ## Can run now (local)

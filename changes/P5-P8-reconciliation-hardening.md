@@ -1,3 +1,5 @@
+> **Snapshot/historical document.** For current status use `CURRENT_STATE.md` and `phase-1`..`phase-8`. This file may contain old percentages/status.
+
 ﻿# P5/P8 Reconciliation and Hardening Notes
 
 ## Reconciliation workflow (DB-canonical)

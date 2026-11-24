@@ -1,86 +1,109 @@
 # Planning Missing Items ? Helm
 
-**Date:** 2026-11-23 (legacy checklist)  
-**Status:** Superseded for day-to-day tracking by `CURRENT_STATE.md`, `CURRENT_STATE.md`, and `phase-*.md`. Keep for historical gap analysis; do not treat unchecked items here as authoritative without cross-checking phase docs.
+**Last updated:** 2026-11-24T17:30:00Z  
+**Status:** Active checklist (cross-check with `CURRENT_STATE.md` and `phase-1`..`phase-8`).  
+**Rule:** Mark `[x]` only with evidence (code/test/CI/doc). Keep blocked items visible with blocker reason.
 
-Use `CURRENT_STATE.md` for current %/remaining/blockers. Use phase docs for checklist evidence.
-
----
 ## P0 Foundation / Repo
-- [ ] Remote CI evidence (GitHub Actions) verified and linked in changes.
+- [x] Remote CI evidence verified: GitHub Actions `45438392752` PASS, `45441229198` PASS (main).
 - [ ] ESLint-depth lint rules (currently `tsc --noEmit` placeholders).
 - [ ] `tsconfig` dist/src path workaround cleanup for builds/typechecks.
 - [ ] tsx watch stability (known worker/API watch instability).
-- [ ] AGENTS/command/agent structure aligned with Kilo/competition conventions as needed.
+- [ ] **Blocked/tooling:** CI-safe non-interactive Drizzle migration-history alignment for manual P7 baseline (`packages/db/drizzle/0001_p7_tables_manual.sql`); no destructive reset without explicit approval.
 
 ## P1 UI / Task Core
-- [ ] **Premium White UI design system rollout** (see `changes/DESIGN-premium-white-ui.md`): Helm tokens, white/warm-white surfaces, soft off-white sidebar, Geist/Inter, Lucide, restrained blue/violet accent, 10–14px corners, subtle borders/shadows, smooth Motion animations.
+- [x] Chat-first task UI, SSE timeline, approvals/evidence/receipts, WS preview + polling fallback, takeover controls.
+- [x] Session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot.
+- [x] SSE stream regression (`events-sse-api` PASS 3/3, cursor resume + invalid cursor validation).
+- [x] Task lifecycle regression (`task-lifecycle-api` PASS 4/4).
+- [x] Task export/delete controls with env-gated integration PASS (1/1).
+- [ ] Live UI E2E smoke evidence (create/approve/reject/retry/pause/resume/cancel/preview). **Blocked:** no browser automation surface in shell.
+- [ ] SSE reconnect cursor-resume E2E proof beyond env-gated API integration test.
+- [ ] Decide/record WS `/v1/ws` AG-UI reducer need (SSE may be sufficient for MVP).
+- [ ] DB lease worker heartbeat/recovery/fault-injection depth beyond current coverage.
+- [ ] Richer inline cards/activity-approval centers/persona-memory-provider UI/responsive-accessibility pass.
 - [ ] Proper thread/conversation abstraction (task-as-thread is temporary).
-- [ ] SSE reconnect cursor resume E2E proof (hook exists; no live proof).
-- [ ] WS `/v1/ws` AG-UI reducer decision (optional vs required).
-- [ ] Richer inline cards: tool call, approval, browser takeover, diff, receipt.
-- [ ] Activity/approval centers and notifications UX.
-- [ ] Persona/memory/provider-model selection UI.
-- [ ] Resizable three-panel workspace, command palette/keyboard shortcuts, contextual menus/popovers, responsive mobile navigation.
-- [ ] Interactive task timelines, live agent activity, drag-and-drop agent workflows (React Flow/dnd-kit), browser preview/takeover polish, approval dialogs.
-- [ ] Accessibility/UX quality pass (keyboard, focus, ARIA, responsive).
-- [ ] UI stack migration plan: Tailwind v4, shadcn/ui+Radix, Motion, Zustand, TanStack Query, Tiptap, Recharts, WebSockets+SSE.
 
 ## P2 Runtime / Model
-- [ ] Provider/model selection UI and persisted config; tool-capable model allowlist/warning.
-- [ ] Robust tool schema/guardrails for small/local models (schema leak/refusal/timeout handling).
-- [ ] Full browser-tool E2E with approvals through UI.
-- [ ] Richer tool registry/policy; capability-based tool exposure.
-- [ ] Real Hermes adapter boundary contract (optional isolated adapter; no Hermes code copied).
+- [x] `AgentRuntime` contract + HelmNativeRuntime; normalized `runtime.*`; OpenAI-compatible streaming; basic tool-calling loop.
+- [x] Local Ollama default; guardrails (timeout/max_tokens/redaction/allowlist).
+- [x] Tool policy/registry, high-risk approval gating, browser-intent gating, thread abstraction, model override/config validation API.
+- [x] Worker tests PASS (11/11).
+- [ ] Live E2E across real browser + connector flows. **Blocked:** real env/live smoke.
+- [ ] Integration-driven behavior tweaks and model/provider behavior evidence.
+- [ ] Richer provider/model routing policy by sensitivity/capability/cost.
 - [ ] Interrupt/resume/checkpoint semantics for long-running runs.
 - [ ] Runtime evals: tool-calling reliability, approval correctness, recovery.
 
 ## P3 Browser / Computer Execution
-- [ ] Full crash/reconnect/WS stability and interactive takeover live smoke.
-- [ ] Deterministic recreate/reconnect contract when restore impossible.
-- [ ] Session ownership/audit for screenshot/snapshot/close/create/stream.
-- [ ] WS authz/ownership hardening (remove dev `userId` query parity).
-- [ ] Richer remote control beyond takeover-only click/type/Enter.
-- [ ] Playbook runner contract; BrowserOS adapter evaluation/ADR (external only, AGPL review).
-- [ ] Downloads/network evidence capture; artifact retention policy.
-- [ ] Navigate risk classification/policy matrix (allowlist vs approval vs block).
+- [x] Playwright browser-worker, CDP screencast WS + API proxy, polling fallback.
+- [x] Takeover pause/resume, artifacts (screenshot/DOM snapshot sha256/metadata).
+- [x] Guarded external browser action with approval/actionHash/idempotency/receipt.
+- [x] Ownership/authz hardening, WS bearer authz, legacy unbound session hard-block/rebind.
+- [x] Stale-session restart recovery + direct/API-observable integration coverage.
+- [ ] Live interactive WS/takeover smoke (click/type/scroll/drag/modifiers). **Blocked:** no browser automation surface.
+- [ ] Richer remote control and stability polish.
+- [ ] Richer artifact types/downloads/network evidence capture; retention policy.
 
 ## P4 Approvals / Vault / Connectors
-- [ ] Complete binding audit regression tests: navigate guard, approval resolve replay/conflict/actionHash mismatch, session ownership/audit.
-- [ ] Vault/credential broker; secret refs only in DB/events/logs/runtime.
-- [ ] Connector registry + manifest schema (`kind`, auth, scopes, actions, risk, idempotency, approval).
-- [ ] OAuth connect/refresh/revoke lifecycle; token health checks.
-- [ ] Gmail connector (search/read/draft/send with approval-gated send).
-- [ ] Google Calendar connector (list/create/update/delete with policy).
-- [ ] Uncertain-outcome reconciliation for external writes.
+- [x] Approval/actionHash/idempotency receipt gating; dedupe same receipt; 409 executing claim.
+- [x] Local vault/CredentialBroker (AES-256-GCM) + VaultRef; secrets not returned in API responses.
+- [x] Google OAuth PKCE scaffold/connect/callback/revoke; token refresh-on-expiry; revoke hardening.
+- [x] Gmail read/send guarded with approval/actionHash/idempotency/uncertain reconcile.
+- [x] Google Calendar read/create/update/delete guarded with approval/actionHash/idempotency/uncertain reconcile.
+- [x] Web connector management UI; connector account status/test routes.
+- [x] OAuth helper tests PASS (5/5); identity policy enforcement wired into Gmail/Calendar/browser external action (flag-aware).
+- [ ] **Blocked:** Real Google OAuth E2E/no-duplicate proof (needs `GOOGLE_CLIENT_ID/SECRET`, redirect URI, test Gmail+Calendar accounts).
+- [ ] Token refresh/revoke hardening against real provider behavior.
+- [ ] Richer connector diagnostics/sync UX and broader connector policy matrix.
+- [ ] Vault secret storage/deployment hardening for production (KMS/encrypted provider decision).
 - [ ] MCP integration policy: allowlist, pinned digest/version, sandbox, trust levels.
 
 ## P5 Temporal / Reliability
-- [ ] Temporal workflows/signals/queries for long-running/high-risk actions.
-- [ ] Retry policies by action class; no blind retry of uncertain external writes.
-- [ ] Reconciliation workflow; schedules/monitors.
-- [ ] Dead-letter/incident surfacing and operator runbooks.
+- [x] ADR-002; shared Temporal config/contracts; `@helm/temporal-worker` scaffold.
+- [x] Temporal routing for gmail/calendar/browser external writes behind `HELM_TEMPORAL_ENABLED`; fail-closed 503; internal bypass headers.
+- [x] Env-gated proofs PASS: temporal-routing-api (1/1), temporal-e2e (1/1), temporal-side-effect-e2e (1/1), temporal-rollback-e2e (1/1).
+- [x] DB-canonical reconciliation service/API/scheduler (lookup-first, no blind retry); reconciliation-api PASS (10/10).
+- [x] Temporal reconciliation workflow/activity/schedule bootstrap + fault-injection guards preserving no-blind-retry (`8471aef`, CI `45441229198` green).
+- [ ] **Blocked:** Real-provider no-duplicate proof (Google creds/sandbox).
+- [ ] Real Temporal server schedule/monitor/fault-injection E2E depth.
+- [ ] Retry-policy integration proof by action class; non-retryable classes verified end-to-end.
+- [ ] Schedules/monitors, dead-letter/operator runbooks, observability depth.
 
 ## P6 BrowserOS Deterministic Upgrade
-- [ ] Capability detection/fallback matrix (Playwright default, BrowserOS optional).
-- [ ] Recorder/import format; benchmark suite.
+- [x] Adapter boundary + Playwright default + BrowserOS HTTP/stub; status endpoint; dispatch flag; contract tests PASS (6/6).
+- [ ] **Blocked:** Real BrowserOS endpoint/protocol/token/runtime decision + parity/security tests.
+- [ ] Capability detection/fallback; default dispatch only after parity.
+- [ ] Performance benchmarking vs Playwright baseline.
 
 ## P7 Memory / Skills / Proactivity
-- [ ] Memory CRUD/provenance/sensitivity/confidence; inspect/edit/delete/export.
-- [ ] Skill registry/versioning/tests/permissions; draft-before-enable.
-- [ ] Proactivity/monitors/ideas with explicit user opt-in and policy gates.
-- [ ] Self-improvement loop implementation (design exists: `DESIGN-self-improvement-loop.md`) - feedback capture, proposal/eval gate, versioned activation, rollback.
+- [x] Identity contracts/routes/policy read+PATCH/binding; restrictive default policy.
+- [x] Identity policy enforcement helper wired into Gmail/Calendar/browser external action (flag-aware); identity-policy tests PASS (4/4).
+- [x] P7 DB tables applied/verified (17 public tables).
+- [x] Memory notes behind `HELM_MEMORY_ENABLED`; skills/proactivity rules behind flags (no autonomous execution).
+- [x] Self-improvement design-only (`DESIGN-self-improvement-loop.md`); `selfImprovement.allowed=false`, `requiresExplicitApproval=true`.
+- [ ] Identity vault linkage/UI; broader side-effect policy coverage.
+- [ ] Skill execution/proactivity scheduler (flag-gated, no unsafe autonomous behavior).
+- [ ] Memory provenance/sensitivity/CRUD/export depth.
+- [ ] **Blocked (explicit user approval):** self-improvement implementation/activation.
 
 ## P8 Hardening / Release
-- [ ] Security suite: prompt injection, SSRF/egress, secret redaction verification, authz tests.
-- [ ] Chaos/recovery: duplicate side-effect, crash/restart, stale lease, stream reconnect.
-- [ ] Backup/export/retention/privacy policy; PII logging audit.
-- [ ] Observability/SLOs/runbooks; debug bundle export.
-- [ ] Dubai submission compliance: provable commit provenance, organizer promotional-rights/IP text, third-party notices refresh on dep changes.
-- [ ] `FIX_LOG.md` entries for recent non-trivial fixes; regression tests linked.
+- [x] CI green (lint/typecheck/build/test, report-only dep audit). Latest: `45441229198`.
+- [x] Backup/restore scripts; dry-run evidence to temp DB (17 tables verified, temp DB dropped).
+- [x] P8 checklists/runbooks: hardening, security/privacy, threat-model baseline, PII retention baseline/notes, release evidence, dependency audit triage.
+- [x] Observability redaction expanded; redaction regression PASS (1/1).
+- [x] Task export/delete controls with env-gated integration PASS (1/1).
+- [ ] Full backup/restore drill with artifacts/vault-key scope, encrypted/retention/scheduled verification. **Blocked:** ops/manual.
+- [ ] CI security scan triage/gating decisions. **Blocked:** product/security decision.
+- [ ] Threat-model execution/evidence. **Blocked:** manual review.
+- [ ] PII retention/export/delete policy + implementation decisions. **Blocked:** product/legal.
+- [ ] Compliance/provenance/Dubai submission signoff; organizer promotional-rights/IP text; third-party notices refresh on dep changes. **Blocked:** legal/submission.
+- [ ] Chaos/fault matrix, SLO dashboards/alerts, packaging/docs/runbooks/release gates.
 
 ## Cross-cutting / Contracts
-- [ ] ADRs: canonical event schema (AG-UI extension vs custom), secret vault, observability stack, BrowserOS/Obscura external adapter policy.
+- [x] Shared Zod contracts in `packages/shared`; vendor SDK isolation boundary.
+- [x] Approval/actionHash/idempotency/receipt invariants in guarded external paths.
+- [x] Structured Pino redaction baseline.
 - [ ] `HelmError` wiring end-to-end; no silent failures; trace fields in all critical paths.
 - [ ] Idempotency/audit coverage matrix for every mutating endpoint/tool.
-- [ ] Model/provider routing policy by sensitivity/capability/cost (local-only for restricted data).
+- [ ] ADRs: canonical event schema (AG-UI extension vs custom), secret vault, observability stack, BrowserOS/Obscura external adapter policy.

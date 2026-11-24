@@ -1,3 +1,5 @@
+> **Snapshot/historical document.** For current status use `CURRENT_STATE.md` and `phase-1`..`phase-8`. This file may contain old percentages/status.
+
 # Side-Effect Binding Audit - 2026-11-23
 
 ## Scope

@@ -1,3 +1,12 @@
+> **Snapshot/historical document.** For current status use `CURRENT_STATE.md` and `phase-1`..`phase-8`. This file may contain old percentages/status.
+
+## Current Status (2026-11-24)
+- Overall **70.0%**; P5 **68%**, P6 **34%**, P7 **48%**, P8 **43%**. CI green `45441229198`.
+- Completed since snapshot: P5 reconciliation API/scheduler/schedule/fault-injection guards, P6 adapter contract/dispatch, P7 identity/policy/memory/skills/proactivity flagged slices, P8 backup dry-run/redaction/export-delete/checklists.
+- Remaining blockers: real OAuth/BrowserOS/Temporal provider proofs, Drizzle migration-history alignment, P8 ops/legal/manual evidence.
+
+---
+
 ﻿# P5-P8 Completion Snapshot (auto-continued)
 
 ## Finished in code/docs (unblocked)

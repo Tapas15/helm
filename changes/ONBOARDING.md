@@ -26,15 +26,15 @@ It is **not** Hermes. It is **not** a copy of BrowserOS, Obscura, OpenFUSE, or a
 
 | Phase | Status | Progress | Summary |
 |---|---:|---:|---|
-| 0. Foundation | `[~]` | 90% | Monorepo, Docker Postgres/Redis, Drizzle schema, API/worker, idempotency/CAS, CI workflow, lint/typecheck/test/build green. Pending remote CI evidence, deeper hardening. |
+| 0. Foundation | `[~]` | 91% | Monorepo, Docker Postgres/Redis, Drizzle schema, API/worker, CI green (`45441229198`), idempotency/CAS. Pending Drizzle migration-history alignment. |
 | 1. UI/Task Core | `[~]` | 70% | Task create/control, SSE timeline with reconnect/stale, approvals panel, browser preview panel (polling screenshot), takeover controls. Pending richer UI, SSE cursor-resume E2E proof, WS `/v1/ws` decision/impl. |
 | 2. Agent Runtime | `[~]` | 22% | Helm-native runtime routes assistant/browser tasks; emits normalized `runtime.*`; high-risk prompts pause for approval. Pending real model/provider adapter, planning/tools/memory/skills/scheduler/subagents. |
 | 3. Browser Execution | `[~]` | 48% | Playwright browser-worker smoke pass; browser tasks create/navigate/snapshot/screenshot; screenshot preview polling; 5m session TTL; takeover request/resume API+UI baseline; DOM/screenshot artifacts saved to disk and persisted in `browser_artifacts` with sha256/size/metadata; guarded external-action endpoint enforces approval+actionHash+idempotency receipt with dedupe. Pending live WS/CDP stream, persisted/emitted takeover state, agent pause/resume around takeover, runtime wiring through guarded path, richer actions/downloads/crash recovery. |
 | 4. Approvals/Security | `[~]` | 35% | Approval DB/API/UI/worker flow; approve/reject; `action_receipts`; approval resolve records approved receipt; worker records executed receipt for approved runs; external browser action API enforces approved `actionHash`+`approvalId`+idempotency key and dedupes replay. Pending enforcement in all runtime execution paths, vault/connectors/policy hardening. |
-| 5. Temporal/Reliability | `[ ]` | 0-5% | Not started. |
-| 6. BrowserOS Upgrade | `[ ]` | 0-5% | Optional future external adapter only; AGPL/compliance review required. |
-| 7. Memory/Skills/Proactivity | `[ ]` | 0-5% | Not started. |
-| 8. Hardening/Release | `[ ]` | 0-5% | Not started. |
+| 5. Temporal/Reliability | `[~]` | 68% | Temporal routing/fail-closed, stub/real/mock rollback proofs, DB-canonical reconciliation/scheduler, Temporal schedule/fault-injection guards. Real-provider/real-Temporal depth blocked. |
+| 6. BrowserOS Upgrade | `[~]` | 34% | Adapter boundary/Playwright default/BrowserOS HTTP-stub/status/dispatch flag/contract tests. Real BrowserOS parity blocked. |
+| 7. Memory/Skills/Proactivity | `[~]` | 48% | Identity/policy/memory/skills/proactivity flags, P7 tables, enforcement helpers. Self-improvement design-only; activation needs explicit approval. |
+| 8. Hardening/Release | `[~]` | 43% | CI green, backup scripts+dry-run, redaction/checklists, task export/delete controls. Drills/scans/threat model/PII/compliance signoff pending. |
 
 ## 4. What You Can Run Today
 

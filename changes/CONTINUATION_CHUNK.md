@@ -1,59 +1,52 @@
-﻿# Continuation Chunk — Helm
+# Continuation Chunk ? Helm
 
 **Use this as the resume context for a new session.**  
-**Last updated:** 2026-11-23  
+**Last updated:** 2026-11-24T17:30:00Z  
 **Repo:** `C:\Users\Tapas\Documents\projects\Dubai_competetion_projects\helm` (branch `main`, remote `Tapas15/helm`)
 
-## Objective
-Build Helm (`@helm/*`) as an original personal AI operating assistant (blueprint Phases 0-8) with replaceable contracts/adapters, observability/fix-audit, and approval+idempotency-gated side effects. Current focus: working personal-agent concept (model-backed chat, browser control, approvals/evidence) while closing binding-audit gaps, regression coverage, session-recovery/authz hardening, and live smoke gaps.
-
 ## Read first
-- `changes/CURRENT_STATE.md` - status, % complete, active/blocked.
-- `changes/SESSION_LOG.md` - recent session details.
-- `changes/DECISIONS.md` - binding decisions.
-- `changes/BINDING_AUDIT_2026-11-23.md` - high-risk browser/approval gaps.
-- `changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md` - blueprint parity gaps.
-- `changes/DESIGN-self-improvement-loop.md` - proposed Helm-owned self-improvement design (not implemented).
-- `Planning/MASTER-TECHNICAL-BLUEPRINT.md` and `Planning/00-13` as needed.
+- `changes/CURRENT_STATE.md` ? current status dashboard (%, remaining, blockers, invariants, latest completed).
+- `changes/phase-1-ui-task-core.md` ... `changes/phase-8-hardening-release.md` ? active phase checklists/evidence.
+- `changes/SESSION_LOG.md` ? recent session details.
+- `changes/FIX_LOG.md` ? non-trivial fixes/regressions.
+- `changes/DECISIONS.md` ? binding decisions.
 
 ## Current state (high signal)
-- **~65% overall** (P0 90, P1 87, P2 56, P3 75, P4 47, P5-8 0-5).
-- **Works:** chat-first UI with streaming deltas/follow-up; task SSE; approvals/evidence/receipts; browser preview WS + polling fallback, takeover-only remote input; Playwright browser-worker with session metadata/storageState restore; guarded click/fill/external-action and navigate allowlist-or-guard; approval resolve hardened (ownership/actionHash dedupe/conflict/CAS/approved receipt); basic Ollama tool-calling loop (`browser_navigate/snapshot/click`) with `llama3.2:latest` smoke PASS; simple E2E task `task_d7bde8de3cad46d28b5b2d5604d4ee55` PASS.
-- **Infra:** Docker `infra-postgres-1`, `infra-redis-1`; web `5174`, API `8787`, browser-worker `8790`; do not touch local PG17 panic.
+- **Overall 70.0%** (equal-weight P0-P8): P0 91, P1 91, P2 73, P3 93, P4 90, P5 68, P6 34, P7 48, P8 43. Remaining 30.0%.
+- **CI:** green `45441229198` (main, 2026-11-24).
+- **Done:** chat-first UI/SSE/approvals/evidence/receipts/preview/takeover; HelmNativeRuntime + local Ollama + tool policy/approval gating/model override; Playwright browser-worker with guarded actions/recovery; vault/OAuth PKCE scaffold + Gmail/Calendar guarded+reconcile; Temporal routing/fail-closed + DB-canonical reconciliation/scheduler + Temporal schedule/fault-injection guards; BrowserOS adapter boundary/contract tests; identity/policy/memory/skills/proactivity flags; backup-dry-run/redaction/task export-delete/checklists.
+- **Infra:** Docker `infra-postgres-1`, `infra-redis-1`; dev web `5173`, API `8787`, browser-worker `8790`; do not touch local PG17 panic.
 
 ## Critical invariants
-- Helm original; no Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse code copied. nanoMuse GPL - concepts only.
-- Model proposes, policy decides; UI not intelligence; durable state; idempotent external effects + receipts; no secrets in logs/events/prompts.
-- External/browser side effects require approved `approvalId` + matching `actionHash` + idempotency receipt; key `task:{taskId}:action:{actionHash}`.
-- Non-trivial fixes: `changes/FIX_LOG.md` + regression test + audit metadata.
+- DB task/event/receipt tables canonical. No blind retry of uncertain external writes; lookup-first only; proven requires provider proof.
+- External/browser side effects require approved `approvalId` + matching `actionHash` + idempotency receipt; dedupe same receipt; executing claim 409.
+- No secrets in logs/events/prompts. Vendor SDKs behind `packages/shared` contracts/adapters.
+- Self-improvement design-only; explicit user approval required before implementation/activation.
+- No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Next actions (in order)
-1. **Live UI E2E smoke with Ollama**: run web/API/worker/browser-worker; send assistant task and browser task requiring approval; verify messages/stream/tool cards/approval/receipt/evidence/browser panels.
-2. **Binding-audit regression tests**: navigate guard (403 non-allowlisted without guard, 200 allowlisted, guarded dedupe/conflict); approval resolve replay/conflict/actionHash mismatch; session ownership/audit for screenshot/snapshot/close/create; WS authz/ownership hardening.
-3. **Browser recovery hardening**: crash/reconnect/WS stability, interactive takeover live smoke, deterministic recreate/reconnect contract.
-4. **Runtime personal-agent loop**: tool-capable model policy/guardrails, richer tool registry/policy, full browser-tool E2E with approvals, persona/memory/provider-model selection UI, proper thread/conversation abstraction.
-5. **Blueprint P4/P5**: vault/broker, OAuth connector registry, Gmail/Calendar, uncertain-outcome reconciliation; Temporal workflows/signals/reconcile/schedules.
+1. **P5 depth (unblocked where possible):** run env-gated `temporal-reconciliation-e2e` when Temporal env available; extend real Temporal schedule/monitor/fault-injection E2E depth.
+2. **P0 tooling:** CI-safe non-interactive Drizzle migration-history alignment for manual P7 baseline; no destructive reset without explicit approval.
+3. **P4/P5 real-provider proofs:** real Google OAuth E2E/no-duplicate proof (blocked on `GOOGLE_CLIENT_ID/SECRET`, redirect URI, test accounts).
+4. **P6:** real BrowserOS endpoint/protocol/token/parity/security (blocked on runtime decision/endpoint).
+5. **P8:** full backup/restore drill (artifacts/vault-key scope), scan gating, threat model, PII/compliance/Dubai signoff (ops/legal/manual).
 
-## Known gaps / blockers
-- Self-improvement design doc exists but is **not implemented**; see `DESIGN-self-improvement-loop.md`.
-- `pnpm --filter @helm/db db:push` fails in non-TTY; manual psql used for schema changes.
-- Full browser-tool E2E with approvals and WS interactive takeover live smoke pending.
-- GitHub Actions remote CI evidence not verified.
-- Local PG17 panic unresolved - do not use.
+## Blockers
+- Real Google OAuth creds/test accounts.
+- Real BrowserOS runtime/endpoint/protocol/token.
+- Real Temporal server + provider sandbox for deep proof.
+- Drizzle migration-history alignment: TTY/CLI issue; CI-safe non-destructive path needed.
+- P8 ops/legal/manual evidence and decisions.
+- Self-improvement activation requires explicit user approval.
 
 ## Verification commands
 ```powershell
 cd C:\Users\Tapas\Documents\projects\Dubai_competetion_projects\helm
 pnpm lint
 pnpm typecheck
-pnpm test
 pnpm build
-pnpm --filter @helm/integration-tests test -- browser-external-action
-pnpm --filter @helm/worker test -- runtime
+pnpm test
 ```
 
-## User directives (binding, 2026-11-23)
-- **Local-first model execution:** Use local Ollama (already installed); no external API key needed. Add model/tool guardrails, pick strongest local tool-capable model, run browser-tool E2E smoke with approvals. Only ask user if they want a specific hosted model/API key or if all local models prove unreliable for tool calls.
-- **Self-improvement requested:** Hermes-like self-improvement functionality requested; design captured in `changes/DESIGN-self-improvement-loop.md` (not implemented; needs approval/slicing before implementation).
-- **Planning/doc hygiene:** If planning/blueprint conflicts with explicit user conversation directives, do not silently change; record conflict in `changes/` and ask before major changes. Keep continuation/summary chunks in `changes/`.
-- **Do not touch local PG17 panic service**.
+## Mandatory update rule
+After every meaningful work batch: update `CURRENT_STATE.md`, append `SESSION_LOG.md`, update relevant `phase-1`..`phase-8`, add `FIX_LOG.md` for non-trivial fixes, sync root `README.md`/`ROADMAP.md` when progress changes. No user prompt needed.
