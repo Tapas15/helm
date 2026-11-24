@@ -254,4 +254,60 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
     expect(res.status).toBe(403);
     expect(json?.error?.code).toBe("FORBIDDEN");
   }, 90000);
+
+  it("scheduler tick reconciles uncertain gmail receipt when enabled", async () => {
+    conn = createDb(dbUrl); const db = conn.db;
+    await db.insert(users).values({ id: "usr_local_dev", email: "dev@local", name: "Dev" }).onConflictDoNothing();
+    const taskId = uid("tsk");
+    const receiptId = uid("rcpt");
+    const idem = `task:${taskId}:action:ah_sched:${receiptId}`;
+    const mockPort = await getFreePort();
+    const mockBase = `http://127.0.0.1:${mockPort}`;
+    const mockCode = [
+      "const http=require('node:http');",
+      "http.createServer((req,res)=>{",
+      " const u=req.url||'';",
+      " if(u.startsWith('/gmail/v1/users/me/messages?')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({messages:[{id:'msg_sched',threadId:'thr_sched'}]}));return;}",
+      " if(u.startsWith('/gmail/v1/users/me/messages/msg_sched')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({id:'msg_sched',threadId:'thr_sched',payload:{headers:[{name:'X-Helm-Idempotency',value:process.env.EXPECT_IDEM},{name:'Subject',value:'hi'},{name:'To',value:'a@b.com'}]}}));return;}",
+      " res.writeHead(404,{'content-type':'application/json'});res.end(JSON.stringify({error:{message:'not found'}}));",
+      `}).listen(${mockPort},'127.0.0.1');`,
+    ].join("");
+    mockChild = spawn(process.execPath, ["-e", mockCode], { env: { ...process.env, EXPECT_IDEM: idem }, stdio: "pipe" }) as ChildProcessWithoutNullStreams;
+    mockChild.stdout.on("data",()=>{}); mockChild.stderr.on("data",()=>{});
+    await delay(300);
+    const apiPort = await getFreePort();
+    const apiBase = `http://127.0.0.1:${apiPort}`;
+    apiChild = spawnPnpm(path.join(repoRoot, "backend/api"), {
+      PORT: String(apiPort), DATABASE_URL: dbUrl,
+      HELM_REQUIRE_AUTH: "0", HELM_ALLOW_DEV_AUTH: "1",
+      HELM_GMAIL_API_BASE: mockBase,
+      HELM_TEST_CONNECTOR_HTTP: "1",
+      HELM_RECONCILIATION_ENABLED: "1",
+      HELM_RECONCILIATION_INTERVAL_MS: "10000",
+      HELM_RECONCILIATION_OLDER_THAN_MS: "0",
+      HELM_RECONCILIATION_LIMIT: "10",
+      VAULT_MASTER_KEY: "test-vault-master-key-32-bytes-minimum-padding",
+    });
+    await waitForHttp(`${apiBase}/health`, 45000);
+    const now = new Date(Date.now() - 120_000);
+    await db.insert(tasks).values({ id: taskId, userId: "usr_local_dev", title: "recon-sched", prompt: "recon-sched", kind: "connector", status: "failed", priority: 0, createdAt: now, updatedAt: now }).onConflictDoNothing();
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId: "usr_local_dev", taskId, actionKind: "gmail.send", actionHash: "ah_sched",
+      idempotencyKey: idem, status: "uncertain",
+      evidence: { accountId: "cac_test", subject: "hi", to: ["a@b.com"] },
+      createdAt: now,
+    }).onConflictDoNothing();
+    const deadline = Date.now() + 30_000;
+    let status = "uncertain";
+    while (Date.now() < deadline) {
+      const [row] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+      status = row?.status ?? status;
+      if (status === "executed") break;
+      await delay(1000);
+    }
+    expect(status).toBe("executed");
+    const [finalRow] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, receiptId)).limit(1);
+    expect(finalRow?.externalRef).toBe("msg_sched");
+    await db.delete(actionReceipts).where(eq(actionReceipts.id, receiptId)); await db.delete(taskEvents).where(eq(taskEvents.taskId, taskId)); await db.delete(tasks).where(eq(tasks.id, taskId));
+  }, 120000);
 });
