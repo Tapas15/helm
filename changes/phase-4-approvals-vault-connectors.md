@@ -33,8 +33,8 @@ High-risk actions require approval; side-effect ledger prevents double execution
 - [x] Identity policy enforcement wired into Gmail/Calendar create/update/delete and browser external action (flag-aware).
 
 ### Remaining / Blocked
-- [ ] **Blocked:** Real Google OAuth connect/callback/Gmail/Calendar E2E after creds configured (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI, test Gmail+Calendar account). See `changes/OAUTH_E2E_SETUP.md`.
-- [ ] **Blocked:** Real-provider no-duplicate/uncertain-reconcile proof in provider sandbox.
+- [x] **Verified 2026-11-24:** Real Google OAuth connect/callback/test verified for Gmail and Calendar (simplytaps3@gmail.com). Scope fix `ddd445d` added `gmail.send` and `calendar.events`. Approval-gated Gmail send succeeded (`rcpt_7a0bc795563d405499c13f72db1c90ba`, `gmailMessageId=1a20f3b6dad91d55`); same-idempotency retry returned deduped same receipt/externalRef. Approval-gated Calendar create succeeded (`rcpt_da3b49611c3f4f4e9b1d34f63d33d5cf`, `calendarEventId=jshv868h65pplmu3tjmbtu2eo0`); same-idempotency retry deduped and calendar query showed one `Helm E2E Test` event. No auto-delete.
+- [ ] Real-provider uncertain-reconcile proof in provider sandbox (forced uncertain/timeout scenarios beyond API-level cases).
 - [ ] Token refresh/revoke hardening against real provider behavior.
 - [ ] Richer connector diagnostics/sync UX.
 - [ ] Broader connector policy matrix; full mutating endpoint/tool idempotency+audit coverage audit.
@@ -44,4 +44,5 @@ High-risk actions require approval; side-effect ledger prevents double execution
 ## Evidence
 - 2026-11-22: "Buy headphones on Amazon" paused `waiting_approval`; approve requeued; completed. External action 403 pending, 200 executed with receipt/artifact, replay deduped same receipt.
 - 2026-11-24: `pnpm --filter @helm/api test -- oauth` PASS (5/5).
+- 2026-11-24: Real Gmail/Calendar OAuth connect/test verified with write-scoped accounts (`conn_ca5f7f2ad46a44f4a4bcd45cdc3e8265`, `conn_b1a4ea9ef44548ca8d028fa4860949b7`). Gmail send approved/executed; retry deduped same receipt. Calendar create approved/executed; retry deduped same receipt; single event present. Receipts executed in DB with idempotency keys.
 - Env-gated reconciliation API includes Gmail/Calendar uncertain reconciliation cases (PASS 10/10).

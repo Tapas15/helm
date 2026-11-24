@@ -1430,3 +1430,20 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 
 ### Remaining
 - [ ] After OAuth connected: verify Gmail/Calendar account status/test/read, approval-gated send/create with idempotency receipts, no-duplicate/uncertain reconcile evidence; update phase-4/5/current state.
+
+## Session: 2026-11-24 - P4 real Google write-scope E2E
+**Time:** 2026-11-25T02:02:51Z
+**Agent:** Kilo
+**Phase:** P4 Connectors/Vault
+
+### Completed
+- [x] User reconnected Gmail/Calendar after scope patch; verified new active write-scoped accounts: Gmail conn_ca5f7f2ad46a44f4a4bcd45cdc3e8265 (gmail.readonly,gmail.send), Calendar conn_b1a4ea9ef44548ca8d028fa4860949b7 (calendar.readonly,calendar.events); old read-only accounts still present.
+- [x] Gmail/Calendar account test PASS for write-scoped accounts.
+- [x] Approval-gated Gmail send E2E: created approval pr_7554846a7d364997830ac7c9f9138dd8, approved, sent via /v1/connectors/gmail/send with idempotency key helm-e2e-gmail-7554846a7d364997830ac7c9f9138dd8; receipt cpt_7a0bc795563d405499c13f72db1c90ba, gmailMessageId=1a20f3b6dad91d55. Same-idempotency retry returned deduped:true with same receipt/externalRef.
+- [x] Approval-gated Calendar create E2E: approval pr_cef8908e4765439ea46c9785b80677a2, created event via /v1/connectors/calendar/events/create; receipt cpt_da3b49611c3f4f4e9b1d34f63d33d5cf, calendarEventId=jshv868h65pplmu3tjmbtu2eo0. Same-idempotency retry deduped with same receipt/externalRef; calendar query showed single Helm E2E Test event. No auto-delete performed.
+- [x] Updated changes/CURRENT_STATE.md and changes/phase-4-approvals-vault-connectors.md.
+
+### Blocked / Remaining
+- [ ] Real-provider uncertain/timeout reconcile proof beyond API-level/env-gated cases.
+- [ ] Token refresh/revoke hardening against real provider behavior.
+- [ ] Richer connector diagnostics/sync UX and broader connector policy matrix.
