@@ -46,7 +46,7 @@ When disabled, status reports `enabled=false`, `mode=disabled`, `notesVisible=0`
 - Audit reads are best-effort/observability only; no note content is returned.
 
 ## Evidence (local)
-- `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` (status disabled-safe, retrieval audit metadata, consolidation no-apply/dry-run, retention dry-run, audit recent bounded/disabled 403, route-inventory enabled gate except status). PASS 25/25.
+- `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` (status disabled-safe, status no secret/config leak beyond selection+injected, retrieval audit metadata, consolidation no-apply/dry-run, retention dry-run, audit recent bounded/disabled 403, route-inventory enabled gate except status). PASS 26/26.
 - `pnpm -C packages/shared exec vitest run src/memory-retrieval.eval.test.ts --reporter=verbose` (lexical/hash fallback, fail-closed provider selection, no provider call when flag off, provider error fallback).
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit`
 - `pnpm -C packages/shared build`

@@ -103,6 +103,24 @@ describe("memory routes (P7b)", () => {
     expect(selectCalls).toBe(0);
   });
 
+  it("status never exposes embedding provider secrets or config beyond selection/injected", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_EMBEDDING_PROVIDER = "disabled";
+    process.env.HELM_MEMORY_EMBEDDING_API_KEY = "super-secret-key";
+    process.env.OPENAI_API_KEY = "openai-secret";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/status");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.embeddingProviderSelection).toBe("disabled");
+    expect(body.embeddingProviderInjected).toBe(false);
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("super-secret-key");
+    expect(text).not.toContain("openai-secret");
+    expect(body).not.toHaveProperty("embeddingProviderApiKey");
+    expect(body).not.toHaveProperty("apiKey");
+  });
+
   it("rejects when disabled", async () => {
     process.env.HELM_MEMORY_ENABLED = "0";
     const db = makeDb();
