@@ -41,9 +41,16 @@ export class PlaywrightBrowserAdapter implements BrowserOSAdapter {
   async close(sessionId: string) { await this.call(`/v1/sessions/${sessionId}/close`, { method: "POST", body: "{}" }); return { ok: true as const }; }
 }
 
+function validateHttpUrl(raw: string, envName: string): string {
+  let u: URL;
+  try { u = new URL(raw); } catch { throw new Error(`Invalid ${envName}: must be a valid http/https URL`); }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Invalid ${envName}: protocol must be http or https`);
+  return raw;
+}
+
 export class BrowserOSAdapterStub implements BrowserOSAdapter {
   kind = "browseros" as const;
-  private msg = "BrowserOS adapter endpoint not configured; set BROWSEROS_MCP_URL or BROWSEROS_BASE_URL+BROWSEROS_TOKEN, or use BROWSER_ADAPTER=playwright";
+  constructor(private msg = "BrowserOS adapter endpoint not configured; set BROWSEROS_MCP_URL or BROWSEROS_BASE_URL+BROWSEROS_TOKEN, or use BROWSER_ADAPTER=playwright") {}
   async request(): Promise<{ status: number; contentType: string; text: string }> { throw new Error(this.msg); }
   async requestBinary(): Promise<{ status: number; contentType: string; body: ArrayBuffer }> { throw new Error(this.msg); }
   async createSession(): Promise<BrowserSession> { throw new Error(this.msg); }
@@ -161,10 +168,12 @@ export function createBrowserAdapter(env: NodeJS.ProcessEnv = process.env): Brow
   const kind = (env.BROWSER_ADAPTER ?? "playwright").toLowerCase();
   if (kind === "browseros") {
     const mcpUrl = env.BROWSEROS_MCP_URL;
-    if (mcpUrl) return new BrowserOSMcpAdapter(mcpUrl);
+    if (mcpUrl) return new BrowserOSMcpAdapter(validateHttpUrl(mcpUrl, "BROWSEROS_MCP_URL"));
     const base = env.BROWSEROS_BASE_URL;
     const token = env.BROWSEROS_TOKEN;
-    if (base && token) return new BrowserOSHttpAdapter(base, token);
+    if (base && token) return new BrowserOSHttpAdapter(validateHttpUrl(base, "BROWSEROS_BASE_URL"), token);
+    if (base && !token) return new BrowserOSAdapterStub("BROWSEROS_TOKEN is required when BROWSEROS_BASE_URL is set");
+    if (!base && token) return new BrowserOSAdapterStub("BROWSEROS_BASE_URL is required when BROWSEROS_TOKEN is set");
     return new BrowserOSAdapterStub();
   }
   return new PlaywrightBrowserAdapter(env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790", env.BROWSER_WORKER_TOKEN ?? "dev-browser-token");

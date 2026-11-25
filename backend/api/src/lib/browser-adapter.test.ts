@@ -24,6 +24,27 @@ describe("browser adapter factory", () => {
     delete process.env.BROWSEROS_TOKEN;
     expect(createBrowserAdapter()).toBeInstanceOf(BrowserOSMcpAdapter);
   });
+  it("rejects invalid BrowserOS MCP URL with clear config error", () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    process.env.BROWSEROS_MCP_URL = "file:///etc/passwd";
+    expect(() => createBrowserAdapter()).toThrow(/Invalid BROWSEROS_MCP_URL/);
+  });
+  it("rejects invalid BrowserOS base URL with clear config error", () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    delete process.env.BROWSEROS_MCP_URL;
+    process.env.BROWSEROS_BASE_URL = "ftp://bad.example";
+    process.env.BROWSEROS_TOKEN = "tok";
+    expect(() => createBrowserAdapter()).toThrow(/Invalid BROWSEROS_BASE_URL/);
+  });
+  it("returns explicit stub when BrowserOS base URL or token is partially configured", async () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    delete process.env.BROWSEROS_MCP_URL;
+    process.env.BROWSEROS_BASE_URL = "http://127.0.0.1:9999";
+    delete process.env.BROWSEROS_TOKEN;
+    const a = createBrowserAdapter();
+    expect(a).toBeInstanceOf(BrowserOSAdapterStub);
+    await expect(a.createSession({} as any)).rejects.toThrow(/BROWSEROS_TOKEN is required/);
+  });
   it("returns browseros http adapter when endpoint/token present and mcp absent", () => {
     process.env.BROWSER_ADAPTER = "browseros";
     delete process.env.BROWSEROS_MCP_URL;
