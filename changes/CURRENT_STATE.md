@@ -1,8 +1,8 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-25T06:32:16.781Z  
+**Last updated:** 2026-11-25T07:02:00Z  
 **Overall:** 73.2% (equal-weight P0-P8) | **Remaining:** 26.8% | **Target:** 100%  
-**CI:** [Latest green run 45561356201](https://github.com/Tapas15/helm/actions/runs/45561356201) (`dbd59ef`, `main`)  
+**CI:** [Latest green run 45564781818](https://github.com/Tapas15/helm/actions/runs/45564781818) (`a6ed081`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
 ## Percentages
@@ -27,7 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
-- 2026-11-25: P6 hardening pass (CI green). `dab1583` added http/https validation for `BROWSEROS_MCP_URL`/`BROWSEROS_BASE_URL` + partial-config stub errors; `7c77161` rejected non-loopback BrowserOS endpoints by default unless `HELM_BROWSEROS_ALLOW_REMOTE=1`. Evidence: `browser-adapter.test.ts` 17/17 PASS, API typecheck PASS, lint PASS. Latest CI: [45561356201 green](https://github.com/Tapas15/helm/actions/runs/45561356201) on `dbd59ef`.
+- 2026-11-25: Docs/CI reporting cleaned and P6 smoke parity assertions deepened (`a6ed081`, CI [45564781818](https://github.com/Tapas15/helm/actions/runs/45564781818) green). Replaced multi-CI link clusters with single latest-CI link in README/CURRENT_STATE; refreshed ROADMAP to 73.2%/P6 focus. BrowserOS MCP smoke now asserts artifact/error shape parity (`kind/mime/sha256/sizeBytes`, `code/message/retryable`, selector-not-found non-retryable). Evidence: API typecheck PASS, `browser-adapter.test.ts` 17/17 PASS, lint PASS, env-gated BrowserOS smoke 5/5 PASS. No dispatch/default change.
 - 2026-11-25: P6 security/compliance baseline review recorded (`317da2e`, CI [45547719395](https://github.com/Tapas15/helm/actions/runs/45547719395) green): AGPL external-runtime boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; `.env.example` updated with `BROWSEROS_MCP_URL`, `HELM_BROWSEROS_MCP_TIMEOUT_MS`, `HELM_BROWSER_ADAPTER_DISPATCH`.
 - 2026-11-25: P6 BrowserOS parity depth (env-gated, local): extended smoke to 5/5 PASS (positive click/fill on controlled local page, adapter-level takeover request/resume/stream-status parity). CI [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green for `554f6ba`.
 - 2026-11-25: Pushed P6 docs+hardening to `main` (`0616ad1`, `c2989db`); GitHub Actions [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) **green**. P6 BrowserOS click/fill selector detection hardened: `evaluate_in_page` returns `selector_not_found|ok`; adapter maps missing selector to `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false). Evidence: API typecheck PASS, `browser-adapter.test.ts` 12/12 PASS, env-gated smoke 3/3 PASS.
