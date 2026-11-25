@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-11-25T08:56:00Z  
 **Overall:** 73.9% (equal-weight P0-P8) | **Remaining:** 26.1% | **Target:** 100%  
-**CI:** [Latest green run 45580830024](https://github.com/Tapas15/helm/actions/runs/45580830024) (`409b179`, `main`)
+**CI:** [Latest green run 45581186283](https://github.com/Tapas15/helm/actions/runs/45581186283) (`5ccb119`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
 ## Percentages
