@@ -1710,3 +1710,23 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Finalize P7b code+tests+docs and record evidence.
 - [ ] Retention/PII policy/legal signoff remains P8/legal input.
 - [ ] Semantic retrieval/ranking/consolidation for weeks/month-old memory not implemented (future P7b depth).
+
+## 2026-11-25 - P7b long-term memory implementation slice
+**Time:** 2026-11-25T13:45:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills (P7b)
+
+### Completed
+- [x] Implemented P7b memory route hardening in `backend/api/src/routes/memory.ts`: provenance (`user_confirmed|observed|inferred`), confidence clamp, inferred gate (`confirmed=true` or `HELM_MEMORY_ALLOW_INFERRED=1`), sensitivity/redaction, version metadata, GET note by id, provenance filter, export/delete retained.
+- [x] Added `changes/memory_implementation.md` as current memory reference (what is implemented, flow, guards, gaps, verification).
+- [x] Updated P7 docs to reference memory implementation.
+
+### Evidence
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api` PASS (0 errors, 1 pre-existing warning `backend/api/src/routes/browser.ts:128:18`)
+- Commit `9b18bdf` pushed (CI not watched per directive)
+
+### Remaining / Blocked
+- [ ] P7b depth: memory CRUD route tests, audit events, semantic retrieval/ranking/consolidation, retention/PII policy/signoff.
+- [ ] P7a depth: feedback emission wiring, proposal/gate/approval/rollback path, tests.
+- [ ] **Blocked:** self-improvement activation/autonomous execution requires explicit user approval; P7c/P7d implementation not approved.
