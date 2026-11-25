@@ -23,6 +23,7 @@ Personal assistant intelligence over time: agent-owned identity, memory, skills,
 - [x] Identity policy recipient/domain allowlist enforcement for Gmail send and Calendar create/update attendee writes (2026-11-25, flag-aware). Self-improvement status now exposes `requiresExplicitApproval=true`.
 - [x] Identity policy unit tests: `backend/api/src/lib/identity-policy.test.ts` PASS (6/6).
 - [x] Worker runtime loads enabled memory notes (bounded, `HELM_MEMORY_ENABLED=1`) into context and emits `runtime.memory.loaded` (2026-11-25).
+- [x] Memory notes API depth (2026-11-25): `PATCH /v1/memory/notes/:id`, `GET /v1/memory/export`, sensitive-content redaction marker, basic provenance metadata on create/update.
 - [x] P7 DB tables/schema manually applied and verified (17 public tables).
 - [x] Memory notes behind `HELM_MEMORY_ENABLED`: create/list/delete endpoints.
 - [x] Skills/proactivity rules behind flags with status/CRUD/PATCH; no autonomous execution.

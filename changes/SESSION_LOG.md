@@ -1642,3 +1642,22 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 ### Remaining / Blocked
 - [ ] Identity vault/UI, broader side-effect policy coverage, memory provenance/CRUD/export depth, skill/proactivity scheduler.
 - [ ] **Blocked:** self-improvement implementation/activation pending explicit user approval.
+
+## 2026-11-25 - P7 memory depth slice
+**Time:** 2026-11-25T13:20:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills
+
+### Completed
+- [x] Memory API: added `PATCH /v1/memory/notes/:id` and `GET /v1/memory/export` (flag-gated by `HELM_MEMORY_ENABLED`).
+- [x] Memory safety: sensitive-looking content redacted before persistence (`[REDACTED_SENSITIVE_MEMORY]` marker) and basic provenance metadata stored on create/update.
+
+### Evidence
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm -C backend/api exec vitest run src/lib/identity-policy.test.ts src/smoke.test.ts --reporter=verbose` PASS (7/7)
+- `pnpm lint --filter @helm/api --filter @helm/worker` PASS (0 errors, 1 pre-existing warning)
+
+### Remaining / Blocked
+- [ ] Memory schema provenance/sensitivity/version fields + retention/PII policy (P8/legal/product input).
+- [ ] Skill/proactivity scheduler and identity vault/UI.
+- [ ] **Blocked:** self-improvement implementation/activation pending explicit user approval.
