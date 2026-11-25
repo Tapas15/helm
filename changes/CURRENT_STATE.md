@@ -1,7 +1,7 @@
 # Current Project Status (keep updated every session)
 
 **Last updated:** 2026-11-25T20:20:00Z  
-**Overall:** 79.4% (equal-weight P0-P8) | **Remaining:** 20.6% | **Target:** 100%  
+**Overall:** 79.5% (equal-weight P0-P8) | **Remaining:** 20.5% | **Target:** 100%  
 **CI:** [Latest green run 45581186283](https://github.com/Tapas15/helm/actions/runs/45581186283) (`5ccb119`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
@@ -27,6 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
+- 2026-11-25: P7b dry-run/retrieval audit metadata hardening (local, no external calls): retrieval/consolidation/retention audit metadata now contract-tested for bounded fields and no raw note content/query leakage; P7b contract evidence updated. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 26/26; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `d2a2234` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b status secret/config exposure contract (local, no external calls): `/v1/memory/status` test asserts only safe embedding selection+injected flags are exposed and provider/API secrets are never leaked; P7b contract evidence updated. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 26/26; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `6dd4d4f` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b disabled-status key contract + memory doc refresh (local, no external calls): disabled `/v1/memory/status` asserts exact safe key set and no note/content payload keys; `memory_implementation.md` refreshed to ~92%. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 25/25; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `723b1ec` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b route-inventory gate contract (local, no external calls): memory route inventory test asserts all data routes 403 when memory disabled except status, and consolidation/retention dry-runs remain non-mutating when enabled; contract doc evidence updated. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 25/25; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `cb508b0` pushed to `main`. CI not watched per directive.
