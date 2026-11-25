@@ -1,22 +1,38 @@
 ﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { proactivityRules, type Database } from "@helm/db";
+import { auditLog, proactivityRules, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false) => ({ error: { code, message, retryable } });
 
+async function writeProactivityAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; metadata?: Record<string, unknown> }) {
+  try {
+    await db.insert(auditLog).values({
+      id: uid("aud"), userId: input.userId, ts: new Date(), actorType: "user", actorId: input.userId,
+      action: input.action, resourceType: "proactivity_rule", resourceId: input.resourceId ?? null,
+      decision: "allow", reason: null, metadata: input.metadata ?? {},
+    });
+  } catch {
+    // Audit must not change proactivity behavior.
+  }
+}
+
 export function proactivityRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_PROACTIVITY_ENABLED === "1";
-  app.get("/status", (c) => c.json({ ok: true, enabled: enabled(), execution: "disabled-by-default", note: "Rules can be stored when enabled; autonomous execution requires explicit activation design." }));
+  const dryRunEnabled = () => process.env.HELM_PROACTIVITY_DRY_RUN === "1";
+
+  app.get("/status", (c) => c.json({ ok: true, enabled: enabled(), dryRunEnabled: dryRunEnabled(), execution: "disabled-by-default", note: "Rules can be stored when enabled; autonomous execution requires explicit activation design. Dry-run reports candidates only." }));
+
   app.get("/rules", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity disabled (HELM_PROACTIVITY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(proactivityRules).where(eq(proactivityRules.userId, userId)).orderBy(desc(proactivityRules.updatedAt)).limit(100);
     return c.json({ ok: true, rules: rows });
   });
+
   app.post("/rules", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity disabled (HELM_PROACTIVITY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
@@ -29,6 +45,7 @@ export function proactivityRoutes(db: Database) {
     const [row] = await db.insert(proactivityRules).values({ id: uid("prv"), userId, name, enabled: body?.enabled === true, triggerKind: typeof body?.triggerKind === "string" ? body.triggerKind.slice(0, 50) : "cron", triggerConfig: typeof body?.triggerConfig === "object" && body.triggerConfig ? body.triggerConfig : {}, actionKind: "draft", actionConfig: typeof body?.actionConfig === "object" && body.actionConfig ? body.actionConfig : {}, requireApproval: body?.requireApproval !== false, createdAt: now, updatedAt: now }).returning();
     return c.json({ ok: true, rule: row }, 201);
   });
+
   app.patch("/rules/:id", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity disabled (HELM_PROACTIVITY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
@@ -50,5 +67,19 @@ export function proactivityRoutes(db: Database) {
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Rule not found"), 404);
     return c.json({ ok: true, rule: row });
   });
+
+  app.get("/dry-run", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity disabled (HELM_PROACTIVITY_ENABLED!=1)"), 403);
+    if (!dryRunEnabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity dry-run disabled (HELM_PROACTIVITY_DRY_RUN!=1)"), 403);
+    const userId = c.get("userId");
+    const rows = await db.select().from(proactivityRules).where(eq(proactivityRules.userId, userId)).orderBy(desc(proactivityRules.updatedAt)).limit(100);
+    const candidates = rows
+      .filter((r) => r.enabled === true && r.actionKind === "draft")
+      .map((r) => ({ ruleId: r.id, name: r.name, triggerKind: r.triggerKind, actionKind: r.actionKind, requireApproval: r.requireApproval, wouldExecute: false, reason: "dry-run-only-draft" }));
+    const unsafeBlocked = rows.filter((r) => r.actionKind !== "draft").map((r) => ({ ruleId: r.id, actionKind: r.actionKind, blocked: true, reason: "non-draft-action-kind" }));
+    await writeProactivityAudit(db, { userId, action: "proactivity.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, unsafeBlocked: unsafeBlocked.length, dryRun: true, executed: 0 } });
+    return c.json({ ok: true, dryRun: true, executed: 0, scanned: rows.length, candidates, unsafeBlocked, note: "Dry-run only. No proactivity actions were executed." });
+  });
+
   return app;
 }
