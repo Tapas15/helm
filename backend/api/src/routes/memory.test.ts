@@ -183,6 +183,11 @@ describe("memory routes (P7b)", () => {
     expect(body.candidates[0].proposalOnly).toBe(true);
     expect(body.candidates[0].recommendedAction).toBe("review_only_no_auto_merge");
     expect(body.candidates[0].suggestedCanonical?.id).toBe("mem_1");
+    expect(body.candidates[0].mergePreview?.applied).toBe(false);
+    expect(body.candidates[0].mergePreview?.canonicalId).toBe("mem_1");
+    expect(body.candidates[0].mergePreview?.duplicateIds).toEqual(["mem_2"]);
+    expect(body.candidates[0].mergePreview?.wouldMergeCount).toBe(1);
+    expect(body.candidates[0].mergePreview?.strategy).toBe("exact_dedupe_keep_newest");
     expect(deleteCalls).toBe(0);
     expect(updateCalls).toBe(0);
     expect(db.auditRows.some((r: any) => r.action === "memory.consolidation.dry_run" && r.metadata?.dryRun === true)).toBe(true);

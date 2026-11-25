@@ -248,11 +248,12 @@ export function memoryRoutes(db: Database) {
     const candidates = Array.from(groups.entries()).filter(([, arr]) => arr.length > 1).slice(0, 50).map(([key, arr]) => {
       const canonical = arr[0];
       const canonicalMeta = (canonical?.metadata as Record<string, unknown> ?? {});
+      const duplicateIds = arr.slice(1).map((r) => r.id);
       return {
         key: key.slice(0, 180),
         count: arr.length,
         keepId: canonical?.id,
-        duplicateIds: arr.slice(1).map((r) => r.id),
+        duplicateIds,
         reason: "exact_content_kind_match",
         suggestedCanonical: {
           id: canonical?.id,
@@ -261,12 +262,19 @@ export function memoryRoutes(db: Database) {
           provenance: String((canonicalMeta.provenance as any)?.kind ?? "user_confirmed"),
           confidence: typeof canonicalMeta.confidence === "number" ? canonicalMeta.confidence : null,
         },
+        mergePreview: {
+          canonicalId: canonical?.id,
+          duplicateIds,
+          wouldMergeCount: duplicateIds.length,
+          strategy: "exact_dedupe_keep_newest",
+          applied: false,
+        },
         proposalOnly: true,
         recommendedAction: "review_only_no_auto_merge",
       };
     });
     await writeMemoryAudit(db, { userId, action: "memory.consolidation.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, deleted: 0, modified: 0, dryRun: true } });
-    return c.json({ ok: true, dryRun: true, scanned: rows.length, deleted: 0, modified: 0, candidates, note: "No memory rows were deleted or modified. Consolidation dry-run report only; candidates are proposal-only." });
+    return c.json({ ok: true, dryRun: true, scanned: rows.length, deleted: 0, modified: 0, candidates, note: "No memory rows were deleted or modified. Consolidation dry-run report only; candidates are proposal-only merge previews." });
   });
 
   app.get("/audit/recent", async (c) => {
