@@ -1543,7 +1543,26 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Policy**: No default-dispatch change; Playwright default; no silent fallback; external BrowserOS runtime only; no external side effects.
 
 
-## 2026-11-25 - P6 smoke rerun + scout consolidation (local)
+## 2026-11-25 - Scout consolidation completed (17/17) + P6 test fix
+**Time:** 2026-11-25T12:20:00Z
+**Agent:** Kilo
+**Phase:** P6 + cross-phase evidence consolidation
+
+### Completed
+- [x] Resumed all 6 rate-limited scouts to completion: P0 code, P4 code/evidence, P6 code, P7 code, P8 code.
+- [x] Consolidated findings into `changes/PLANNING_MISSING_ITEMS.md` (17/17 complete) with blocker classification.
+- [x] Fixed malformed tail in `backend/api/src/lib/browser-adapter.test.ts`; contract suite now 19/19 PASS.
+- [x] Updated `changes/CURRENT_STATE.md` P6 contract count/evidence.
+
+### Evidence
+- `pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts --reporter=verbose` PASS (19/19)
+
+### Blocked / Remaining
+- [ ] P4: Calendar update/delete guarded routes missing; real-provider refresh/revoke/uncertain-reconcile proof; vault KMS/prod hardening decision.
+- [ ] P6: deeper real-browser takeover/artifact/error parity; formal STRIDE/threat-model/PII retention evidence; dispatch remains off.
+- [ ] P7: self-improvement activation blocked pending explicit user approval; identity vault/UI; memory/skills/proactivity depth.
+- [ ] P8: restore drill/artifact+vault scope, scan gating/SAST/secrets/container, threat model/PII/compliance/Dubai signoff.
+
 **Time:** 2026-11-25T11:52:00Z
 **Agent:** Kilo
 **Phase:** P6 BrowserOS / cross-phase planning consolidation

@@ -153,6 +153,17 @@ describe("browser adapter factory", () => {
       if (name === "tabs") return { content: [{ type: "text", text: "opened page 7" }] };
       if (name === "navigate") throw new Error("MCP request timed out after 30000ms");
       throw new Error(`unexpected tool ${name}`);
+    });
+    const a = new BrowserOSMcpAdapter("http://127.0.0.1:9210/mcp", { client });
+    const session = await a.createSession({ initialUrl: "https://example.com" });
+    const raw = await a.request(`/v1/sessions/${session.id}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com" }) });
+    expect(raw.status).toBe(400);
+    const r = JSON.parse(raw.text);
+    expect(r.ok).toBe(false);
+    expect(r.error.code).toBe("BROWSEROS_TIMEOUT");
+    expect(r.error.retryable).toBe(true);
+  });
+
   it("BrowserOSMcpAdapter snapshot/screenshot return artifact shape parity", async () => {
     const client = new BrowserOSMcpClient("http://127.0.0.1:9210/mcp");
     (client as any).ensureInitialized = vi.fn().mockResolvedValue(undefined);
@@ -200,18 +211,6 @@ describe("browser adapter factory", () => {
     expect(body.error.retryable).toBe(false);
     expect(typeof body.error.message).toBe("string");
   });
-});
-
-    const a = new BrowserOSMcpAdapter("http://127.0.0.1:9210/mcp", { client });
-    const session = await a.createSession({ initialUrl: "https://example.com" });
-    const raw = await a.request(`/v1/sessions/${session.id}/navigate`, { method: "POST", body: JSON.stringify({ url: "https://example.com" }) });
-    expect(raw.status).toBe(400);
-    const r = JSON.parse(raw.text);
-    expect(r.ok).toBe(false);
-    expect(r.error.code).toBe("BROWSEROS_TIMEOUT");
-    expect(r.error.retryable).toBe(true);
-  });
-
   it("BrowserOSMcpAdapter reports missing capabilities", async () => {
     const client = new BrowserOSMcpClient("http://127.0.0.1:9210/mcp");
     (client as any).ensureInitialized = vi.fn().mockResolvedValue(undefined);
