@@ -130,7 +130,34 @@ describe("memory routes (P7b)", () => {
     expect(body.note.metadata.expiresAt).toBe("2026-12-31T00:00:00.000Z");
     expect(body.note.metadata.pii).toBe("possible");
   });
-});
+  it("retention dry-run reports candidates and does not delete", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
+    const expired = { id: "mem_exp", userId: "u1", kind: "note", content: "old", metadata: { retentionPolicy: "ephemeral", expiresAt: "2020-01-01T00:00:00.000Z", pii: "none", version: 1 } };
+    const keep = { id: "mem_keep", userId: "u1", kind: "note", content: "keep", metadata: { retentionPolicy: "user_controlled", expiresAt: null, pii: "none", version: 1 } };
+    let deleteCalls = 0;
+    const db = makeDb({ selectRows: [expired, keep] });
+    const origDelete = db.delete;
+    db.delete = (...args: any[]) => { deleteCalls++; return origDelete(...args); };
+    const res = await makeApp(db).request("/v1/memory/retention/dry-run");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.dryRun).toBe(true);
+    expect(body.deleted).toBe(0);
+    expect(body.candidates.some((c: any) => c.id === "mem_exp")).toBe(true);
+    expect(body.candidates.some((c: any) => c.id === "mem_keep")).toBe(false);
+    expect(deleteCalls).toBe(0);
+    expect(db.auditRows.some((r: any) => r.action === "memory.retention.dry_run" && r.metadata?.dryRun === true)).toBe(true);
+  });
 
+  it("retention dry-run is forbidden when flag disabled", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "0";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/retention/dry-run");
+    expect(res.status).toBe(403);
+  });
+
+});
 
 

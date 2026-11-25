@@ -170,5 +170,24 @@ export function memoryRoutes(db: Database) {
     return c.json({ ok: true, deletedId: row.id });
   });
 
+  app.get("/retention/dry-run", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
+    if (process.env.HELM_MEMORY_RETENTION_DRY_RUN !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory retention dry-run disabled (HELM_MEMORY_RETENTION_DRY_RUN!=1)"), 403);
+    const userId = c.get("userId");
+    const now = Date.now();
+    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(500);
+    const candidates = rows.filter((r) => {
+      const meta = (r.metadata as Record<string, unknown> ?? {});
+      const policy = typeof meta.retentionPolicy === "string" ? meta.retentionPolicy : "user_controlled";
+      const expiresAt = typeof meta.expiresAt === "string" ? Date.parse(meta.expiresAt) : NaN;
+      return policy !== "user_controlled" && Number.isFinite(expiresAt) && expiresAt <= now;
+    }).map((r) => {
+      const meta = (r.metadata as Record<string, unknown> ?? {});
+      return { id: r.id, kind: r.kind, retentionPolicy: meta.retentionPolicy ?? "user_controlled", expiresAt: meta.expiresAt ?? null, pii: meta.pii ?? "none", version: meta.version ?? null };
+    });
+    await writeMemoryAudit(db, { userId, action: "memory.retention.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, deleted: 0, dryRun: true } });
+    return c.json({ ok: true, dryRun: true, deleted: 0, scanned: rows.length, candidates, note: "No memory rows were deleted. This is a dry-run report only." });
+  });
+
   return app;
 }
