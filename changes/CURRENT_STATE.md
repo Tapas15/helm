@@ -27,7 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
-- 2026-11-25: P7a worker feedback emission wired (flag-gated, redacted, no-throw/no-behavior-change) for task completion/crash in `backend/worker/src/index.ts` + `backend/worker/src/feedback.ts`; helper tests PASS 2/2; API typecheck PASS. Memory notes bounded `q` filter added (`GET /v1/memory/notes?q=`) with route test PASS 11/11; feedback coverage matrix updated. P7c/P7d activation remains blocked pending explicit approval.
+- 2026-11-25: P7a worker feedback integration seam: `backend/worker/src/index.ts` exports testable `processTask` with injected deps/autostart guard (no behavior/default change when autostarted). Added `backend/worker/src/process-task.feedback.test.ts` (PASS 3/3): completion emits redacted `task_outcome` when enabled, disabled no-op, runtime crash emits redacted `tool_failure` with no secret leak. Worker typecheck PASS; existing worker tests PASS 13/13. P7c/P7d activation remains blocked pending explicit approval.
 - 2026-11-25: P6 env-gated BrowserOS MCP smoke rerun (local, controlled page, no external side effects): `browser-adapter.test.ts` 17/17 PASS; `browseros-mcp-smoke.test.ts` 6/6 PASS with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`. Baseline: `{"capabilities":23,"create":204,"navigate":975,"snapshot":90,"fill":116,"click":267,"takeover_request":1,"takeover_resume":1,"close":75}` ms. Positive click/fill, selector-not-found structured errors, takeover request/resume parity, screenshot best-effort verified. No dispatch/default change; Playwright remains default.
 - 2026-11-25: P1 SSE cursor-resume depth (local): `events.ts` now honors `Last-Event-ID` when `after` omitted (malformed ignored safely to `-1` behavior path, invalid explicit `after` still 400). Added env-gated integration coverage in `events-sse-api.test.ts` for Last-Event-ID resume and malformed Last-Event-ID fallback. Evidence: API typecheck PASS, API smoke PASS, lint PASS (1 pre-existing warning). Env-gated SSE integration not run in this shell (no `HELM_INTEGRATION_API=1` stack).
 - 2026-11-25: P6 human interim security signoff recorded (user: "yes, keep defaults"). Accepted interim: AGPL external-runtime boundary, endpoint policy, data handling, credential-handling policy, artifact/PII manual caution until P8, default-dispatch gate off. Still pending: formal STRIDE/threat-model evidence, PII retention/redaction implementation, deeper SSRF/operator policy, non-loopback credential-handling technical verification if used. No code/runtime behavior change.
@@ -57,6 +57,7 @@
 
 ## Update Rule
 After every meaningful batch: update `CURRENT_STATE.md`, `CURRENT_STATE.md`, append `SESSION_LOG.md`, update relevant `phase-*.md`, add `FIX_LOG.md` for non-trivial fixes, sync `README.md`/`ROADMAP.md` on progress changes. No user prompt needed.
+
 
 
 
