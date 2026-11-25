@@ -62,6 +62,8 @@ export function memoryRoutes(db: Database) {
       inferredAllowed: process.env.HELM_MEMORY_ALLOW_INFERRED === "1",
       retrievalEnabled: process.env.HELM_MEMORY_RETRIEVAL_ENABLED === "1",
       semanticRetrievalEnabled: process.env.HELM_MEMORY_SEMANTIC_RETRIEVAL === "1",
+      embeddingProviderSelection: (process.env.HELM_MEMORY_EMBEDDING_PROVIDER ?? "disabled").trim().toLowerCase() || "disabled",
+      embeddingProviderInjected: false,
       consolidationDryRunEnabled: process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN === "1",
       retentionDryRunEnabled: process.env.HELM_MEMORY_RETENTION_DRY_RUN === "1",
     });
