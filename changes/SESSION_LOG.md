@@ -1730,3 +1730,24 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] P7b depth: memory CRUD route tests, audit events, semantic retrieval/ranking/consolidation, retention/PII policy/signoff.
 - [ ] P7a depth: feedback emission wiring, proposal/gate/approval/rollback path, tests.
 - [ ] **Blocked:** self-improvement activation/autonomous execution requires explicit user approval; P7c/P7d implementation not approved.
+
+## 2026-11-25 - P7 feedback/memory route test hardening
+**Time:** 2026-11-25T13:55:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills
+
+### Completed
+- [x] Added `backend/api/src/routes/feedback.test.ts`: disabled gate + sensitive payload redaction.
+- [x] Hardened `feedback.ts` eval-case creation fallback (`evalCase: row ?? null`).
+- [x] Fixed memory/feedback test typing for Hono context.
+
+### Evidence
+- `pnpm -C backend/api exec vitest run src/routes/feedback.test.ts src/routes/memory.test.ts --reporter=verbose` PASS (7/7)
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api` PASS (0 errors, 1 pre-existing warning)
+- Commit `08b4354` pushed (CI not watched per directive)
+
+### Remaining / Blocked
+- [ ] Eval-case from-event route needs a focused contract/integration test with realistic Drizzle mock shape.
+- [ ] P7a feedback emission wiring, proposal/eval/approval/rollback gates.
+- [ ] **Blocked:** self-improvement activation requires explicit user approval.
