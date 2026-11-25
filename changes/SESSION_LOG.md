@@ -1621,3 +1621,24 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 ### Blocked / Remaining
 - [ ] Live interactive WS preview + takeover input smoke (browser automation surface needed).
 - [ ] Screenshot/snapshot artifact DB persistence for evidence API; takeover-state recovery semantics.
+
+## 2026-11-25 - P7 self-doable hardening slice
+**Time:** 2026-11-25T13:05:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills
+
+### Completed
+- [x] Identity policy: added recipient/domain allowlist enforcement in `enforceIdentityPolicyForConnectorAccount`; Gmail send passes recipients, Calendar create/update pass attendees. Tests expanded 4/4 -> 6/6.
+- [x] Self-improvement gate visibility: skills status now returns `selfImprovement.requiresExplicitApproval=true` (still `allowed:false`).
+- [x] Memory runtime wiring: worker loads enabled memory notes (`HELM_MEMORY_ENABLED=1`, bounded, recent 8, truncated) into runtime context and emits `runtime.memory.loaded`.
+
+### Evidence
+- `pnpm -C backend/api exec vitest run src/lib/identity-policy.test.ts --reporter=verbose` PASS (6/6)
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm -C backend/worker exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api --filter @helm/worker` PASS (0 errors, 1 pre-existing warning)
+- `pnpm test --filter @helm/api --filter @helm/worker` PASS (API 31 passed/6 skipped, Worker 11 passed)
+
+### Remaining / Blocked
+- [ ] Identity vault/UI, broader side-effect policy coverage, memory provenance/CRUD/export depth, skill/proactivity scheduler.
+- [ ] **Blocked:** self-improvement implementation/activation pending explicit user approval.
