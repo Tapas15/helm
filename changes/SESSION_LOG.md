@@ -1682,3 +1682,31 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 ### Remaining / Blocked
 - [ ] P7a depth: proposal records, eval/policy gate, versioned activation/rollback, approval-bound activation flow, tests.
 - [ ] **Blocked:** self-improvement activation/autonomous execution requires explicit user approval and gate implementation.
+
+## 2026-11-25 - P7b long-term memory approved (flow documented, implementation pending commit)
+**Time:** 2026-11-25T13:30:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills (P7b long-term memory)
+
+### User approval / direction
+- [x] User explicitly approved: "yes, build P7b next". Requested execution-flow explanation before implementation; flow explained and accepted ("ok good...").
+- [x] User asked for layman explanation of P7a-P7d and Hermes-style memory; clarified P7b is the long-term memory system, P7a/P7c/P7d are different systems.
+
+### Current implementation state (local, uncommitted)
+- [~] `backend/api/src/routes/memory.ts` has an in-progress P7b draft: provenance (`user_confirmed|observed|inferred`), confidence clamp, inferred gate (`confirmed=true` or `HELM_MEMORY_ALLOW_INFERRED=1`), sensitivity/redaction, versioned metadata, get-by-id, list provenance filter, export/delete. **Not committed, not typechecked as final P7b slice, not pushed.**
+- [ ] Align draft to approved flow, add/adjust tests, typecheck/lint, commit, push, update CURRENT_STATE/phase-7 evidence.
+
+### Planned P7b execution flow (approved)
+1. Receive user-scoped memory note request when `HELM_MEMORY_ENABLED=1`.
+2. Label provenance: user_confirmed / observed / inferred.
+3. Redact secrets/sensitive content before save; mark sensitivity/redacted.
+4. Gate inferred memory unless confirmed or explicitly allowed by env flag.
+5. Persist DB-canonical note with version/confidence/provenance/sensitivity metadata.
+6. Runtime loads only bounded safe enabled notes (no secrets in prompts/logs).
+7. User manages notes via list/get/patch/export/delete; patch/delete scoped and versioned.
+8. No autonomous self-improvement activation; P7c/P7d still approval-gated.
+
+### Remaining / Blocked
+- [ ] Finalize P7b code+tests+docs and record evidence.
+- [ ] Retention/PII policy/legal signoff remains P8/legal input.
+- [ ] Semantic retrieval/ranking/consolidation for weeks/month-old memory not implemented (future P7b depth).
