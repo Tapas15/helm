@@ -88,4 +88,34 @@ describe("calendar update/delete feedback emission (P7a)", () => {
     expect(row).toBeTruthy();
     expect(row.redacted).toBe(true);
   });
+
+  it("emits redacted uncertain tool_failure on calendar update network error", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => { throw new Error("Bearer tok_test down"); }) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/update", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", eventId: "evt_1", summary: "s", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_unet" }),
+    });
+    expect(res.status).toBe(503);
+    const row = db.feedbackRows.find((r: any) => r.payload?.actionKind === "calendar.update_event");
+    expect(row?.payload?.uncertain).toBe(true);
+    expect(row?.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
+
+  it("emits redacted uncertain tool_failure on calendar delete network error", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => { throw new Error("Bearer tok_test down"); }) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/delete", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", eventId: "evt_1", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_dnet" }),
+    });
+    expect(res.status).toBe(503);
+    const row = db.feedbackRows.find((r: any) => r.payload?.actionKind === "calendar.delete_event");
+    expect(row?.payload?.uncertain).toBe(true);
+    expect(row?.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
 });

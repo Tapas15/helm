@@ -95,4 +95,22 @@ describe("gmail send feedback emission (P7a)", () => {
     expect(row.redacted).toBe(true);
     expect(JSON.stringify(row)).not.toContain("tok_test");
   });
+
+  it("emits redacted uncertain tool_failure on network error", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => { throw new Error("Bearer tok_test network down"); }) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/gmail/send", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", to: ["a@example.com"], subject: "s", bodyText: "b", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_net" }),
+    });
+    expect(res.status).toBe(503);
+    const row = db.feedbackRows.find((r: any) => r.kind === "tool_failure");
+    expect(row).toBeTruthy();
+    expect(row.severity).toBe("error");
+    expect(row.payload?.actionKind).toBe("gmail.send");
+    expect(row.payload?.uncertain).toBe(true);
+    expect(row.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
 });
