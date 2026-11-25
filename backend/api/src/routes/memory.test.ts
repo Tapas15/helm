@@ -105,4 +105,15 @@ describe("memory routes (P7b)", () => {
     expect(res.status).toBe(200);
     expect(db.auditRows.some((r: any) => r.action === "memory.delete" && r.resourceId === "mem_1")).toBe(true);
   });
+
+  it("audits update with provenance/version metadata", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const existing = { id: "mem_1", userId: "u1", content: "old", kind: "note", metadata: { provenance: { kind: "user_confirmed" }, version: 1, confidence: 1, confirmed: true } };
+    const db = makeDb({ selectRows: [existing], updateRow: { ...existing, content: "new", metadata: { provenance: { kind: "user_confirmed" }, version: 2, confidence: 1, confirmed: true } } });
+    const res = await makeApp(db).request("/v1/memory/notes/mem_1", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "new" }) });
+    expect(res.status).toBe(200);
+    const row = db.auditRows.find((r: any) => r.action === "memory.update" && r.resourceId === "mem_1");
+    expect(row).toBeTruthy();
+    expect(row.metadata?.provenance).toBe("user_confirmed");
+  });
 });
