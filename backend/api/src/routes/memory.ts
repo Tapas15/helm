@@ -13,11 +13,12 @@ type Sensitivity = "normal" | "sensitive" | "sensitive-redacted";
 type RetentionPolicy = "user_controlled" | "ephemeral" | "session" | "indefinite";
 const RETENTION_POLICIES: readonly RetentionPolicy[] = ["user_controlled", "ephemeral", "session", "indefinite"];
 
-function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: Sensitivity } {
-  if (!SENSITIVE_RE.test(text)) return { content: text, redacted: false, sensitivity: "normal" };
-  return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted" };
+const PII_RE = /\b\d{3}-\d{2}-\d{4}\b|\b\d{12,19}\b|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: Sensitivity; pii: "none" | "possible" | "redacted" } {
+  if (SENSITIVE_RE.test(text)) return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted", pii: "redacted" };
+  if (PII_RE.test(text)) return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted", pii: "redacted" };
+  return { content: text, redacted: false, sensitivity: "normal", pii: "none" };
 }
-
 function clampConfidence(v: unknown, provenance: Provenance): number {
   const n = typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : provenance === "user_confirmed" ? 1 : provenance === "observed" ? 0.8 : 0.6;
   return provenance === "inferred" ? Math.min(n, 0.8) : n;
@@ -196,4 +197,5 @@ export function memoryRoutes(db: Database) {
 
   return app;
 }
+
 

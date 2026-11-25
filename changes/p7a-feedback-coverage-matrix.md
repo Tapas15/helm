@@ -16,11 +16,12 @@
 | `backend/worker/src/index.ts:141` | task_outcome positive/negative/neutral on completion | helper-tested (`worker/src/feedback.test.ts`) | helper yes | helper yes | n/a | route/runtime integration assertion not yet added; emission flag-gated/no-throw |
 | `backend/worker/src/index.ts:153` | tool_failure RUNTIME_CRASH | helper-tested (`worker/src/feedback.test.ts`) | helper yes | helper yes | n/a | runtime-crash integration assertion not yet added; emission flag-gated/no-throw |
 
-## Gaps
-- Worker emissions wired; need integration-level assertions (task completion/crash paths) and matrix kept in sync.
-- Worker loop errors have no task/user context; cannot emit user-scoped feedback safely without contract change.
-- No browser-worker/runtime-stream tool_failure emissions yet (P7a broader coverage).
+## Gaps / Non-emittable by design (current contract)
+- Worker loop catch (`backend/worker/src/index.ts:182`) logs infra/claim failures without `userId/taskId/runId`; cannot emit user-scoped feedback safely without contract change. No behavior change.
+- Browser-worker (`backend/browser-worker/src/index.ts`, executor) has no DB/feedback dependency and no task/run correlation in HTTP/WS contract; emitting P7a feedback requires cross-service contract+DB wiring decision. No behavior change.
+- Worker emissions wired and integration-tested (`process-task.feedback.test.ts` PASS 3/3); keep matrix synced for new callsites.
 - 5xx uncertain-provider assertions covered (503); other 5xx classes optional follow-up.
+
 
 
 

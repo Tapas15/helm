@@ -171,6 +171,19 @@ describe("memory routes (P7b)", () => {
     expect(body.notes).toHaveLength(1);
     expect(body.notes[0].id).toBe("mem_1");
   });
+
+  it("redacts PII-like email/card content in memory notes", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/notes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "contact me at test@example.com card 4111111111111111", kind: "note", confirmed: true }) });
+    expect(res.status).toBe(201);
+    const body = await res.json() as any;
+    expect(body.note.content).toBe("[REDACTED_SENSITIVE_MEMORY]");
+    expect(body.note.metadata?.pii).toBe("redacted");
+    expect(body.note.metadata?.redactedSensitive).toBe(true);
+  });
 });
+
+
 
 
