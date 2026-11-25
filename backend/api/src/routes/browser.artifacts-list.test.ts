@@ -44,4 +44,21 @@ describe("browser artifact listing (P3)", () => {
     const res = await makeApp(db).request("/v1/browser/sessions/sess_1/artifacts");
     expect(res.status).toBe(403);
   });
+  it("clamps limit and returns empty list safely", async () => {
+    const artifacts = Array.from({ length: 120 }, (_, i) => ({ id: `ba_${i}`, userId: "u1", taskId: "tsk_1", runId: "run_1", sessionId: "sess_1", kind: "screenshot", path: `/secret/${i}.png`, mime: "image/png", sha256: "x", sizeBytes: 1, metadata: {}, createdAt: new Date("2026-01-01T00:00:00Z") }));
+    const db = makeDb({ artifacts });
+    const res = await makeApp(db).request("/v1/browser/sessions/sess_1/artifacts?limit=999");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.artifacts.length).toBeLessThanOrEqual(100);
+    expect(JSON.stringify(body)).not.toContain("/secret/");
+  });
+
+  it("returns ok with empty artifacts when none exist", async () => {
+    const db = makeDb({ artifacts: [] });
+    const res = await makeApp(db).request("/v1/browser/sessions/sess_1/artifacts");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body).toMatchObject({ ok: true, sessionId: "sess_1", artifacts: [] });
+  });
 });
