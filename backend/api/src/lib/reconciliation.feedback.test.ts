@@ -81,18 +81,15 @@ describe("reconcileUncertainReceipts feedback emission (P7a)", () => {
     expect(db.feedbackRows).toHaveLength(0);
   });
 
-  it("emits redacted feedback when enabled on resolved reconciliation", async () => {
+  it("does not emit feedback when lookup is not found (no blind retry)", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
-    const db = makeDb({ receipts: [{ id: "rcpt_2", userId: "u1", taskId: "tsk_2", runId: "run_2", actionKind: "gmail.send", idempotencyKey: "idem_2", externalRef: null, evidence: {}, status: "uncertain", createdAt: new Date(Date.now() - 120000) }] });
+    vi.mocked(lookupGmailSend).mockResolvedValueOnce({ ok: false, reason: "not_found" } as any);
+    const db = makeDb({ receipts: [{ id: "rcpt_3", userId: "u1", taskId: "tsk_3", runId: "run_3", actionKind: "gmail.send", idempotencyKey: "idem_3", externalRef: null, evidence: {}, status: "uncertain", createdAt: new Date(Date.now() - 120000) }] });
     const res = await reconcileUncertainReceipts(db, { limit: 10, olderThanMs: 0 });
-    expect(res.reconciled).toBe(1);
-    expect(vi.mocked(lookupGmailSend)).toHaveBeenCalled();
-    expect(db.feedbackRows.length).toBeGreaterThan(0);
-    const row = db.feedbackRows.find((r: any) => r.payload?.actionKind === "gmail.send");
-    expect(row).toBeTruthy();
-    expect(row.payload?.outcome).toBe("executed");
-    expect(row.payload?.receiptId).toBe("rcpt_2");
-    expect(row.redacted).toBe(true);
-    expect(JSON.stringify(row)).not.toContain("Bearer");
+    expect(res.reconciled).toBe(0);
+    expect(res.skipped).toBe(1);
+    expect(db.feedbackRows).toHaveLength(0);
+    expect(db.auditRows.some((r: any) => r.action === "receipt.reconciled")).toBe(false);
+    expect(db.updates.some((u: any) => u.values?.status === "executed" || u.values?.status === "failed")).toBe(false);
   });
 });

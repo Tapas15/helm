@@ -40,4 +40,18 @@ describe("approvals feedback emission (P7a)", () => {
     expect(row.payload?.actionHash).toBe("hash_1");
     expect(row.redacted).toBe(true);
   });
+
+  it("emits redacted approval_decision feedback on approve", async () => {
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/approvals/apr_1/resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "approve", actionHash: "hash_1", idempotencyKey: "idem_1" }) });
+    expect(res.status).toBe(200);
+    const row = db.feedbackRows.find((r: any) => r.kind === "approval_decision");
+    expect(row).toBeTruthy();
+    expect(row.signal).toBe("positive");
+    expect(row.severity).toBe("info");
+    expect(row.payload?.summary).toBe("approval.approved");
+    expect(row.payload?.actionHash).toBe("hash_1");
+    expect(row.payload?.approvalId).toBe("apr_1");
+    expect(row.redacted).toBe(true);
+  });
 });
