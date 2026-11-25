@@ -48,6 +48,16 @@ function validateHttpUrl(raw: string, envName: string): string {
   return raw;
 }
 
+function validateBrowserOSUrl(raw: string, envName: string, env: NodeJS.ProcessEnv): string {
+  const safe = validateHttpUrl(raw, envName);
+  const host = new URL(safe).hostname.toLowerCase();
+  const loopback = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+  if (!loopback && env.HELM_BROWSEROS_ALLOW_REMOTE !== "1") {
+    throw new Error(`Invalid ${envName}: non-loopback host requires HELM_BROWSEROS_ALLOW_REMOTE=1`);
+  }
+  return safe;
+}
+
 export class BrowserOSAdapterStub implements BrowserOSAdapter {
   kind = "browseros" as const;
   constructor(private msg = "BrowserOS adapter endpoint not configured; set BROWSEROS_MCP_URL or BROWSEROS_BASE_URL+BROWSEROS_TOKEN, or use BROWSER_ADAPTER=playwright") {}
@@ -168,10 +178,10 @@ export function createBrowserAdapter(env: NodeJS.ProcessEnv = process.env): Brow
   const kind = (env.BROWSER_ADAPTER ?? "playwright").toLowerCase();
   if (kind === "browseros") {
     const mcpUrl = env.BROWSEROS_MCP_URL;
-    if (mcpUrl) return new BrowserOSMcpAdapter(validateHttpUrl(mcpUrl, "BROWSEROS_MCP_URL"));
+    if (mcpUrl) return new BrowserOSMcpAdapter(validateBrowserOSUrl(mcpUrl, "BROWSEROS_MCP_URL", env));
     const base = env.BROWSEROS_BASE_URL;
     const token = env.BROWSEROS_TOKEN;
-    if (base && token) return new BrowserOSHttpAdapter(validateHttpUrl(base, "BROWSEROS_BASE_URL"), token);
+    if (base && token) return new BrowserOSHttpAdapter(validateBrowserOSUrl(base, "BROWSEROS_BASE_URL", env), token);
     if (base && !token) return new BrowserOSAdapterStub("BROWSEROS_TOKEN is required when BROWSEROS_BASE_URL is set");
     if (!base && token) return new BrowserOSAdapterStub("BROWSEROS_BASE_URL is required when BROWSEROS_TOKEN is set");
     return new BrowserOSAdapterStub();

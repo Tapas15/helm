@@ -45,6 +45,18 @@ describe("browser adapter factory", () => {
     expect(a).toBeInstanceOf(BrowserOSAdapterStub);
     await expect(a.createSession({} as any)).rejects.toThrow(/BROWSEROS_TOKEN is required/);
   });
+  it("rejects non-loopback BrowserOS MCP URL by default", () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    process.env.BROWSEROS_MCP_URL = "http://example.internal:9210/mcp";
+    delete process.env.HELM_BROWSEROS_ALLOW_REMOTE;
+    expect(() => createBrowserAdapter()).toThrow(/HELM_BROWSEROS_ALLOW_REMOTE=1/);
+  });
+  it("allows non-loopback BrowserOS MCP URL when explicitly enabled", () => {
+    process.env.BROWSER_ADAPTER = "browseros";
+    process.env.BROWSEROS_MCP_URL = "http://example.internal:9210/mcp";
+    process.env.HELM_BROWSEROS_ALLOW_REMOTE = "1";
+    expect(createBrowserAdapter()).toBeInstanceOf(BrowserOSMcpAdapter);
+  });
   it("returns browseros http adapter when endpoint/token present and mcp absent", () => {
     process.env.BROWSER_ADAPTER = "browseros";
     delete process.env.BROWSEROS_MCP_URL;
