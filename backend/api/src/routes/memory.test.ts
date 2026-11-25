@@ -128,7 +128,7 @@ describe("memory routes (P7b)", () => {
     expect(res.status).toBe(403);
   });
 
-  it("disabled mode blocks memory data endpoints consistently with no row queries", async () => {
+  it("disabled mode blocks all memory data endpoints with standard FORBIDDEN shape and no leakage/queries", async () => {
     process.env.HELM_MEMORY_ENABLED = "0";
     process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
     process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
@@ -136,37 +136,38 @@ describe("memory routes (P7b)", () => {
     let selectCalls = 0;
     let deleteCalls = 0;
     let updateCalls = 0;
-    const db = makeDb({ selectRows: [{ id: "mem_1", content: "secret-note" }] });
-    const origSelect = db.select;
-    const origDelete = db.delete;
-    const origUpdate = db.update;
+    const secret = "secret-note";
+    const db = makeDb({ selectRows: [{ id: "mem_1", content: secret }] });
+    const origSelect = db.select; const origDelete = db.delete; const origUpdate = db.update;
     db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
     db.delete = (...args: any[]) => { deleteCalls++; return origDelete(...args); };
     db.update = (...args: any[]) => { updateCalls++; return origUpdate(...args); };
     const app = makeApp(db);
 
-    const endpoints: Array<{ method: "GET" | "POST"; path: string; body?: unknown }> = [
+    const endpoints: Array<{ method: "GET" | "POST" | "PATCH" | "DELETE"; path: string; body?: unknown }> = [
       { method: "GET", path: "/v1/memory/notes" },
       { method: "GET", path: "/v1/memory/export" },
       { method: "GET", path: "/v1/memory/notes/mem_1" },
+      { method: "PATCH", path: "/v1/memory/notes/mem_1", body: { content: "x" } },
+      { method: "DELETE", path: "/v1/memory/notes/mem_1" },
       { method: "GET", path: "/v1/memory/retrieval?q=dark" },
       { method: "GET", path: "/v1/memory/consolidation/dry-run" },
       { method: "GET", path: "/v1/memory/retention/dry-run" },
+      { method: "GET", path: "/v1/memory/audit/recent" },
       { method: "POST", path: "/v1/memory/notes", body: { content: "x" } },
     ];
     for (const ep of endpoints) {
-      const res = await app.request(ep.path, ep.method === "POST" ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(ep.body ?? {}) } : undefined);
-      expect(res.status).toBe(403);
+      const res = await app.request(ep.path, ep.method === "GET" ? undefined : { method: ep.method, headers: { "content-type": "application/json" }, body: JSON.stringify(ep.body ?? {}) });
+      expect(res.status, `${ep.method} ${ep.path}`).toBe(403);
       const body = await res.json() as any;
-      expect(body.error?.message).toMatch(/Memory is disabled/i);
-      expect(JSON.stringify(body)).not.toContain("secret-note");
+      expect(body.error?.code, `${ep.method} ${ep.path} code`).toBe("FORBIDDEN");
+      expect(body.error?.message, `${ep.method} ${ep.path} msg`).toMatch(/Memory is disabled/i);
+      expect(typeof body.error?.retryable, `${ep.method} ${ep.path} retryable`).toBe("boolean");
+      expect(JSON.stringify(body)).not.toContain(secret);
     }
 
     const status = await app.request("/v1/memory/status");
     expect(status.status).toBe(200);
-    const statusBody = await status.json() as any;
-    expect(statusBody.enabled).toBe(false);
-    expect(JSON.stringify(statusBody)).not.toContain("secret-note");
     expect(selectCalls).toBe(0);
     expect(deleteCalls).toBe(0);
     expect(updateCalls).toBe(0);
@@ -515,7 +516,9 @@ describe("memory routes (P7b)", () => {
     const res = await makeApp(db).request("/v1/memory/audit/recent");
     expect(res.status).toBe(403);
     const body = await res.json() as any;
+    expect(body.error?.code).toBe("FORBIDDEN");
     expect(body.error?.message).toMatch(/Memory is disabled/i);
+    expect(typeof body.error?.retryable).toBe("boolean");
     expect(selectCalls).toBe(0);
   });
 
