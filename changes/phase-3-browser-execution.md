@@ -32,6 +32,7 @@ Real visible browser work with Playwright worker, live preview, takeover/return 
 - [x] Integration regressions: ownership/guarded/takeover/stream-status/ws-authz/restart-recovery/browser-session-create/legacy-rebind APIs present and passing in env-gated suite history.
 
 ### Remaining / Blocked
+- [x] API WS preview proxy forwards client->upstream takeover input messages (binary-safe) in `backend/api/src/index.ts` (2026-11-25). Live interactive smoke still pending.
 - [ ] Live interactive smoke for WS preview + takeover input (click/type/scroll/drag/modifiers). **Blocked:** no browser automation surface in shell.
 - [ ] Richer remote controls (scroll/drag/keyboard modifiers), stability polish.
 - [ ] Browser crash/restart recovery integration coverage expansion for more edge cases.

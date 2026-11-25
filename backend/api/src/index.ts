@@ -111,7 +111,8 @@ async function main() {
         const upstreamUrl = browserUrl.replace(/^http/, "ws") + `/v1/sessions/${encodeURIComponent(sessionId)}/stream`;
         wss.handleUpgrade(req, socket, head, (client) => {
           const upstream = new WebSocket(upstreamUrl, { headers: { authorization: `Bearer ${browserToken}` } });
-          upstream.on("message", (data) => { if (client.readyState === client.OPEN) client.send(data.toString()); });
+          upstream.on("message", (data, isBinary) => { if (client.readyState === client.OPEN) client.send(data, { binary: isBinary }); });
+          client.on("message", (data, isBinary) => { if (upstream.readyState === upstream.OPEN) upstream.send(data, { binary: isBinary }); });
           upstream.on("close", () => { if (client.readyState === client.OPEN) client.close(); });
           upstream.on("error", () => { if (client.readyState === client.OPEN) client.close(); });
           client.on("close", () => { if (upstream.readyState === upstream.OPEN || upstream.readyState === upstream.CONNECTING) upstream.close(); });

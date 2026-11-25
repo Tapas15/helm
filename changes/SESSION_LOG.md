@@ -1604,3 +1604,20 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 ### Remaining / Blocked
 - [ ] Real-provider refresh/revoke/uncertain-reconcile hardening and proof (Google sandbox/creds, external).
 - [ ] Broader connector diagnostics/policy matrix, vault KMS/prod hardening, MCP policy decisions.
+
+## 2026-11-25 - P3 API WS takeover input forwarding
+**Time:** 2026-11-25T12:55:00Z
+**Agent:** Kilo
+**Phase:** P3 Browser Execution
+
+### Completed
+- [x] Fixed API browser WS proxy to forward client->upstream messages (binary-safe) in `backend/api/src/index.ts`; upstream->client forwarding also preserves binary flag.
+- [x] Preserved existing upgrade authz/ownership checks and upstream auth header.
+
+### Evidence
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api` PASS (0 errors, 1 pre-existing warning: `backend/api/src/routes/browser.ts:128:18` unused `act`)
+
+### Blocked / Remaining
+- [ ] Live interactive WS preview + takeover input smoke (browser automation surface needed).
+- [ ] Screenshot/snapshot artifact DB persistence for evidence API; takeover-state recovery semantics.

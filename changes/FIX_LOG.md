@@ -255,3 +255,23 @@ Calendar update/delete were present in shared schemas/reconciliation/Temporal ac
 ### Risk / Follow-up
 - Real-provider uncertain/timeout/revoke/refresh proof still external.
 - Add route-level mocked integration tests for update/delete idempotency/uncertain/reconcile parity where env-gated harness allows.
+
+## 2026-11-25 - P3 API WS proxy forwarded client input upstream
+**Time:** 2026-11-25T12:55:00Z
+**Area:** P3 Browser Execution / WS takeover
+**Files:** `backend/api/src/index.ts`, `changes/phase-3-browser-execution.md`, `changes/CURRENT_STATE.md`, `changes/PLANNING_MISSING_ITEMS.md`
+
+### Issue
+API WS proxy relayed upstream frames to client but did not forward client messages upstream, blocking takeover input relay through `/v1/browser/sessions/:id/stream`.
+
+### Fix
+- Added `client.on("message", ...)` forwarding to upstream when OPEN.
+- Preserved binary flag for both directions.
+
+### Verification
+- API typecheck PASS.
+- API lint PASS (pre-existing browser.ts unused `act` warning only).
+
+### Risk / Follow-up
+- Live interactive browser smoke still blocked by no browser automation surface.
+- Add automated WS input round-trip integration test where harness allows.
