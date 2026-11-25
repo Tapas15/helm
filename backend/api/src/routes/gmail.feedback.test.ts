@@ -96,6 +96,17 @@ describe("gmail send feedback emission (P7a)", () => {
     expect(JSON.stringify(row)).not.toContain("tok_test");
   });
 
+  it("does not emit feedback when disabled on uncertain network error", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    globalThis.fetch = vi.fn(async () => { throw new Error("Bearer tok_test network down"); }) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/gmail/send", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", to: ["a@example.com"], subject: "s", bodyText: "b", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_net_off" }),
+    });
+    expect(res.status).toBe(503);
+    expect(db.feedbackRows).toHaveLength(0);
+  });
   it("emits redacted uncertain tool_failure on provider 429", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
@@ -115,4 +126,17 @@ describe("gmail send feedback emission (P7a)", () => {
   });
 
 
+
+  it("does not emit feedback when disabled on provider 429", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/gmail/send", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", to: ["a@example.com"], subject: "s", bodyText: "b", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_429_off" }),
+    });
+    expect(res.status).toBe(429);
+    expect(db.feedbackRows).toHaveLength(0);
+  });
 });
+

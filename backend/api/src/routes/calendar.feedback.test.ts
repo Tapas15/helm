@@ -109,6 +109,17 @@ describe("calendar create feedback emission (P7a)", () => {
     expect(JSON.stringify(row)).not.toContain("tok_test");
   });
 
+  it("does not emit feedback when disabled on uncertain network error", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    globalThis.fetch = vi.fn(async () => { throw new Error("Bearer tok_test network down"); }) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/create", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", summary: "s", startIso: "2026-11-26T10:00:00Z", endIso: "2026-11-26T11:00:00Z", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_net_off" }),
+    });
+    expect(res.status).toBe(503);
+    expect(db.feedbackRows).toHaveLength(0);
+  });
   it("emits redacted uncertain tool_failure on provider 429", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
@@ -125,6 +136,18 @@ describe("calendar create feedback emission (P7a)", () => {
     expect(row.payload?.actionKind).toBe("calendar.create_event");
     expect(row.redacted).toBe(true);
     expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
+
+  it("does not emit feedback when disabled on provider 429", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/create", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", summary: "s", startIso: "2026-11-26T10:00:00Z", endIso: "2026-11-26T11:00:00Z", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_429_off" }),
+    });
+    expect(res.status).toBe(429);
+    expect(db.feedbackRows).toHaveLength(0);
   });
 });
 
