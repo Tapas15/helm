@@ -293,9 +293,12 @@ describe("memory routes (P7b)", () => {
     expect(audit.metadata?.scanned).toBe(1);
     expect(audit.metadata?.matches).toBe(1);
     expect(typeof audit.metadata?.mode).toBe("string");
+    expect(typeof audit.metadata?.limit).toBe("number");
     expect(audit.metadata).not.toHaveProperty("query");
     expect(audit.metadata).not.toHaveProperty("q");
+    expect(audit.metadata).not.toHaveProperty("content");
     expect(JSON.stringify(audit.metadata)).not.toContain(q);
+    expect(JSON.stringify(audit.metadata)).not.toContain("prefers dark mode");
   });
 
   it("consolidation dry-run reports duplicate candidates and makes no changes", async () => {
@@ -332,6 +335,13 @@ describe("memory routes (P7b)", () => {
     expect(deleteCalls).toBe(0);
     expect(updateCalls).toBe(0);
     expect(db.auditRows.some((r: any) => r.action === "memory.consolidation.dry_run" && r.metadata?.dryRun === true)).toBe(true);
+    const audit = db.auditRows.find((r: any) => r.action === "memory.consolidation.dry_run");
+    expect(audit?.metadata?.dryRun).toBe(true);
+    expect(audit?.metadata?.deleted).toBe(0);
+    expect(audit?.metadata?.modified).toBe(0);
+    expect(audit?.metadata?.scanned).toBe(3);
+    expect(audit?.metadata?.candidates).toBe(1);
+    expect(JSON.stringify(audit?.metadata)).not.toContain("Same fact");
   });
 
   it("consolidation dry-run is forbidden when flag disabled", async () => {
@@ -360,6 +370,12 @@ describe("memory routes (P7b)", () => {
     expect(body.candidates.some((c: any) => c.id === "mem_keep")).toBe(false);
     expect(deleteCalls).toBe(0);
     expect(db.auditRows.some((r: any) => r.action === "memory.retention.dry_run" && r.metadata?.dryRun === true)).toBe(true);
+    const audit = db.auditRows.find((r: any) => r.action === "memory.retention.dry_run");
+    expect(audit?.metadata?.dryRun).toBe(true);
+    expect(audit?.metadata?.deleted).toBe(0);
+    expect(audit?.metadata?.scanned).toBe(2);
+    expect(audit?.metadata?.candidates).toBe(1);
+    expect(JSON.stringify(audit?.metadata)).not.toContain("old");
   });
 
   it("retention dry-run is forbidden when flag disabled", async () => {
