@@ -211,7 +211,11 @@ export function memoryRoutes(db: Database) {
     if (!q) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "q required"), 400);
     const limit = Math.max(1, Math.min(20, Number(c.req.query("limit") ?? 5) || 5));
     const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(200);
-    const provider = createMemoryRetrievalProvider(process.env);
+    const provider = createMemoryRetrievalProvider({
+      env: process.env,
+      // No default embedding provider wiring: external/local model providers must be explicitly injected by trusted code.
+      embeddingProvider: null,
+    });
     const ranked = await provider.query({
       query: q,
       limit,

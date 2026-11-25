@@ -42,19 +42,31 @@ describe("memory retrieval eval scaffold (P7b, local deterministic)", () => {
     expect(embed).not.toHaveBeenCalled();
   });
 
-  it("uses embedding provider only when semantic flag is on", async () => {
+  it("uses embedding provider only when semantic flag is on and provider explicitly enabled", async () => {
     const embed = vi.fn(async (texts: string[]) => texts.map((t) => (t.includes("dark") || t.includes("dim") ? [1, 0] : [0, 1])));
     const provider: MemoryEmbeddingProvider = { id: "test-embed", embed };
-    const p = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1" }, embeddingProvider: provider });
+    const p = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1", HELM_MEMORY_EMBEDDING_PROVIDER: "test-embed" }, embeddingProvider: provider });
     expect(p.mode).toBe("semantic-embedding");
     const matches = await p.query({ query: "dark theme", documents: docs, limit: 5 });
     expect(embed).toHaveBeenCalledTimes(1);
     expect(matches.some((m) => m.mode === "semantic-embedding")).toBe(true);
   });
 
+  it("does not use injected embedding provider when provider selection is disabled/unknown", async () => {
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [1, 0]));
+    const provider: MemoryEmbeddingProvider = { id: "test-embed", embed };
+    const disabled = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1", HELM_MEMORY_EMBEDDING_PROVIDER: "disabled" }, embeddingProvider: provider });
+    expect(disabled.mode).toBe("semantic-hash-fallback");
+    await disabled.query({ query: "dark theme", documents: docs, limit: 5 });
+    const unknown = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1", HELM_MEMORY_EMBEDDING_PROVIDER: "external-unknown" }, embeddingProvider: provider });
+    expect(unknown.mode).toBe("semantic-hash-fallback");
+    await unknown.query({ query: "dark theme", documents: docs, limit: 5 });
+    expect(embed).not.toHaveBeenCalled();
+  });
+
   it("falls back to lexical when embedding provider fails", async () => {
     const provider: MemoryEmbeddingProvider = { id: "broken", embed: vi.fn(async () => { throw new Error("boom"); }) };
-    const p = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1" }, embeddingProvider: provider });
+    const p = createMemoryRetrievalProvider({ env: { HELM_MEMORY_SEMANTIC_RETRIEVAL: "1", HELM_MEMORY_EMBEDDING_PROVIDER: "broken" }, embeddingProvider: provider });
     const matches = await p.query({ query: "dark mode", documents: docs, limit: 5 });
     expect(matches[0]?.id).toBe("m1");
     expect(matches.every((m) => m.mode === "lexical")).toBe(true);

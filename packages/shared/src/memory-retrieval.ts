@@ -159,7 +159,10 @@ export function createMemoryRetrievalProvider(
     : { env: envOrOptions as Record<string, string | undefined> };
   const env = options.env ?? (process.env as any);
   if (env.HELM_MEMORY_SEMANTIC_RETRIEVAL === "1") {
-    if (options.embeddingProvider) return new EmbeddingMemoryRetrievalProvider(options.embeddingProvider);
+    const requested = String(env.HELM_MEMORY_EMBEDDING_PROVIDER ?? "disabled").trim().toLowerCase();
+    // Fail closed: external/unknown providers never make calls. Only an explicitly injected provider with explicit selection is used.
+    if (requested === "disabled" || requested === "hash" || requested === "none") return new HashedSemanticMemoryRetrievalProvider();
+    if (options.embeddingProvider && requested === String(options.embeddingProvider.id).trim().toLowerCase()) return new EmbeddingMemoryRetrievalProvider(options.embeddingProvider);
     return new HashedSemanticMemoryRetrievalProvider();
   }
   return new LexicalMemoryRetrievalProvider();
