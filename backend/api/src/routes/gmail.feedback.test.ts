@@ -1,0 +1,98 @@
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Hono } from "hono";
+import { actionReceipts, approvals, auditLog, connectorAccounts, feedbackEvents } from "@helm/db";
+
+vi.mock("./connector-accounts.js", () => ({
+  getValidGoogleAccessToken: vi.fn(async () => ({ token: "tok_test" })),
+}));
+vi.mock("../lib/identity-policy.js", () => ({
+  enforceIdentityPolicyForConnectorAccount: vi.fn(async () => ({ ok: true })),
+}));
+vi.mock("../lib/temporal.js", () => ({
+  maybeStartExternalActionWorkflow: vi.fn(async () => ({ started: false })),
+}));
+
+import { gmailRoutes } from "./gmail.js";
+
+const env = { ...process.env };
+const realFetch = globalThis.fetch;
+
+function makeDb() {
+  const feedbackRows: any[] = [];
+  const approval = { id: "apr_1", userId: "u1", taskId: "tsk_1", runId: "run_1", status: "approved", actionHash: "hash_1" };
+  const account = { id: "ca_1", userId: "u1", connectorId: "google-gmail", status: "active" };
+  const db = {
+    feedbackRows,
+    select: () => ({
+      from: (table: unknown) => ({
+        where: () => ({
+          limit: async () => {
+            if (table === approvals) return [approval];
+            if (table === actionReceipts) return [];
+            if (table === connectorAccounts) return [account];
+            return [];
+          },
+        }),
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (v: any) => {
+        if (table === feedbackEvents) feedbackRows.push(v);
+        return {
+          onConflictDoNothing: () => Promise.resolve(),
+          returning: async () => [v],
+        };
+      },
+    }),
+    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+  } as any;
+  return db;
+}
+
+function makeApp(db: any) {
+  const app = new Hono();
+  app.use("*", async (c, next) => { (c.set as any)("userId", "u1"); await next(); });
+  app.route("/v1/connectors/gmail", gmailRoutes(db));
+  return app;
+}
+
+describe("gmail send feedback emission (P7a)", () => {
+  beforeEach(() => {
+    process.env = { ...env, HELM_TEMPORAL_MODE: "off" };
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "upstream" } }), { status: 500, headers: { "content-type": "application/json" } })) as any;
+  });
+  afterEach(() => {
+    process.env = { ...env };
+    globalThis.fetch = realFetch;
+    vi.clearAllMocks();
+  });
+
+  it("does not emit feedback when disabled on provider failure", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/gmail/send", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", to: ["a@example.com"], subject: "s", bodyText: "b", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_1" }),
+    });
+    expect(res.status).toBe(500);
+    expect(db.feedbackRows).toHaveLength(0);
+  });
+
+  it("emits redacted tool_failure feedback when enabled on provider failure", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/gmail/send", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", to: ["a@example.com"], subject: "s", bodyText: "b", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_1" }),
+    });
+    expect(res.status).toBe(500);
+    expect(db.feedbackRows.length).toBeGreaterThan(0);
+    const row = db.feedbackRows.find((r: any) => r.kind === "tool_failure");
+    expect(row).toBeTruthy();
+    expect(row.signal).toBe("negative");
+    expect(row.payload?.actionKind).toBe("gmail.send");
+    expect(row.payload?.receiptId).toBeTruthy();
+    expect(row.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
+});
