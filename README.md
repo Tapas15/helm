@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.6%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.8%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Security_Hardening-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -29,7 +29,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; live WS/takeover smoke pending |
 | Phase 4 Connectors/Vault | 90% | Vault AES-GCM, Gmail/Calendar read+write, guarded receipts/reconcile UI; real OAuth connect/test/send/create E2E verified; refresh/revoke/uncertain-reconcile hardening pending |
 | Phase 5 Temporal/Reliability | 68% | ADR-002, DB-canonical reconciliation/scheduler/dry-run, Temporal schedule/fault-injection guards, env-gated reconciliation e2e PASS; real-provider no-duplicate and deeper Temporal operator/sandbox proof pending |
-| Phase 6 BrowserOS Upgrade | 63% | Playwright default; external BrowserOS MCP adapter (`BROWSEROS_MCP_URL`) behind contract; capability/timeout/error classification; selector-not-found hardening; contract 19/19 PASS; env-gated smoke 6/6 PASS (2026-11-25, includes controlled local click/fill, takeover parity, perf baseline); http/https URL validation + non-loopback endpoint guard (`HELM_BROWSEROS_ALLOW_REMOTE=1` opt-in); Playwright-vs-BrowserOS perf comparison, deeper artifact/error parity, security/compliance review, explicit dispatch gate pending |
+| Phase 6 BrowserOS Upgrade | 65% | Playwright default; external BrowserOS MCP adapter (`BROWSEROS_MCP_URL`) behind contract; capability/timeout/error classification; selector-not-found hardening; contract 19/19 PASS; env-gated BrowserOS smoke 6/6 PASS + Playwright perf baseline 1/1 PASS (2026-11-25, controlled local page, no external side effects); http/https URL validation + non-loopback guard; deeper artifact/error parity, security/compliance review, explicit dispatch gate pending |
 | Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, P7 tables, memory/skills/proactivity flags; identity vault/UI, scheduler, provenance/CRUD/export pending; self-improvement activation needs explicit approval |
 | Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 

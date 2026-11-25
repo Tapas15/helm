@@ -36,13 +36,17 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
 - [x] Push and verify GitHub Actions CI green (latest: [45561356201](https://github.com/Tapas15/helm/actions/runs/45561356201), `dbd59ef`).
 - [ ] Default dispatch only after parity+security signoff evidence.
-- [~] Performance benchmarking vs Playwright baseline (env-gated BrowserOS MCP baseline captured 2026-11-25; Playwright-side controlled baseline still needed for comparison).
+- [x] Performance benchmarking vs Playwright baseline (env-gated, controlled local page, no external side effects, 2026-11-25). BrowserOS MCP 6/6 PASS: `{"capabilities":9,"create":80,"navigate":458,"snapshot":40,"fill":61,"click":206,"takeover_request":0,"takeover_resume":1,"close":33}` ms. Playwright 1/1 PASS: `{"create":6307,"navigate":572,"snapshot":500,"fill":332,"click":705,"takeover_request":81,"takeover_resume":60,"close":903}` ms. Comparison is baseline-only (different runtimes/adapters); do not use as default-dispatch justification.
 
 ## Evidence
 - `backend/api/src/lib/browser-adapter.test.ts` PASS (19/19).
-- `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (6/6, 2026-11-25) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`: capabilities/create/navigate/snapshot/close; unknown-session structured error; click/fill selector-not-found structured error; positive click/fill on controlled local page (no external side effects); adapter-level takeover request/resume/stream-status parity; **perf/parity baseline** on controlled local page. Screenshot best-effort (timeout classified retryable).
-- Perf baseline log (2026-11-25, local BrowserOS MCP): `{"capabilities":9,"create":80,"navigate":458,"snapshot":40,"fill":61,"click":206,"takeover_request":0,"takeover_resume":1,"close":33}` ms.
+- `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (6/6, 2026-11-25) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`: capabilities/create/navigate/snapshot/close; unknown-session structured error; click/fill selector-not-found structured error; positive click/fill on controlled local page (no external side effects); adapter-level takeover request/resume/stream-status parity; perf/parity baseline. Screenshot best-effort (timeout classified retryable).
+- `backend/browser-worker/src/playwright-perf-smoke.test.ts` PASS (1/1, 2026-11-25) with `HELM_PLAYWRIGHT_PERF_SMOKE=1`: controlled local page create/navigate/snapshot/fill/click/takeover-request/resume/close; artifact sha256 shape asserted.
+- Perf baseline logs (2026-11-25, controlled local page, env-gated):
+  - BrowserOS MCP: `{"capabilities":9,"create":80,"navigate":458,"snapshot":40,"fill":61,"click":206,"takeover_request":0,"takeover_resume":1,"close":33}` ms.
+  - Playwright: `{"create":6307,"navigate":572,"snapshot":500,"fill":332,"click":705,"takeover_request":81,"takeover_resume":60,"close":903}` ms.
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS.
+- `pnpm -C backend/browser-worker exec tsc -p tsconfig.json --noEmit` PASS.
 - CI: latest run recorded in `changes/CURRENT_STATE.md` after push.
 - Commits: pushed on `main` (see git log / CURRENT_STATE).
 
