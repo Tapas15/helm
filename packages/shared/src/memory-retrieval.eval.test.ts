@@ -71,4 +71,24 @@ describe("memory retrieval eval scaffold (P7b, local deterministic)", () => {
     expect(matches[0]?.id).toBe("m1");
     expect(matches.every((m) => m.mode === "lexical")).toBe(true);
   });
+
+  it("golden lexical fixtures rank expected top IDs (local deterministic)", () => {
+    const goldenDocs = [
+      { id: "g1", kind: "preference", content: "User prefers dark mode", metadata: { provenance: { kind: "user_confirmed" }, confidence: 1 } },
+      { id: "g2", kind: "profile", content: "User name is Tapas", metadata: { provenance: { kind: "user_confirmed" }, confidence: 1 } },
+      { id: "g3", kind: "note", content: "Meeting about roadmap next quarter", metadata: { provenance: { kind: "observed" }, confidence: 0.8 } },
+      { id: "g4", kind: "preference", content: "Likes vim keybindings in editor", metadata: { provenance: { kind: "user_confirmed" }, confidence: 1 } },
+    ];
+    const cases: Array<{ q: string; top: string }> = [
+      { q: "dark mode", top: "g1" },
+      { q: "Tapas name", top: "g2" },
+      { q: "roadmap quarter", top: "g3" },
+      { q: "vim editor", top: "g4" },
+    ];
+    const p = new LexicalMemoryRetrievalProvider();
+    for (const c of cases) {
+      const matches = p.query({ query: c.q, documents: goldenDocs, limit: 3 });
+      expect(matches[0]?.id).toBe(c.top);
+    }
+  });
 });
