@@ -1,7 +1,7 @@
 ﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
 import { auditLog, memoryNotes, type Database } from "@helm/db";
-import { HELM_ERROR_CODES } from "@helm/shared";
+import { HELM_ERROR_CODES, createMemoryRetrievalProvider } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -50,31 +50,6 @@ async function writeMemoryAudit(db: Database, input: { userId: string; action: s
   }
 }
 
-function tokenize(text: string): string[] {
-  return String(text ?? "").toLowerCase().replace(/[^a-z0-9\s_-]/g, " ").split(/\s+/).filter((t) => t.length >= 2).slice(0, 80);
-}
-
-function scoreMemoryNote(note: any, query: string, qTokens: string[]) {
-  const content = String(note?.content ?? "");
-  const kind = String(note?.kind ?? "");
-  const hay = `${kind} ${content}`.toLowerCase();
-  const tokens = new Set(tokenize(hay));
-  let score = 0;
-  const matched: string[] = [];
-  for (const t of qTokens) {
-    if (tokens.has(t)) { score += 2; matched.push(t); }
-    else if (hay.includes(t)) { score += 1; matched.push(t); }
-  }
-  if (query && hay.includes(query.toLowerCase())) score += 3;
-  const meta = (note?.metadata as Record<string, unknown> ?? {});
-  const provenance = String((meta.provenance as any)?.kind ?? "user_confirmed");
-  if (provenance === "user_confirmed") score += 0.5;
-  if (provenance === "observed") score += 0.2;
-  const confidence = typeof meta.confidence === "number" ? Math.max(0, Math.min(1, meta.confidence)) : 0;
-  score += confidence * 0.3;
-  return { score, matched: Array.from(new Set(matched)).slice(0, 20), provenance, confidence };
-}
-
 export function memoryRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_MEMORY_ENABLED === "1";
@@ -86,6 +61,7 @@ export function memoryRoutes(db: Database) {
       ok: true, enabled: enabled(), mode: enabled() ? "db-notes" : "disabled", notesVisible: count,
       inferredAllowed: process.env.HELM_MEMORY_ALLOW_INFERRED === "1",
       retrievalEnabled: process.env.HELM_MEMORY_RETRIEVAL_ENABLED === "1",
+      semanticRetrievalEnabled: process.env.HELM_MEMORY_SEMANTIC_RETRIEVAL === "1",
       consolidationDryRunEnabled: process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN === "1",
       retentionDryRunEnabled: process.env.HELM_MEMORY_RETENTION_DRY_RUN === "1",
     });
@@ -232,16 +208,23 @@ export function memoryRoutes(db: Database) {
     if (process.env.HELM_MEMORY_RETRIEVAL_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory retrieval disabled (HELM_MEMORY_RETRIEVAL_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const q = (c.req.query("q") ?? "").trim().slice(0, 200);
-    const qTokens = Array.from(new Set(tokenize(q))).slice(0, 20);
-    if (!q || qTokens.length === 0) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "q required"), 400);
+    if (!q) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "q required"), 400);
     const limit = Math.max(1, Math.min(20, Number(c.req.query("limit") ?? 5) || 5));
     const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(200);
-    const matches = rows.map((r) => {
-      const s = scoreMemoryNote(r, q, qTokens);
-      return { note: r, score: s.score, matchedTokens: s.matched, provenance: s.provenance, confidence: s.confidence };
-    }).filter((m) => m.score > 0).sort((a, b) => b.score - a.score || +new Date(b.note.createdAt as any) - +new Date(a.note.createdAt as any)).slice(0, limit);
-    await writeMemoryAudit(db, { userId, action: "memory.retrieval.query", metadata: { qLength: q.length, tokens: qTokens.length, scanned: rows.length, matches: matches.length, limit } });
-    return c.json({ ok: true, query: q, scanned: rows.length, matches, note: "Bounded lexical retrieval only; no semantic embeddings, no auto-delete, no autonomous behavior change." });
+    const provider = createMemoryRetrievalProvider(process.env);
+    const ranked = await provider.query({
+      query: q,
+      limit,
+      documents: rows.map((r) => ({ id: r.id, kind: String(r.kind ?? "note"), content: String(r.content ?? ""), createdAt: r.createdAt, metadata: (r.metadata as Record<string, unknown> ?? {}) })),
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const matches = ranked.map((m) => {
+      const note = byId.get(m.id);
+      if (!note) return null;
+      return { note, score: m.score, matchedTokens: m.matchedTokens, provenance: m.provenance, confidence: m.confidence, mode: m.mode };
+    }).filter(Boolean);
+    await writeMemoryAudit(db, { userId, action: "memory.retrieval.query", metadata: { qLength: q.length, scanned: rows.length, matches: matches.length, limit, mode: provider.mode } });
+    return c.json({ ok: true, query: q, scanned: rows.length, mode: provider.mode, matches, note: "Bounded retrieval only; semantic mode is deterministic local hash fallback when enabled. No auto-delete, no autonomous behavior change." });
   });
 
   app.get("/consolidation/dry-run", async (c) => {
