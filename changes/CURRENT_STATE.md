@@ -1,7 +1,7 @@
 # Current Project Status (keep updated every session)
 
 **Last updated:** 2026-11-25T20:20:00Z  
-**Overall:** 79.7% (equal-weight P0-P8) | **Remaining:** 20.3% | **Target:** 100%  
+**Overall:** 79.8% (equal-weight P0-P8) | **Remaining:** 20.2% | **Target:** 100%  
 **CI:** [Latest green run 45581186283](https://github.com/Tapas15/helm/actions/runs/45581186283) (`5ccb119`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
@@ -27,6 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
+- 2026-11-25: P7b table-driven disabled-memory FORBIDDEN no-leak contract (local, no external calls): all memory data endpoints when disabled now covered by table-driven assertions for standard `FORBIDDEN` error shape, no note leakage, and no select/delete/update calls; status remains safe. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 29/29; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `3449e1b` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b dry-run forbidden error-shape no-leak contracts (local, no external calls): consolidation/retention dry-run disabled and flag-disabled paths now contract-tested for standard `FORBIDDEN` error shape, no note-content leakage, and no selects when memory disabled; P7b contract evidence updated. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 29/29; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `ff68893` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b retrieval forbidden error-shape no-leak contract (local, no external calls): disabled/flag-disabled retrieval now contract-tested for standard `FORBIDDEN` error shape and no note-content leakage/no select calls when memory disabled. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 27/27; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `d043d18` pushed to `main`. CI not watched per directive.
 - 2026-11-25: P7b dry-run/retrieval audit metadata hardening (local, no external calls): retrieval/consolidation/retention audit metadata now contract-tested for bounded fields and no raw note content/query leakage; P7b contract evidence updated. Evidence: `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` PASS 26/26; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Commit: `d2a2234` pushed to `main`. CI not watched per directive.
