@@ -300,6 +300,30 @@ describe("memory routes (P7b)", () => {
     expect(selectCalls).toBe(0);
   });
 
+  it("feature-flag-disabled memory endpoints return standard FORBIDDEN shape with no note leakage", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "0";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "0";
+    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "0";
+    const secret = "secret-note";
+    const db = makeDb({ selectRows: [{ id: "mem_1", content: secret, kind: "note", metadata: {} }] });
+    const app = makeApp(db);
+    const cases: Array<{ path: string; msg: RegExp }> = [
+      { path: "/v1/memory/retrieval?q=dark", msg: /retrieval disabled/i },
+      { path: "/v1/memory/consolidation/dry-run", msg: /consolidation dry-run disabled/i },
+      { path: "/v1/memory/retention/dry-run", msg: /retention dry-run disabled/i },
+    ];
+    for (const c of cases) {
+      const res = await app.request(c.path);
+      expect(res.status, c.path).toBe(403);
+      const body = await res.json() as any;
+      expect(body.error?.code).toBe("FORBIDDEN");
+      expect(body.error?.message).toMatch(c.msg);
+      expect(typeof body.error?.retryable).toBe("boolean");
+      expect(JSON.stringify(body)).not.toContain(secret);
+    }
+  });
+
   it("retrieval audit records bounded metadata without raw query content", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
