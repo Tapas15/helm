@@ -37,7 +37,8 @@ Document safe, additive correlation contracts needed before emitting user-scoped
 
 **Implemented in this slice (additive, no DB write):**
 - `packages/shared/src/browser.ts`: browser action inputs now accept optional correlation fields (`userId`, `taskId`, `runId`, `correlationId`) via `BrowserActionCorrelation`.
-- `backend/browser-worker/src/index.ts`: action handler parses correlation fields and logs them with request/action outcome (`traceCorrelationId` kept separate from input correlation). No feedback DB writes, no behavior change.
+- `backend/api/src/routes/browser.ts`: trusted API routes propagate optional correlation fields to browser-worker guarded/low-risk/takeover/external-action payloads.
+- `backend/browser-worker/src/index.ts`: action handler parses correlation fields, logs them with request/action outcome (`traceCorrelationId` kept separate from input correlation), and echoes `correlation` in action responses/validation error details. No feedback DB writes, no behavior change.
 
 **Preferred wiring order:**
 1. API emits feedback when it has correlation (already done for guardedAct/external-action failures).
