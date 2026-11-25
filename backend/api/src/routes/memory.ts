@@ -10,6 +10,8 @@ const err = (code: string, message: string, retryable = false, details?: unknown
 const SENSITIVE_RE = /(api[_-]?key|secret|password|token|bearer|private key|vault|sk-[a-z0-9]|ghp_[a-z0-9]|AIza[0-9A-Za-z_-])/i;
 type Provenance = "user_confirmed" | "observed" | "inferred";
 type Sensitivity = "normal" | "sensitive" | "sensitive-redacted";
+type RetentionPolicy = "user_controlled" | "ephemeral" | "session" | "indefinite";
+const RETENTION_POLICIES: readonly RetentionPolicy[] = ["user_controlled", "ephemeral", "session", "indefinite"];
 
 function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: Sensitivity } {
   if (!SENSITIVE_RE.test(text)) return { content: text, redacted: false, sensitivity: "normal" };
@@ -19,6 +21,14 @@ function redactSensitive(text: string): { content: string; redacted: boolean; se
 function clampConfidence(v: unknown, provenance: Provenance): number {
   const n = typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : provenance === "user_confirmed" ? 1 : provenance === "observed" ? 0.8 : 0.6;
   return provenance === "inferred" ? Math.min(n, 0.8) : n;
+}
+
+function normalizeRetention(v: unknown): { retentionPolicy: RetentionPolicy; expiresAt: string | null; pii: "none" | "possible" | "redacted" } {
+  const obj = typeof v === "object" && v && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const retentionPolicy = RETENTION_POLICIES.includes(obj.retentionPolicy as RetentionPolicy) ? (obj.retentionPolicy as RetentionPolicy) : "user_controlled";
+  const expiresAt = typeof obj.expiresAt === "string" && !Number.isNaN(Date.parse(obj.expiresAt)) ? new Date(obj.expiresAt).toISOString() : null;
+  const pii = obj.pii === "possible" || obj.pii === "redacted" || obj.pii === "none" ? obj.pii : "none";
+  return { retentionPolicy, expiresAt, pii };
 }
 
 function noteMeta(existing: unknown, patch: Record<string, unknown>): Record<string, unknown> {
@@ -79,6 +89,7 @@ export function memoryRoutes(db: Database) {
     const r = redactSensitive(raw.slice(0, 4000));
     const now = new Date();
     const confidence = clampConfidence(body?.confidence, provenanceKind);
+    const retention = normalizeRetention({ retentionPolicy: body?.retentionPolicy, expiresAt: body?.expiresAt, pii: r.redacted ? "redacted" : body?.pii });
     const [row] = await db.insert(memoryNotes).values({
       id: uid("mem"), userId, identityId: typeof body?.identityId === "string" ? body.identityId : null,
       kind: typeof body?.kind === "string" ? body.kind.slice(0, 50) : "note", content: r.content,
@@ -88,11 +99,14 @@ export function memoryRoutes(db: Database) {
         sensitivity: r.sensitivity,
         confidence,
         confirmed: body?.confirmed === true || provenanceKind === "user_confirmed",
+        retentionPolicy: retention.retentionPolicy,
+        expiresAt: retention.expiresAt,
+        pii: retention.pii,
         provenance: { kind: provenanceKind, actor: "user", actorId: userId, ts: now.toISOString(), action: "create", source: "api" },
       }),
       createdAt: now, updatedAt: now,
     }).returning();
-    await writeMemoryAudit(db, { userId, action: "memory.create", resourceId: row?.id, metadata: { kind: row?.kind, provenance: provenanceKind, sensitivity: r.sensitivity, confidence, redacted: r.redacted, version: (row?.metadata as any)?.version ?? 1 } });
+    await writeMemoryAudit(db, { userId, action: "memory.create", resourceId: row?.id, metadata: { kind: row?.kind, provenance: provenanceKind, sensitivity: r.sensitivity, confidence, redacted: r.redacted, version: (row?.metadata as any)?.version ?? 1, retentionPolicy: retention.retentionPolicy, pii: retention.pii } });
     return c.json({ ok: true, note: row }, 201);
   });
 
@@ -112,19 +126,23 @@ export function memoryRoutes(db: Database) {
     if (typeof body?.content === "string" && body.content.trim()) {
       const r = redactSensitive(body.content.trim().slice(0, 4000));
       patch.content = r.content;
+      const retention = normalizeRetention({ retentionPolicy: body?.retentionPolicy ?? existingMeta.retentionPolicy, expiresAt: body?.expiresAt ?? existingMeta.expiresAt, pii: r.redacted ? "redacted" : body?.pii ?? existingMeta.pii });
       patch.metadata = noteMeta(existingMeta, {
         source: "api", redactedSensitive: r.redacted, sensitivity: r.sensitivity,
         confidence: clampConfidence(body?.confidence ?? existingMeta.confidence, provKind),
         confirmed: body?.confirmed === true || existingMeta.confirmed === true || provKind === "user_confirmed",
+        retentionPolicy: retention.retentionPolicy, expiresAt: retention.expiresAt, pii: retention.pii,
         provenance: { kind: provKind, actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" },
       });
     }
     if (typeof body?.kind === "string" && body.kind.trim()) patch.kind = body.kind.trim().slice(0, 50);
     if (typeof body?.identityId === "string" || body?.identityId === null) patch.identityId = body.identityId;
     if (!("metadata" in patch)) {
+      const retention = normalizeRetention({ retentionPolicy: body?.retentionPolicy ?? existingMeta.retentionPolicy, expiresAt: body?.expiresAt ?? existingMeta.expiresAt, pii: body?.pii ?? existingMeta.pii });
       patch.metadata = noteMeta(existingMeta, {
         confidence: clampConfidence(body?.confidence ?? existingMeta.confidence, provKind),
         confirmed: body?.confirmed === true || existingMeta.confirmed === true || provKind === "user_confirmed",
+        retentionPolicy: retention.retentionPolicy, expiresAt: retention.expiresAt, pii: retention.pii,
         provenance: { kind: provKind, actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" },
       });
     }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+﻿import { afterEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
 import { auditLog, memoryNotes } from "@helm/db";
 import { memoryRoutes } from "../routes/memory.js";
@@ -116,4 +116,21 @@ describe("memory routes (P7b)", () => {
     expect(row).toBeTruthy();
     expect(row.metadata?.provenance).toBe("user_confirmed");
   });
+
+  it("stores retention/PII metadata without auto-delete", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/memory/notes", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "remember this", retentionPolicy: "ephemeral", expiresAt: "2026-12-31T00:00:00.000Z", pii: "possible" }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json() as any;
+    expect(body.note.metadata.retentionPolicy).toBe("ephemeral");
+    expect(body.note.metadata.expiresAt).toBe("2026-12-31T00:00:00.000Z");
+    expect(body.note.metadata.pii).toBe("possible");
+  });
 });
+
+
+
