@@ -61,4 +61,10 @@ describe("feedback routes (P7a)", () => {
     expect(body.event.payload.ok).toBe("y");
     expect(body.event.redacted).toBe(true);
   });
+
+  it("rejects invalid kind", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    const res = await makeApp().request("/v1/feedback/events", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "bad", signal: "negative" }) });
+    expect(res.status).toBe(400);
+  });
 });
