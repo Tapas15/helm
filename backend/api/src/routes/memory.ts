@@ -8,9 +8,17 @@ const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
 const SENSITIVE_RE = /(api[_-]?key|secret|password|token|bearer|private key|vault|sk-[a-z0-9]|ghp_[a-z0-9]|AIza[0-9A-Za-z_-])/i;
-function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: "normal" | "sensitive-redacted" } {
+type Provenance = "user_confirmed" | "observed" | "inferred";
+type Sensitivity = "normal" | "sensitive" | "sensitive-redacted";
+
+function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: Sensitivity } {
   if (!SENSITIVE_RE.test(text)) return { content: text, redacted: false, sensitivity: "normal" };
   return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted" };
+}
+
+function clampConfidence(v: unknown, provenance: Provenance): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : provenance === "user_confirmed" ? 1 : provenance === "observed" ? 0.8 : 0.6;
+  return provenance === "inferred" ? Math.min(n, 0.8) : n;
 }
 
 function noteMeta(existing: unknown, patch: Record<string, unknown>): Record<string, unknown> {
@@ -22,31 +30,42 @@ function noteMeta(existing: unknown, patch: Record<string, unknown>): Record<str
 export function memoryRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_MEMORY_ENABLED === "1";
+
   app.get("/status", async (c) => {
     const userId = c.get("userId");
     const count = enabled() ? (await db.select({ id: memoryNotes.id }).from(memoryNotes).where(eq(memoryNotes.userId, userId)).limit(100)).length : 0;
-    return c.json({ ok: true, enabled: enabled(), mode: enabled() ? "db-notes" : "disabled", notesVisible: count });
+    return c.json({ ok: true, enabled: enabled(), mode: enabled() ? "db-notes" : "disabled", notesVisible: count, inferredAllowed: process.env.HELM_MEMORY_ALLOW_INFERRED === "1" });
   });
+
   app.get("/notes", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
-    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(50);
-    return c.json({ ok: true, notes: rows });
+    const provenanceFilter = c.req.query("provenance");
+    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(100);
+    const filtered = provenanceFilter ? rows.filter((r) => ((r.metadata as any)?.provenance?.kind ?? "user_confirmed") === provenanceFilter) : rows;
+    return c.json({ ok: true, notes: filtered });
   });
+
   app.get("/export", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(500);
     return c.json({ ok: true, exportedAt: new Date().toISOString(), count: rows.length, notes: rows });
   });
+
   app.post("/notes", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const body = await c.req.json().catch(() => ({} as any));
     const raw = typeof body?.content === "string" ? body.content.trim() : "";
     if (!raw) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "content required"), 400);
+    const provenanceKind = (["user_confirmed", "observed", "inferred"] as const).includes(body?.provenance) ? body.provenance as Provenance : "user_confirmed";
+    if (provenanceKind === "inferred" && body?.confirmed !== true && process.env.HELM_MEMORY_ALLOW_INFERRED !== "1") {
+      return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Inferred memory requires HELM_MEMORY_ALLOW_INFERRED=1 or confirmed=true"), 403);
+    }
     const r = redactSensitive(raw.slice(0, 4000));
     const now = new Date();
+    const confidence = clampConfidence(body?.confidence, provenanceKind);
     const [row] = await db.insert(memoryNotes).values({
       id: uid("mem"), userId, identityId: typeof body?.identityId === "string" ? body.identityId : null,
       kind: typeof body?.kind === "string" ? body.kind.slice(0, 50) : "note", content: r.content,
@@ -54,12 +73,15 @@ export function memoryRoutes(db: Database) {
         source: "api",
         redactedSensitive: r.redacted,
         sensitivity: r.sensitivity,
-        provenance: { actor: "user", actorId: userId, ts: now.toISOString(), action: "create", source: "api" },
+        confidence,
+        confirmed: body?.confirmed === true || provenanceKind === "user_confirmed",
+        provenance: { kind: provenanceKind, actor: "user", actorId: userId, ts: now.toISOString(), action: "create", source: "api" },
       }),
       createdAt: now, updatedAt: now,
     }).returning();
     return c.json({ ok: true, note: row }, 201);
   });
+
   app.patch("/notes/:id", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
@@ -68,24 +90,34 @@ export function memoryRoutes(db: Database) {
     const [existing] = await db.select().from(memoryNotes).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).limit(1);
     if (!existing) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
     const patch: Record<string, unknown> = { updatedAt: new Date() };
+    const existingMeta = (existing.metadata as Record<string, unknown> ?? {});
+    const provKind = (["user_confirmed", "observed", "inferred"] as const).includes(body?.provenance) ? body.provenance as Provenance : ((existingMeta.provenance as any)?.kind ?? "user_confirmed");
+    if (provKind === "inferred" && body?.confirmed !== true && existingMeta.confirmed !== true && process.env.HELM_MEMORY_ALLOW_INFERRED !== "1") {
+      return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Inferred memory requires HELM_MEMORY_ALLOW_INFERRED=1 or confirmed=true"), 403);
+    }
     if (typeof body?.content === "string" && body.content.trim()) {
       const r = redactSensitive(body.content.trim().slice(0, 4000));
       patch.content = r.content;
-      patch.metadata = noteMeta(existing.metadata, {
-        source: "api",
-        redactedSensitive: r.redacted,
-        sensitivity: r.sensitivity,
-        provenance: { actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" },
+      patch.metadata = noteMeta(existingMeta, {
+        source: "api", redactedSensitive: r.redacted, sensitivity: r.sensitivity,
+        confidence: clampConfidence(body?.confidence ?? existingMeta.confidence, provKind),
+        confirmed: body?.confirmed === true || existingMeta.confirmed === true || provKind === "user_confirmed",
+        provenance: { kind: provKind, actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" },
       });
     }
     if (typeof body?.kind === "string" && body.kind.trim()) patch.kind = body.kind.trim().slice(0, 50);
     if (typeof body?.identityId === "string" || body?.identityId === null) patch.identityId = body.identityId;
-    if (!("metadata" in patch) && Object.keys(patch).length > 1) {
-      patch.metadata = noteMeta(existing.metadata, { provenance: { actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" } });
+    if (!("metadata" in patch)) {
+      patch.metadata = noteMeta(existingMeta, {
+        confidence: clampConfidence(body?.confidence ?? existingMeta.confidence, provKind),
+        confirmed: body?.confirmed === true || existingMeta.confirmed === true || provKind === "user_confirmed",
+        provenance: { kind: provKind, actor: "user", actorId: userId, ts: new Date().toISOString(), action: "update", source: "api" },
+      });
     }
     const [row] = await db.update(memoryNotes).set(patch).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning();
     return c.json({ ok: true, note: row });
   });
+
   app.get("/notes/:id", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
@@ -94,6 +126,7 @@ export function memoryRoutes(db: Database) {
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
     return c.json({ ok: true, note: row });
   });
+
   app.delete("/notes/:id", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
@@ -102,5 +135,6 @@ export function memoryRoutes(db: Database) {
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
     return c.json({ ok: true, deletedId: row.id });
   });
+
   return app;
 }
