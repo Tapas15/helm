@@ -31,11 +31,11 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 
 ### Remaining / Blocked
 - [x] External runtime decision: BrowserOS neo MCP endpoint `http://127.0.0.1:9210/mcp` probed; AGPL external-runtime-only boundary confirmed by user (`external-adapter OK`).
-- [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (5/5, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, **positive click/fill success on controlled local page**, **adapter-level takeover request/resume/stream-status parity**; screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control, security review.
-- [ ] Security/compliance review for external adapter isolation (process boundary, auth, data handling).
+- [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (5/5, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, **positive click/fill success on controlled local page**, **adapter-level takeover request/resume/stream-status parity**; screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control.
+- [~] Security/compliance review baseline recorded (2026-11-25): AGPL boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; remaining: operator URL trust/SSRF guard, credential handling in external runtime, artifact/PII retention review, formal threat-model signoff.
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
-- [x] Push `0616ad1` and verify GitHub Actions CI green (CI [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green on `554f6ba`, includes P6 smoke parity batch).
-- [ ] Define explicit fallback/dispatch policy: Playwright default, BrowserOS opt-in only via explicit env/config; no silent runtime switch; dispatch by default only after parity+security evidence.
+- [x] Push and verify GitHub Actions CI green ([45545949262](https://github.com/Tapas15/helm/actions/runs/45545949262) green on `776f7c0`).
+- [ ] Default dispatch only after parity+security signoff evidence.
 - [ ] Performance benchmarking vs Playwright baseline.
 
 ## Evidence
@@ -45,7 +45,27 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - CI: [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green (`554f6ba`, main).
 - Commits: pushed through `554f6ba` on `main`.
 
-## Dispatch / Fallback Policy (explicit, no silent switch)
+## Security / Compliance Review (2026-11-25, code-audit baseline)
+
+**Status:** baseline review recorded; not a full security signoff.
+
+### Boundary / License
+- [x] **No copied BrowserOS code** in Helm repo tracked source (`git ls-files '*browseros*'` only Helm adapter/client/executor/smoke/phase doc). BrowserOS runs as **external runtime** (user-confirmed `external-adapter OK`); AGPL boundary preserved by process/network contract.
+- [x] **No vendored AGPL/copyleft artifacts** added by this adapter. Third-party notices refresh remains required on dependency changes (P8/legal).
+
+### Process / Auth / Data handling
+- [x] **Process isolation:** MCP adapter calls external BrowserOS MCP over configured URL (`BROWSEROS_MCP_URL`); legacy HTTP adapter uses `BROWSEROS_BASE_URL` + bearer `BROWSEROS_TOKEN`. No BrowserOS SDK embedded.
+- [x] **Helm authZ boundary preserved at API routes:** `backend/api/src/routes/browser.ts` resolves owned session/task before proxying mutating/read actions; guarded actions still require approval/actionHash/idempotency. Adapter dispatch occurs only after route-level ownership checks.
+- [x] **No secret logging in adapter code:** `browser-adapter.ts`, `browseros-mcp-client.ts`, `browseros-mcp-executor.ts` contain no console logger calls; legacy token is used only in Authorization header construction.
+- [~] **Data exposure to external runtime:** BrowserOS MCP receives tool args including URLs, selectors, fill values, and may return page text/screenshot/base64. This is expected for browser automation but must be treated as **data egress to a local external process**. Do not send vault secrets/unredacted credentials; fill values for sensitive flows should remain approval-gated and policy-reviewed.
+- [~] **Network target trust:** `BROWSEROS_MCP_URL` / `BROWSEROS_BASE_URL` are operator-configured. Production/operator docs should restrict to trusted loopback/internal endpoints; SSRF/private-network policy for arbitrary operator URLs not yet enforced by schema.
+- [ ] **Credential handling review:** confirm BrowserOS runtime stores no Helm vault secrets; confirm MCP transport auth/TLS expectations for non-loopback deployments.
+- [ ] **Artifact/data retention review:** screenshot/snapshot artifacts captured by executor follow artifact-dir policy; need explicit retention/redaction review for pages containing PII/secrets.
+- [ ] **Threat-model signoff:** full STRIDE/threat-model evidence still P8/manual.
+
+### Dispatch / Fallback
+- [x] **No silent fallback/default dispatch:** `createBrowserAdapter` selects explicitly by env; `HELM_BROWSER_ADAPTER_DISPATCH` defaults off. Adapter errors surface structured `code/message/retryable`.
+- [ ] **Default-dispatch gate:** only after deeper parity, security review signoff, and CI/env-gated evidence.
 - **Default**: `BROWSER_ADAPTER=playwright` / dispatch off by default behavior remains Playwright.
 - **Opt-in**: BrowserOS MCP only when explicitly configured (`BROWSEROS_MCP_URL`, and/or explicit adapter/dispatch env per route integration). No automatic runtime fallback from Playwright to BrowserOS or vice versa for a failing action.
 - **Error surfacing**: Adapter errors must be structured (`code/message/retryable`); caller/route decides retry based on policy, never blind retry of uncertain external writes.

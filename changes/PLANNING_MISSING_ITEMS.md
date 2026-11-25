@@ -79,7 +79,7 @@
 - [x] Contract tests PASS (12/12); env-gated smoke PASS (3/3: capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort).
 - [ ] Push `0616ad1`, verify CI green for pushed P6 commits.
 - [ ] Positive click/fill success parity on controlled selector, takeover semantics, artifact/error parity depth.
-- [ ] Security/compliance review for external adapter isolation (process boundary, auth, data handling).
+- [~] Security/compliance review baseline recorded (2026-11-25): AGPL boundary/no copied code, Helm route authZ preserved, no adapter secret logging. Remaining: operator URL trust/SSRF guard, external-runtime credential handling, artifact/PII retention review, formal threat-model signoff.
 - [ ] Capability fallback/dispatch policy; default dispatch only after parity.
 - [ ] Performance benchmarking vs Playwright baseline.
 
