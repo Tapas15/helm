@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, identityPolicies, taskEvents, tasks, type Database } from "@helm/db";
+import { emitFeedbackEvent } from "../lib/feedback.js";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
 import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
@@ -149,6 +150,12 @@ export function browserRoutes(db: Database) {
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
       await db.update(actionReceipts).set({ status: "failed", evidence: { ...(claimed.evidence as any ?? {}), error: json?.error ?? r.text } }).where(eq(actionReceipts.id, claimed.id));
+      await emitFeedbackEvent(db, {
+        userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId ?? null, kind: "tool_failure",
+        signal: "negative", severity: "error",
+        payload: { source: "browser.guardedAct", action, sessionId: c.req.param("id"), status: r.status, code: json?.error?.code ?? HELM_ERROR_CODES.INTERNAL_ERROR, retryable: json?.error?.retryable ?? r.status >= 500 },
+        evidenceRefs: [{ type: "action_receipt", id: claimed.id, actionKind: `browser.${action}` }],
+      });
       return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
     }
     await db.update(actionReceipts).set({ status: "executed", evidence: { ...(claimed.evidence as any ?? {}), result: json?.data ?? {} } }).where(eq(actionReceipts.id, claimed.id));
@@ -287,6 +294,11 @@ export function browserRoutes(db: Database) {
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
       await db.update(actionReceipts).set({ status: "failed", evidence: { ...(claimed.evidence as any ?? {}), error: json?.error ?? r.text } }).where(eq(actionReceipts.id, claimed.id));
+      await emitFeedbackEvent(db, {
+        userId, taskId: approval.taskId, runId: approval.runId ?? null, kind: "tool_failure", signal: "negative", severity: "error",
+        payload: { source: "browser.external_action", action: input.action, sessionId: c.req.param("id"), status: r.status, code: json?.error?.code ?? HELM_ERROR_CODES.INTERNAL_ERROR, retryable: json?.error?.retryable ?? r.status >= 500 },
+        evidenceRefs: [{ type: "action_receipt", id: claimed.id, actionKind: `browser.external.${input.action}` }],
+      });
       return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
     }
     const artifact = json?.data?.artifact;

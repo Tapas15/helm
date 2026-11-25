@@ -82,7 +82,13 @@ export function memoryRoutes(db: Database) {
   app.get("/status", async (c) => {
     const userId = c.get("userId");
     const count = enabled() ? (await db.select({ id: memoryNotes.id }).from(memoryNotes).where(eq(memoryNotes.userId, userId)).limit(100)).length : 0;
-    return c.json({ ok: true, enabled: enabled(), mode: enabled() ? "db-notes" : "disabled", notesVisible: count, inferredAllowed: process.env.HELM_MEMORY_ALLOW_INFERRED === "1" });
+    return c.json({
+      ok: true, enabled: enabled(), mode: enabled() ? "db-notes" : "disabled", notesVisible: count,
+      inferredAllowed: process.env.HELM_MEMORY_ALLOW_INFERRED === "1",
+      retrievalEnabled: process.env.HELM_MEMORY_RETRIEVAL_ENABLED === "1",
+      consolidationDryRunEnabled: process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN === "1",
+      retentionDryRunEnabled: process.env.HELM_MEMORY_RETENTION_DRY_RUN === "1",
+    });
   });
 
   app.get("/notes", async (c) => {
