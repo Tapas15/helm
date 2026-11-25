@@ -1661,3 +1661,24 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Memory schema provenance/sensitivity/version fields + retention/PII policy (P8/legal/product input).
 - [ ] Skill/proactivity scheduler and identity vault/UI.
 - [ ] **Blocked:** self-improvement implementation/activation pending explicit user approval.
+
+## 2026-11-25 - P7a feedback/eval corpus scaffold (user-approved)
+**Time:** 2026-11-25T13:35:00Z
+**Agent:** Kilo
+**Phase:** P7 Identity/Memory/Skills (P7a self-improvement foundation)
+
+### Completed
+- [x] User explicitly approved P7a scope: feedback + eval corpus; no autonomous activation.
+- [x] Added DB schema+manual migration for `feedback_events` and `eval_cases` (`packages/db/drizzle/0002_p7a_feedback_eval.sql`).
+- [x] Added flag-gated API routes (`HELM_FEEDBACK_ENABLED=1`): status, post/list feedback events, create/list eval cases from feedback; payloads redacted.
+- [x] Hardened memory metadata: sensitivity/version/provenance fields; added GET note by id.
+- [x] Proactivity guard: only `draft` actionKind allowed in create/patch; autonomous/external execution remains blocked.
+
+### Evidence
+- `pnpm -C packages/db exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api --filter @helm/db` PASS (0 errors, 1 pre-existing warning)
+
+### Remaining / Blocked
+- [ ] P7a depth: proposal records, eval/policy gate, versioned activation/rollback, approval-bound activation flow, tests.
+- [ ] **Blocked:** self-improvement activation/autonomous execution requires explicit user approval and gate implementation.
