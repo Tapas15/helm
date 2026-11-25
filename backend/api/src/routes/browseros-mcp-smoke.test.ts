@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import http from "node:http";
 import { BrowserOSMcpAdapter } from "../lib/browser-adapter.js";
 
@@ -58,7 +58,7 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
   it("reports structured error for unknown session", async () => {
     const adapter = new BrowserOSMcpAdapter(mcpUrl);
     const r = await adapter.request("/v1/sessions/bos_missing/snapshot", { method: "POST", body: "{}" });
-    expect([400,404]).toContain(r.status);
+    expect([400, 404]).toContain(r.status);
     const body = JSON.parse(r.text);
     expect(body.ok).toBe(false);
     expect(typeof body.error?.code).toBe("string");
@@ -74,7 +74,7 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
       expect(click.status).toBe(400);
       const clickBody = JSON.parse(click.text);
       expect(clickBody.ok).toBe(false);
-      expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(clickBody.error?.code);
+      expect(["SELECTOR_NOT_FOUND", "BROWSEROS_ACTION_FAILED", "BROWSEROS_TIMEOUT"]).toContain(clickBody.error?.code);
       expect(typeof clickBody.error?.message).toBe("string");
       expect(typeof clickBody.error?.retryable).toBe("boolean");
       if (clickBody.error?.code === "SELECTOR_NOT_FOUND") expect(clickBody.error.retryable).toBe(false);
@@ -83,7 +83,7 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
       expect(fill.status).toBe(400);
       const fillBody = JSON.parse(fill.text);
       expect(fillBody.ok).toBe(false);
-      expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(fillBody.error?.code);
+      expect(["SELECTOR_NOT_FOUND", "BROWSEROS_ACTION_FAILED", "BROWSEROS_TIMEOUT"]).toContain(fillBody.error?.code);
       expect(typeof fillBody.error?.message).toBe("string");
       expect(typeof fillBody.error?.retryable).toBe("boolean");
       if (fillBody.error?.code === "SELECTOR_NOT_FOUND") expect(fillBody.error.retryable).toBe(false);
@@ -147,4 +147,66 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
       await adapter.close(session.id).catch(() => undefined);
     }
   }, 180_000);
+
+  it("perf/parity baseline on controlled local page (no external side effects)", async () => {
+    const adapter = new BrowserOSMcpAdapter(mcpUrl);
+    const html = '<html><body><h1>Helm Perf</h1><input id="name" value=""><button id="btn" onclick="document.getElementById(\'out\').textContent=document.getElementById(\'name\').value;">Go</button><div id="out"></div></body></html>';
+    const server = http.createServer((_req, res) => { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(html); });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const addr = server.address();
+    if (!addr || typeof addr === "string") throw new Error("failed to bind local test server");
+    const localUrl = `http://127.0.0.1:${addr.port}/`;
+    const timings: Record<string, number> = {};
+    const measure = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
+      const start = performance.now();
+      const out = await fn();
+      timings[name] = Math.round(performance.now() - start);
+      return out;
+    };
+    let session: any;
+    try {
+      const caps = await measure("capabilities", () => adapter.request("/v1/capabilities", { method: "GET" }));
+      expect(caps.status).toBe(200);
+      const capsBody = JSON.parse(caps.text);
+      expect(capsBody.ok).toBe(true);
+      expect(capsBody.missing).toEqual([]);
+
+      session = await measure("create", () => adapter.createSession({ initialUrl: "about:blank", headless: false }));
+      expect(session.provider).toBe("browseros");
+
+      const nav = await measure("navigate", () => adapter.navigate(session.id, { url: localUrl })) as any;
+      expect(nav.ok).toBe(true);
+
+      const snap = await measure("snapshot", () => adapter.snapshot(session.id)) as any;
+      expect(snap.ok).toBe(true);
+      expect(snap.data?.artifact?.kind).toBe("dom_snapshot");
+      expect(String(snap.data?.artifact?.sha256 ?? "")).toMatch(/^[a-f0-9]{64}$/);
+
+      const fill = await measure("fill", () => adapter.request(`/v1/sessions/${session.id}/fill`, { method: "POST", body: JSON.stringify({ selector: "#name", value: "helm", submit: false }) }));
+      expect(fill.status).toBe(200);
+      expect(JSON.parse(fill.text).ok).toBe(true);
+
+      const click = await measure("click", () => adapter.request(`/v1/sessions/${session.id}/click`, { method: "POST", body: JSON.stringify({ selector: "#btn" }) }));
+      expect(click.status).toBe(200);
+      expect(JSON.parse(click.text).ok).toBe(true);
+
+      const take = await measure("takeover_request", () => adapter.request(`/v1/sessions/${session.id}/takeover/request`, { method: "POST", body: JSON.stringify({ reason: "perf baseline" }) }));
+      expect(take.status).toBe(200);
+      expect(JSON.parse(take.text).data?.control?.owner).toBe("user");
+
+      const resume = await measure("takeover_resume", () => adapter.request(`/v1/sessions/${session.id}/takeover/resume`, { method: "POST", body: JSON.stringify({ note: "perf baseline" }) }));
+      expect(resume.status).toBe(200);
+      expect(JSON.parse(resume.text).data?.control?.owner).toBe("agent");
+
+      const close = await measure("close", () => adapter.close(session.id)) as any;
+      expect(close?.ok).toBe(true);
+      session = null;
+
+      console.log(`[browseros-mcp-perf-baseline] ${JSON.stringify({ mcpUrl, localUrl, timings, at: new Date().toISOString() })}`);
+      expect(Object.keys(timings).length).toBeGreaterThanOrEqual(9);
+    } finally {
+      if (session) await adapter.close(session.id).catch(() => undefined);
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }, 240_000);
 });

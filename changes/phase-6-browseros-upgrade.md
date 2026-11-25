@@ -31,19 +31,20 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 
 ### Remaining / Blocked
 - [x] External runtime decision: BrowserOS neo MCP endpoint `http://127.0.0.1:9210/mcp` probed; AGPL external-runtime-only boundary confirmed by user (`external-adapter OK`).
-- [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (5/5, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, **positive click/fill success on controlled local page**, **adapter-level takeover request/resume/stream-status parity**; screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control.
+- [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (6/6, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, positive click/fill success on controlled local page, adapter-level takeover request/resume/stream-status parity, **perf/parity baseline on controlled local page** (capabilities 9ms, create 80ms, navigate 458ms, snapshot 40ms, fill 61ms, click 206ms, takeover req/resume 0/1ms, close 33ms). Screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control.
 - [~] Security/compliance review baseline recorded (2026-11-25): AGPL boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; **operator URL validation added** (http/https only, explicit config errors, partial base/token stub messages) and **non-loopback remote endpoint guard** (`HELM_BROWSEROS_ALLOW_REMOTE=1` opt-in). Remaining: deeper SSRF/private-network/operator policy, external-runtime credential handling, artifact/PII retention review, formal threat-model signoff.
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
 - [x] Push and verify GitHub Actions CI green (latest: [45561356201](https://github.com/Tapas15/helm/actions/runs/45561356201), `dbd59ef`).
 - [ ] Default dispatch only after parity+security signoff evidence.
-- [ ] Performance benchmarking vs Playwright baseline.
+- [~] Performance benchmarking vs Playwright baseline (env-gated BrowserOS MCP baseline captured 2026-11-25; Playwright-side controlled baseline still needed for comparison).
 
 ## Evidence
-- `backend/api/src/lib/browser-adapter.test.ts` PASS (17/17).
-- `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (5/5, 2026-11-25) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`: capabilities/create/navigate/snapshot/close; unknown-session structured error; click/fill selector-not-found structured error; positive click/fill on controlled local page (no external side effects); adapter-level takeover request/resume/stream-status parity. Screenshot best-effort (timeout classified retryable).
+- `backend/api/src/lib/browser-adapter.test.ts` PASS (19/19).
+- `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (6/6, 2026-11-25) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`: capabilities/create/navigate/snapshot/close; unknown-session structured error; click/fill selector-not-found structured error; positive click/fill on controlled local page (no external side effects); adapter-level takeover request/resume/stream-status parity; **perf/parity baseline** on controlled local page. Screenshot best-effort (timeout classified retryable).
+- Perf baseline log (2026-11-25, local BrowserOS MCP): `{"capabilities":9,"create":80,"navigate":458,"snapshot":40,"fill":61,"click":206,"takeover_request":0,"takeover_resume":1,"close":33}` ms.
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS.
-- CI: [45558313187](https://github.com/Tapas15/helm/actions/runs/45558313187) green (`7c77161`, main).
-- Commits: pushed through `7c77161` on `main`.
+- CI: latest run recorded in `changes/CURRENT_STATE.md` after push.
+- Commits: pushed on `main` (see git log / CURRENT_STATE).
 
 ## Security / Compliance Review (2026-11-25, code-audit baseline)
 
