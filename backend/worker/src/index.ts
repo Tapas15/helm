@@ -3,6 +3,7 @@ import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, createDb, taskEvents, taskMessages, tasks } from "@helm/db";
 import type { AgentRuntimeEvent } from "@helm/shared";
 import { logger as log } from "./lib/logger.js";
+import { emitWorkerFeedbackEvent } from "./feedback.js";
 import { HelmNativeRuntime } from "./runtime.js";
 
 const dbUrl = process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/helm";
@@ -139,6 +140,14 @@ async function processTask(task: typeof tasks.$inferSelect) {
     }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId))).returning();
     if (updated) {
       await insertEvent(task.id, task.userId, runId, "task.completed", correlationId, task.id, { status: updated.status, output, ...trace });
+      await emitWorkerFeedbackEvent(db, {
+        userId: task.userId, taskId: task.id, runId, kind: "task_outcome",
+        signal: updated.status === "succeeded" ? "positive" : updated.status === "failed" ? "negative" : "neutral",
+        severity: updated.status === "failed" ? "error" : "info",
+        summary: `task.${updated.status}`,
+        payload: { status: updated.status, errorCode: updated.errorCode ?? null },
+        evidenceRefs: [{ type: "task_event", action: "task.completed", taskId: task.id }],
+      });
       taskLog.info({ event: "task.completed", status: updated.status }, "task completed");
     }
   } catch (err) {
@@ -147,6 +156,12 @@ async function processTask(task: typeof tasks.$inferSelect) {
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: `Error: ${message}`, metadata: { runId, correlationId, status: "failed" }, createdAt: doneAt }).catch(() => undefined);
     await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
     await insertEvent(task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
+    await emitWorkerFeedbackEvent(db, {
+      userId: task.userId, taskId: task.id, runId, kind: "tool_failure",
+      signal: "negative", severity: "error", summary: "task.failed.runtime_crash",
+      payload: { code: "RUNTIME_CRASH", message: message.slice(0, 300) },
+      evidenceRefs: [{ type: "task_event", action: "task.failed", taskId: task.id }],
+    });
     taskLog.error({ err, event: "task.failed" }, "task failed");
   }
 }
