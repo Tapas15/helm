@@ -73,9 +73,14 @@
 - [ ] Schedules/monitors, dead-letter/operator runbooks, observability depth.
 
 ## P6 BrowserOS Deterministic Upgrade
-- [x] Adapter boundary + Playwright default + BrowserOS HTTP/stub; status endpoint; dispatch flag; contract tests PASS (6/6).
-- [ ] **Blocked:** Real BrowserOS endpoint/protocol/token/runtime decision + parity/security tests.
-- [ ] Capability detection/fallback; default dispatch only after parity.
+- [x] Adapter boundary + Playwright default + BrowserOS HTTP/stub; status endpoint; dispatch flag.
+- [x] External runtime decision: BrowserOS neo MCP endpoint `127.0.0.1:9210/mcp`, external-runtime-only boundary confirmed (AGPL, no code copied).
+- [x] MCP adapter/client behind contract (`BROWSEROS_MCP_URL`), capability/report, timeout/error classification; selector-not-found click/fill hardening (`0616ad1`, local unpushed).
+- [x] Contract tests PASS (12/12); env-gated smoke PASS (3/3: capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort).
+- [ ] Push `0616ad1`, verify CI green for pushed P6 commits.
+- [ ] Positive click/fill success parity on controlled selector, takeover semantics, artifact/error parity depth.
+- [ ] Security/compliance review for external adapter isolation (process boundary, auth, data handling).
+- [ ] Capability fallback/dispatch policy; default dispatch only after parity.
 - [ ] Performance benchmarking vs Playwright baseline.
 
 ## P7 Memory / Skills / Proactivity
@@ -110,7 +115,8 @@
 - [ ] Idempotency/audit coverage matrix for every mutating endpoint/tool.
 - [ ] ADRs: canonical event schema (AG-UI extension vs custom), secret vault, observability stack, BrowserOS/Obscura external adapter policy.
 
-## 2026-11-24 - P6 BrowserOS MCP adapter (verified slice)
-- Added external BrowserOS MCP adapter path (BROWSEROS_MCP_URL, streamable HTTP /mcp) behind existing browser adapter contract; Playwright default unchanged. User confirmed external-adapter OK; no BrowserOS code copied.
-- Evidence: API typecheck PASS; rowser-adapter.test.ts 7/7 PASS; env-gated MCP smoke PASS (create/screenshot/snapshot/close on https://example.com).
-- Still missing for P6: full action parity (click/fill/selector/takeover/error semantics), security/compliance review, capability detection/fallback, default-dispatch decision, CI/fresh evidence.
+## 2026-11-25 - P6 BrowserOS MCP parity hardening (local, CI pending)
+- Hardened click/fill selector detection in BrowserOS MCP executor: `evaluate_in_page` returns structured `selector_not_found|ok`; adapter maps missing selector to `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false).
+- Env-gated smoke expects structured selector-not-found for click/fill; capabilities/create/navigate/snapshot/close and unknown-session structured error remain covered; screenshot best-effort.
+- Evidence: `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `browser-adapter.test.ts` 12/12 PASS; `HELM_BROWSEROS_MCP_SMOKE=1 ...` smoke 3/3 PASS.
+- Commit: `0616ad1` local unpushed; CI not verified. Remaining: push+CI, positive click/fill/takeover parity, security/fallback/dispatch policy.

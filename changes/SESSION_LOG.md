@@ -1,3 +1,33 @@
+## 2026-11-25T03:20:00Z - Session: P6 BrowserOS selector hardening + docs/changelog sync
+
+**Agent:** Kilo (Glyph Cluster)  
+**Request:** "also mention in changes and readme what you did i am going fo sleep / please update in changes in all files and session_log.md about this project"
+
+### Commands run + results
+- `git -C helm status --short` - `?? backups/` (untracked).
+- `git -C helm log --oneline -5` - HEAD `0616ad1 fix(p6): harden BrowserOS click/fill selector detection` (local, unpushed); `origin/main` at `3a8073c`.
+- Reviewed current docs: `README.md`, `changes/CURRENT_STATE.md`, `changes/README.md`, `changes/phase-6-browseros-upgrade.md`, `changes/PLANNING_MISSING_ITEMS.md`, `changes/FIX_LOG.md`, `changes/DECISIONS.md`, `changes/SESSION_LOG.md`.
+
+### Completed (this session)
+- [x] Updated README progress/status: overall 72.9%, P6 58%, P6 notes reflect MCP adapter hardening, selector-not-found detection, 12/12 contract + 3/3 env-gated smoke, `0616ad1` local CI pending.
+- [x] Updated `changes/CURRENT_STATE.md`: timestamp, CI note (`0616ad1` unpushed), P6 latest-completed/evidence, blockers/next-move clarity.
+- [x] Updated `changes/phase-6-browseros-upgrade.md`: hardening details, commit list including `0616ad1`, remaining parity/security/fallback/push+CI gaps.
+- [x] Updated `changes/PLANNING_MISSING_ITEMS.md`: P6 checklist reflects MCP adapter done/pending; added 2026-11-25 P6 parity-hardening note.
+- [x] Updated `changes/README.md`: phase index P6 percent/summary corrected to 58%.
+- [x] Appended `changes/FIX_LOG.md` entry `FIX-20261125-browseros-click-fill-selector-detection`.
+
+### P6 work recorded (code in `0616ad1`, local unpushed)
+- **Boundary**: BrowserOS neo used as external local MCP runtime only (`http://127.0.0.1:9210/mcp`, AGPL-3.0, `external-adapter OK`); no BrowserOS code copied into Helm. Playwright remains default; no silent fallback/default dispatch switch.
+- **Adapter/client**: `browseros-mcp-client.ts` JSON-RPC streamable HTTP/SSE client; timeout `BROWSEROS_MCP_TIMEOUT_MS` (default 30s); `tools/list` capability detection (required `tabs,navigate,snapshot,screenshot`).
+- **Executor hardening**: `browseros-mcp-executor.ts` maps Helm `BrowserExecutor` actions to BrowserOS MCP tools; create/action capability gate; structured error classification `BROWSEROS_TIMEOUT/UNAVAILABLE/CAPABILITY_MISSING/SELECTOR_NOT_FOUND`; click/fill use `evaluate_in_page` returning structured `selector_not_found|ok`.
+- **Contract/dispatch**: `BrowserOSMcpAdapter` `/v1/capabilities`; adapter selection prefers `BROWSEROS_MCP_URL` > legacy `BROWSEROS_BASE_URL+TOKEN` > stub.
+- **Evidence**: `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `backend/api/src/lib/browser-adapter.test.ts` 12/12 PASS; env-gated smoke `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000` PASS (3/3) - capabilities/create/navigate/snapshot/close, structured unknown-session error, click/fill selector-not-found structured error; screenshot best-effort (timeout classified retryable).
+
+### Remaining / Next
+- [ ] Push `0616ad1`; verify GitHub Actions green for `3a8073c`/`0616ad1`; record CI links in `CURRENT_STATE.md`/phase-6.
+- [ ] P6 parity: positive click/fill success on controlled selector, takeover semantics, artifact/error parity depth, security/compliance review, explicit fallback/dispatch policy; keep Playwright default.
+- [ ] P1 live UI smoke/SSE cursor-resume+fault-injection depth; P2/P3 live real-flow smoke; P4 real-provider refresh/revoke/uncertain hardening; P5 real-provider no-duplicate + deeper Temporal operator proof; P7 identity vault/UI/scheduler/provenance; P8 backup-restore drill/scan gating/threat model/PII/compliance signoff.
+
 ## 2026-11-23T01:20:00Z � Session: Restart/recovery smoke proof
 
 **Agent:** Kilo (Glyph Cluster)

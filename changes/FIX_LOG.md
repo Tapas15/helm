@@ -19,6 +19,21 @@
 - **Audit/event IDs:** task/event/audit refs
 - **Status:** open | mitigated | fixed | verified
 
+## FIX-20261125-browseros-click-fill-selector-detection
+- **Date:** 2026-11-25T00:10:00Z
+- **Reporter:** agent
+- **Severity:** medium
+- **Component:** api/browser-adapter (P6 BrowserOS MCP)
+- **Symptom:** BrowserOS MCP click/fill on missing selectors could be misreported as success because `evaluate_in_page` script text was not parsed as a structured selector result.
+- **Root cause:** Executor used action completion semantics without reliably interpreting evaluate_in_page return value for missing-element cases.
+- **Evidence:** Local env-gated BrowserOS MCP smoke run against `http://127.0.0.1:9210/mcp` required selector-not-found assertions; commit `0616ad1` (local, unpushed).
+- **Fix applied:** `backend/api/src/lib/browseros-mcp-executor.ts` - click/fill evaluate scripts return `selector_not_found|ok`; executor parses result and classifies missing selector as `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false). `browseros-mcp-smoke.test.ts` expects structured selector-not-found errors for click/fill.
+- **Verification:** `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `pnpm -C backend/api test -- browser-adapter` PASS (12/12); `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000 pnpm -C backend/api test -- browseros-mcp-smoke` PASS (3/3, screenshot best-effort).
+- **Regression test:** `backend/api/src/lib/browser-adapter.test.ts` (contract), `backend/api/src/routes/browseros-mcp-smoke.test.ts` (env-gated parity smoke).
+- **Risk/rollback:** Low; scoped to BrowserOS MCP adapter path. Rollback by reverting `0616ad1`; Playwright remains default.
+- **Audit/event IDs:** commit `0616ad1` (local unpushed).
+- **Status:** verified (local/env-gated); CI pending push.
+
 ---
 
 ## FIX-20261122-phase0-typecheck-blockers

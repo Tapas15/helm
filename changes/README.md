@@ -36,7 +36,7 @@
 | 3 | `[~]` | 93 | [phase-3-browser-execution.md](./phase-3-browser-execution.md) | Playwright/WS preview/takeover/guarded actions; live smoke/richer controls pending |
 | 4 | `[~]` | 90 | [phase-4-approvals-vault-connectors.md](./phase-4-approvals-vault-connectors.md) | Vault/Gmail/Calendar guarded+reconcile; real OAuth E2E blocked on creds |
 | 5 | `[~]` | 68 | [phase-5-temporal-reliability.md](./phase-5-temporal-reliability.md) | Temporal routing+reconciliation schedule/fault guards; real-provider/real-Temporal depth blocked |
-| 6 | `[~]` | 34 | [phase-6-browseros-upgrade.md](./phase-6-browseros-upgrade.md) | Adapter contract/dispatch flag; real BrowserOS parity/security blocked |
+| 6 | `[~]` | 58 | [phase-6-browseros-upgrade.md](./phase-6-browseros-upgrade.md) | MCP adapter/capability/error hardening + env-gated smoke; positive parity/security/fallback/CI pending |
 | 7 | `[~]` | 48 | [phase-7-memory-skills-proactivity.md](./phase-7-memory-skills-proactivity.md) | Identity/policy/memory/skills flags; self-improvement activation approval-gated |
 | 8 | `[~]` | 43 | [phase-8-hardening-release.md](./phase-8-hardening-release.md) | CI/backup-dry-run/redaction/export-delete; drills/scans/compliance signoff pending |
 
