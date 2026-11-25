@@ -66,6 +66,28 @@ describe("memory routes (P7b)", () => {
     expect(body.retentionDryRunEnabled).toBe(true);
   });
 
+  it("status reports disabled safely without exposing note rows", async () => {
+    process.env.HELM_MEMORY_ENABLED = "0";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
+    process.env.HELM_MEMORY_SEMANTIC_RETRIEVAL = "1";
+    process.env.HELM_MEMORY_EMBEDDING_PROVIDER = "external-unknown";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
+    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
+    let selectCalls = 0;
+    const db = makeDb({ selectRows: [{ id: "mem_1" }] });
+    const origSelect = db.select;
+    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
+    const res = await makeApp(db).request("/v1/memory/status");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.enabled).toBe(false);
+    expect(body.mode).toBe("disabled");
+    expect(body.notesVisible).toBe(0);
+    expect(body.embeddingProviderSelection).toBe("external-unknown");
+    expect(body.embeddingProviderInjected).toBe(false);
+    expect(selectCalls).toBe(0);
+  });
+
   it("rejects when disabled", async () => {
     process.env.HELM_MEMORY_ENABLED = "0";
     const db = makeDb();
