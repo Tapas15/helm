@@ -13,11 +13,15 @@
 | `backend/api/src/routes/calendar.ts:320` | delete uncertain network | yes (`calendar.feedback-update-delete.test.ts`) | n/a | yes | yes | 503 |
 | `backend/api/src/routes/calendar.ts:327` | delete provider fail/uncertain | yes | n/a | yes | partial | no explicit 429/5xx uncertain-provider assertion |
 | `backend/api/src/lib/reconciliation.ts:88` | tool_failure resolved executed/failed | yes (`reconciliation.feedback.test.ts`) | yes | yes | n/a | lookup-not-found and lookup-exception assert no emit/no blind retry |
+| `backend/worker/src/index.ts:141` | task_outcome positive/negative/neutral on completion | helper-tested (`worker/src/feedback.test.ts`) | helper yes | helper yes | n/a | route/runtime integration assertion not yet added; emission flag-gated/no-throw |
+| `backend/worker/src/index.ts:153` | tool_failure RUNTIME_CRASH | helper-tested (`worker/src/feedback.test.ts`) | helper yes | helper yes | n/a | runtime-crash integration assertion not yet added; emission flag-gated/no-throw |
 
 ## Gaps
-- Missing disabled/no-op assertions for calendar update/delete provider-failure and all uncertain-network route tests except gmail provider-fail? Need explicit disabled checks for uncertain-network paths.
-- Explicit provider-uncertain 429 assertions added for gmail send and calendar create/update/delete (redacted, uncertain=true, no token leak).
-- No worker/runtime tool_failure emissions yet (P7a broader coverage).
+- Worker emissions wired; need integration-level assertions (task completion/crash paths) and matrix kept in sync.
+- Worker loop errors have no task/user context; cannot emit user-scoped feedback safely without contract change.
+- No browser-worker/runtime-stream tool_failure emissions yet (P7a broader coverage).
+- 5xx uncertain-provider assertions covered (503); other 5xx classes optional follow-up.
+
 
 
 

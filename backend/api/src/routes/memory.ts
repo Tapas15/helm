@@ -63,8 +63,13 @@ export function memoryRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const provenanceFilter = c.req.query("provenance");
-    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(100);
-    const filtered = provenanceFilter ? rows.filter((r) => ((r.metadata as any)?.provenance?.kind ?? "user_confirmed") === provenanceFilter) : rows;
+    const q = (c.req.query("q") ?? "").trim().toLowerCase().slice(0, 120);
+    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(200);
+    const filtered = rows.filter((r) => {
+      if (provenanceFilter && ((r.metadata as any)?.provenance?.kind ?? "user_confirmed") !== provenanceFilter) return false;
+      if (q && !String(r.content ?? "").toLowerCase().includes(q) && !String(r.kind ?? "").toLowerCase().includes(q)) return false;
+      return true;
+    }).slice(0, 100);
     return c.json({ ok: true, notes: filtered });
   });
 
@@ -191,3 +196,4 @@ export function memoryRoutes(db: Database) {
 
   return app;
 }
+

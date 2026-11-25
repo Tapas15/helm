@@ -158,6 +158,19 @@ describe("memory routes (P7b)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("filters notes by bounded q search", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const rows = [
+      { id: "mem_1", userId: "u1", kind: "preference", content: "likes dark mode", metadata: { provenance: { kind: "user_confirmed" } }, createdAt: new Date("2026-01-02T00:00:00Z") },
+      { id: "mem_2", userId: "u1", kind: "note", content: "uses vim", metadata: { provenance: { kind: "observed" } }, createdAt: new Date("2026-01-01T00:00:00Z") },
+    ];
+    const db = makeDb({ selectRows: rows });
+    const res = await makeApp(db).request("/v1/memory/notes?q=dark");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.notes).toHaveLength(1);
+    expect(body.notes[0].id).toBe("mem_1");
+  });
 });
 
 
