@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { evalCases, feedbackEvents, type Database } from "@helm/db";
+import { evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
@@ -87,6 +87,56 @@ export function feedbackRoutes(db: Database) {
     const userId = c.get("userId");
     const rows = await db.select().from(evalCases).where(eq(evalCases.userId, userId)).orderBy(desc(evalCases.updatedAt)).limit(100);
     return c.json({ ok: true, evalCases: rows });
+  });
+
+  app.post("/proposals/draft", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
+    if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({} as any));
+    const sourceFeedbackId = typeof body?.sourceFeedbackId === "string" ? body.sourceFeedbackId : null;
+    const sourceEvalCaseId = typeof body?.sourceEvalCaseId === "string" ? body.sourceEvalCaseId : null;
+    if (!sourceFeedbackId && !sourceEvalCaseId) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "sourceFeedbackId or sourceEvalCaseId required"), 400);
+
+    let fb: any = null;
+    let ev: any = null;
+    if (sourceFeedbackId) {
+      const [row] = await db.select().from(feedbackEvents).where(and(eq(feedbackEvents.id, sourceFeedbackId), eq(feedbackEvents.userId, userId))).limit(1);
+      fb = row ?? null;
+      if (!fb) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Feedback event not found"), 404);
+    }
+    if (sourceEvalCaseId) {
+      const [row] = await db.select().from(evalCases).where(and(eq(evalCases.id, sourceEvalCaseId), eq(evalCases.userId, userId))).limit(1);
+      ev = row ?? null;
+      if (!ev) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Eval case not found"), 404);
+    }
+
+    const now = new Date();
+    const title = typeof body?.title === "string" && body.title.trim()
+      ? body.title.trim().slice(0, 160)
+      : `draft-${ev?.kind ?? fb?.kind ?? "improvement"}-${String(sourceEvalCaseId ?? sourceFeedbackId ?? "").slice(-8)}`;
+    const [row] = await db.insert(selfImprovementProposals).values({
+      id: uid("sip"), userId, sourceFeedbackId, sourceEvalCaseId,
+      kind: typeof body?.kind === "string" ? body.kind.slice(0, 40) : "prompt_tuning",
+      title,
+      summary: typeof body?.summary === "string" ? body.summary.slice(0, 1000) : (fb ? `Draft proposal from feedback ${fb.kind}/${fb.signal}` : `Draft proposal from eval case ${ev?.name ?? sourceEvalCaseId}`),
+      status: "draft",
+      riskLevel: typeof body?.riskLevel === "string" ? body.riskLevel.slice(0, 20) : "low",
+      requiresApproval: true,
+      activation: "blocked",
+      payload: (redact(body?.payload ?? { sourceFeedbackId, sourceEvalCaseId, feedbackKind: fb?.kind ?? null, evalKind: ev?.kind ?? null }) as Record<string, unknown>),
+      evidenceRefs: Array.isArray(body?.evidenceRefs) ? (redact(body.evidenceRefs.slice(0, 50)) as unknown[]) : [],
+      createdAt: now, updatedAt: now,
+    }).returning();
+    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. No apply/activation path exists." }, 201);
+  });
+
+  app.get("/proposals", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
+    if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const rows = await db.select().from(selfImprovementProposals).where(eq(selfImprovementProposals.userId, userId)).orderBy(desc(selfImprovementProposals.updatedAt)).limit(100);
+    return c.json({ ok: true, proposals: rows });
   });
 
   return app;

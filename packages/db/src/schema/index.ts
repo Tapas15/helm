@@ -298,6 +298,27 @@ export const evalCases = pgTable("eval_cases", {
   index("eval_cases_source_feedback_idx").on(t.sourceFeedbackId),
 ]);
 
+
+export const selfImprovementProposals = pgTable("self_improvement_proposals", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  sourceFeedbackId: text("source_feedback_id").references(() => feedbackEvents.id),
+  sourceEvalCaseId: text("source_eval_case_id").references(() => evalCases.id),
+  kind: text("kind").notNull().default("prompt_tuning"),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  status: text("status").notNull().default("draft"), // draft only in this slice
+  riskLevel: text("risk_level").notNull().default("low"),
+  requiresApproval: boolean("requires_approval").notNull().default(true),
+  activation: text("activation").notNull().default("blocked"), // blocked until explicit approval
+  payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+  evidenceRefs: jsonb("evidence_refs").notNull().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("self_improvement_proposals_user_status_idx").on(t.userId, t.status),
+  index("self_improvement_proposals_source_feedback_idx").on(t.sourceFeedbackId),
+]);
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
@@ -312,3 +333,4 @@ export const auditLog = pgTable("audit_log", {
   reason: text("reason"),
   metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
 }, (t) => [index("audit_user_ts_idx").on(t.userId, t.ts)]);
+
