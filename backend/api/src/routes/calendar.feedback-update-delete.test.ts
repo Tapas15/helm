@@ -118,4 +118,37 @@ describe("calendar update/delete feedback emission (P7a)", () => {
     expect(row?.redacted).toBe(true);
     expect(JSON.stringify(row)).not.toContain("tok_test");
   });
+
+  it("emits redacted uncertain tool_failure on calendar update provider 429", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/update", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", eventId: "evt_1", summary: "s", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_u429" }),
+    });
+    expect(res.status).toBe(429);
+    const row = db.feedbackRows.find((r: any) => r.payload?.actionKind === "calendar.update_event");
+    expect(row?.payload?.uncertain).toBe(true);
+    expect(row?.severity).toBe("error");
+    expect(row?.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
+
+  it("emits redacted uncertain tool_failure on calendar delete provider 429", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test rate limited" } }), { status: 429, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/delete", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", eventId: "evt_1", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_d429" }),
+    });
+    expect(res.status).toBe(429);
+    const row = db.feedbackRows.find((r: any) => r.payload?.actionKind === "calendar.delete_event");
+    expect(row?.payload?.uncertain).toBe(true);
+    expect(row?.severity).toBe("error");
+    expect(row?.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
 });
+

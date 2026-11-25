@@ -16,5 +16,6 @@
 
 ## Gaps
 - Missing disabled/no-op assertions for calendar update/delete provider-failure and all uncertain-network route tests except gmail provider-fail? Need explicit disabled checks for uncertain-network paths.
-- Missing explicit provider-uncertain (429/5xx) feedback assertions for gmail send and calendar create/update/delete; current provider-failure tests use 500.
+- Explicit provider-uncertain 429 assertions added for gmail send and calendar create/update/delete (redacted, uncertain=true, no token leak).
 - No worker/runtime tool_failure emissions yet (P7a broader coverage).
+
