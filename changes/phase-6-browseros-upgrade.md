@@ -32,7 +32,7 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 ### Remaining / Blocked
 - [x] External runtime decision: BrowserOS neo MCP endpoint `http://127.0.0.1:9210/mcp` probed; AGPL external-runtime-only boundary confirmed by user (`external-adapter OK`).
 - [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (6/6, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, positive click/fill success on controlled local page, adapter-level takeover request/resume/stream-status parity, **perf/parity baseline on controlled local page** (capabilities 9ms, create 80ms, navigate 458ms, snapshot 40ms, fill 61ms, click 206ms, takeover req/resume 0/1ms, close 33ms). Screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control.
-- [~] Security/compliance review baseline recorded (2026-11-25): AGPL boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; operator URL validation (http/https only), explicit partial-config stub errors, and non-loopback remote endpoint guard (`HELM_BROWSEROS_ALLOW_REMOTE=1` opt-in) added. **Remaining signoff items (need human review):** external-runtime credential handling/TLS for non-loopback, artifact/PII retention/redaction, SSRF/private-network operator policy depth, formal threat-model signoff, default-dispatch gate decision.
+- [~] Security/compliance review baseline recorded (2026-11-25): AGPL boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; operator URL validation (http/https only), explicit partial-config stub errors, and non-loopback remote endpoint guard (`HELM_BROWSEROS_ALLOW_REMOTE=1` opt-in) added. **Human signoff (2026-11-25, user: "yes to all, keep defaults"):** AGPL external-runtime boundary OK; endpoint policy OK; data handling OK (no vault secrets, sensitive fills approval-gated); credential handling OK (BrowserOS must not store Helm vault secrets; non-loopback requires trusted network/TLS/auth if ever used); artifact/PII retention accepted as interim with manual caution until P8 policy; default-dispatch gate remains off until parity+security+CI evidence. **Still pending for full signoff:** formal STRIDE/threat-model evidence, PII retention/redaction policy implementation, deeper SSRF/private-network operator policy, credential-handling verification in real non-loopback deployment (if used).
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
 - [x] Push and verify GitHub Actions CI green (latest: [45561356201](https://github.com/Tapas15/helm/actions/runs/45561356201), `dbd59ef`).
 - [ ] Default dispatch only after parity+security signoff evidence.
@@ -50,9 +50,17 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - CI: latest run recorded in `changes/CURRENT_STATE.md` after push.
 - Commits: pushed on `main` (see git log / CURRENT_STATE).
 
-## Security / Compliance Review (2026-11-25, code-audit baseline)
+## Security / Compliance Review (2026-11-25, code-audit baseline + human interim signoff)
 
-**Status:** baseline review recorded; not a full security signoff.
+**Status:** human interim signoff recorded (2026-11-25, user: "yes"); full security signoff still pending formal P8 evidence.
+
+### Human Interim Signoff (2026-11-25)
+- [x] AGPL boundary OK: BrowserOS external runtime only; no BrowserOS code copied into Helm.
+- [x] Endpoint policy OK (interim): http/https only; non-loopback blocked unless `HELM_BROWSEROS_ALLOW_REMOTE=1`.
+- [x] Data handling OK (interim): URLs/selectors/fill values/page text/screenshots may go to local external BrowserOS runtime; no vault secrets sent; sensitive fills approval-gated.
+- [x] Credential handling OK (interim): BrowserOS runtime must not store Helm vault secrets; non-loopback requires trusted network/TLS/auth if ever used.
+- [x] Artifact/PII retention OK (interim): artifacts in `BROWSER_ARTIFACT_DIR` accepted with manual caution until P8 PII retention/redaction policy.
+- [x] Default-dispatch gate OK: keep `HELM_BROWSER_ADAPTER_DISPATCH` default off until parity+security+CI evidence complete.
 
 ### Boundary / License
 - [x] **No copied BrowserOS code** in Helm repo tracked source (`git ls-files '*browseros*'` only Helm adapter/client/executor/smoke/phase doc). BrowserOS runs as **external runtime** (user-confirmed `external-adapter OK`); AGPL boundary preserved by process/network contract.
@@ -64,13 +72,13 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - [x] **No secret logging in adapter code:** `browser-adapter.ts`, `browseros-mcp-client.ts`, `browseros-mcp-executor.ts` contain no console logger calls; legacy token is used only in Authorization header construction.
 - [~] **Data exposure to external runtime:** BrowserOS MCP receives tool args including URLs, selectors, fill values, and may return page text/screenshot/base64. This is expected for browser automation but must be treated as **data egress to a local external process**. Do not send vault secrets/unredacted credentials; fill values for sensitive flows should remain approval-gated and policy-reviewed.
 - [~] **Network target trust:** `BROWSEROS_MCP_URL` / `BROWSEROS_BASE_URL` are operator-configured. Production/operator docs should restrict to trusted loopback/internal endpoints; SSRF/private-network policy for arbitrary operator URLs not yet enforced by schema.
-- [ ] **Credential handling review:** confirm BrowserOS runtime stores no Helm vault secrets; confirm MCP transport auth/TLS expectations for non-loopback deployments.
-- [ ] **Artifact/data retention review:** screenshot/snapshot artifacts captured by executor follow artifact-dir policy; need explicit retention/redaction review for pages containing PII/secrets.
+- [ ] **Credential handling review:** confirm BrowserOS runtime stores no Helm vault secrets; confirm MCP transport auth/TLS expectations for non-loopback deployments. (Interim policy accepted by user 2026-11-25; technical verification pending.)
+- [ ] **Artifact/data retention review:** screenshot/snapshot artifacts captured by executor follow artifact-dir policy; need explicit retention/redaction review for pages containing PII/secrets. (Interim manual caution accepted by user 2026-11-25; P8 policy pending.)
 - [ ] **Threat-model signoff:** full STRIDE/threat-model evidence still P8/manual.
 
 ### Dispatch / Fallback
 - [x] **No silent fallback/default dispatch:** `createBrowserAdapter` selects explicitly by env; `HELM_BROWSER_ADAPTER_DISPATCH` defaults off. Adapter errors surface structured `code/message/retryable`.
-- [ ] **Default-dispatch gate:** only after deeper parity, security review signoff, and CI/env-gated evidence.
+- [x] **Default-dispatch gate policy (human interim signoff 2026-11-25):** keep default off until parity+security+CI evidence complete. Technical parity + formal security evidence still required before enabling by default.
 - **Default**: `BROWSER_ADAPTER=playwright` / dispatch off by default behavior remains Playwright.
 - **Opt-in**: BrowserOS MCP only when explicitly configured (`BROWSEROS_MCP_URL`, and/or explicit adapter/dispatch env per route integration). No automatic runtime fallback from Playwright to BrowserOS or vice versa for a failing action.
 - **Error surfacing**: Adapter errors must be structured (`code/message/retryable`); caller/route decides retry based on policy, never blind retry of uncertain external writes.
