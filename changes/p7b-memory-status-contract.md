@@ -40,8 +40,13 @@ When disabled, status reports `enabled=false`, `mode=disabled`, `notesVisible=0`
 - Dry-run endpoint is report-only, `deleted:0`; no deletion/enforcement.
 - Enforcement blocked pending explicit approval + dry-run report/audit/legal-privacy signoff/retention windows; no vault-secret deletion.
 
+## Audit contract
+- `GET /v1/memory/audit/recent` is flag-gated by `HELM_MEMORY_ENABLED=1`; returns 403 when disabled.
+- Returns bounded user-scoped memory-note audit metadata only (`id, ts, action, resourceId, decision, reason, metadata`), limit 50.
+- Audit reads are best-effort/observability only; no note content is returned.
+
 ## Evidence (local)
-- `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` (status disabled-safe, retrieval audit metadata, consolidation no-apply/dry-run, retention dry-run).
+- `pnpm -C backend/api exec vitest run src/routes/memory.test.ts --reporter=verbose` (status disabled-safe, retrieval audit metadata, consolidation no-apply/dry-run, retention dry-run, audit recent bounded/disabled 403). PASS 24/24.
 - `pnpm -C packages/shared exec vitest run src/memory-retrieval.eval.test.ts --reporter=verbose` (lexical/hash fallback, fail-closed provider selection, no provider call when flag off, provider error fallback).
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit`
 - `pnpm -C packages/shared build`

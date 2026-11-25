@@ -17,8 +17,8 @@ function makeDb(opts?: { selectRows?: any[]; insertRow?: any; updateRow?: any; d
     select: () => ({
       from: (table: unknown) => ({
         where: () => ({
-          orderBy: () => ({ limit: async () => (table === memoryNotes ? selectRows : []) }),
-          limit: async () => (table === memoryNotes ? selectRows : []),
+          orderBy: () => ({ limit: async () => (table === auditLog ? selectRows : table === memoryNotes ? selectRows : []) }),
+          limit: async () => (table === auditLog ? selectRows : table === memoryNotes ? selectRows : []),
         }),
       }),
     }),
@@ -380,6 +380,28 @@ describe("memory routes (P7b)", () => {
     const body = await res.json() as any;
     expect(body.ok).toBe(true);
     expect(Array.isArray(body.events)).toBe(true);
+    expect(body.events[0]).toEqual({
+      id: "aud_1",
+      ts: new Date("2026-01-01T00:00:00Z").toISOString(),
+      action: "memory.create",
+      resourceId: "mem_1",
+      decision: "allow",
+      reason: null,
+      metadata: { kind: "note" },
+    });
+  });
+
+  it("audit recent is forbidden when memory disabled", async () => {
+    process.env.HELM_MEMORY_ENABLED = "0";
+    let selectCalls = 0;
+    const db = makeDb({ selectRows: [{ id: "aud_1" }] });
+    const origSelect = db.select;
+    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
+    const res = await makeApp(db).request("/v1/memory/audit/recent");
+    expect(res.status).toBe(403);
+    const body = await res.json() as any;
+    expect(body.error?.message).toMatch(/Memory is disabled/i);
+    expect(selectCalls).toBe(0);
   });
 
   it("has no consolidation apply endpoint and dry-run remains non-mutating contract", async () => {
