@@ -1,4 +1,4 @@
-﻿# P7a Feedback Emission Coverage Matrix
+# P7a Feedback Emission Coverage Matrix
 
 | Callsite | Kind/Signal | Enabled emit | Disabled no-op | Redaction/no-secret-leak | Uncertain/network | Notes |
 |---|---|---:|---:|---:|---:|---|
@@ -21,7 +21,7 @@
 ## Gaps / Non-emittable by design (current contract)
 - Worker loop claim failures (`backend/worker/src/index.ts`) occur before task claim/correlation; cannot emit user-scoped feedback safely without additive system-feedback contract. Loop now logs `worker.claim.error` without fabricating IDs.
 - Worker process unexpected catch is defense-in-depth with task/user/run logging; `processTask` owns expected failure/completion feedback. Avoid duplicate feedback unless dedupe contract added.
-- Browser-worker (`backend/browser-worker/src/index.ts`, executor) has no DB/feedback dependency and no task/run correlation in HTTP/WS contract; emitting P7a feedback requires cross-service contract+DB wiring decision. No behavior change.
+- Browser-worker (`backend/browser-worker/src/index.ts`, executor) has no DB/feedback dependency; additive correlation contract/propagation/response echo implemented and tested (`backend/browser-worker/src/correlation-echo.test.ts` PASS 2/2, commit `dd4cdc7`). Emitting P7a DB feedback from browser-worker still requires cross-service contract+DB wiring decision. No behavior change.
 - Browser guardedAct/external-action failure emissions are wired and route-tested (`browser.feedback.test.ts` PASS 4/4). Keep matrix synced for new callsites.
 - See `changes/p7a-feedback-correlation-contract.md` for draft additive correlation contract (no activation).
 
