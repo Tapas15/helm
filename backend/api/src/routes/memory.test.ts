@@ -180,6 +180,9 @@ describe("memory routes (P7b)", () => {
     expect(body.modified).toBe(0);
     expect(body.candidates).toHaveLength(1);
     expect(body.candidates[0].duplicateIds).toContain("mem_2");
+    expect(body.candidates[0].proposalOnly).toBe(true);
+    expect(body.candidates[0].recommendedAction).toBe("review_only_no_auto_merge");
+    expect(body.candidates[0].suggestedCanonical?.id).toBe("mem_1");
     expect(deleteCalls).toBe(0);
     expect(updateCalls).toBe(0);
     expect(db.auditRows.some((r: any) => r.action === "memory.consolidation.dry_run" && r.metadata?.dryRun === true)).toBe(true);
