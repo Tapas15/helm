@@ -149,5 +149,35 @@ describe("calendar create feedback emission (P7a)", () => {
     expect(res.status).toBe(429);
     expect(db.feedbackRows).toHaveLength(0);
   });
+
+  it("emits redacted uncertain tool_failure on provider 503", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test upstream unavailable" } }), { status: 503, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/create", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", summary: "s", startIso: "2026-11-26T10:00:00Z", endIso: "2026-11-26T11:00:00Z", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_503" }),
+    });
+    expect(res.status).toBe(503);
+    const row = db.feedbackRows.find((r: any) => r.kind === "tool_failure");
+    expect(row).toBeTruthy();
+    expect(row.severity).toBe("error");
+    expect(row.payload?.uncertain).toBe(true);
+    expect(row.payload?.actionKind).toBe("calendar.create_event");
+    expect(row.redacted).toBe(true);
+    expect(JSON.stringify(row)).not.toContain("tok_test");
+  });
+
+  it("does not emit feedback when disabled on provider 503", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ error: { message: "Bearer tok_test upstream unavailable" } }), { status: 503, headers: { "content-type": "application/json" } })) as any;
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/connectors/calendar/events/create", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId: "ca_1", calendarId: "primary", summary: "s", startIso: "2026-11-26T10:00:00Z", endIso: "2026-11-26T11:00:00Z", approvalId: "apr_1", actionHash: "hash_1", idempotencyKey: "idem_503_off" }),
+    });
+    expect(res.status).toBe(503);
+    expect(db.feedbackRows).toHaveLength(0);
+  });
 });
 
