@@ -12,7 +12,9 @@ export function eventRoutes(db: Database) {
     const userId = c.get("userId");
     const taskId = c.req.query("taskId");
     const afterRaw = c.req.query("after");
-    const after = afterRaw === undefined ? -1 : Number(afterRaw);
+    const lastEventIdRaw = c.req.header("last-event-id");
+    const lastEventId = lastEventIdRaw !== undefined && /^-?\d+$/.test(lastEventIdRaw) ? Number(lastEventIdRaw) : undefined;
+    const after = afterRaw !== undefined ? Number(afterRaw) : (Number.isInteger(lastEventId) ? Number(lastEventId) : -1);
     if (!taskId) return c.json({ error: { code: "VALIDATION_ERROR", message: "taskId required", retryable: false } }, 400);
     if (!Number.isInteger(after) || after < -1) return c.json({ error: { code: "VALIDATION_ERROR", message: "after must be an integer >= -1", retryable: false } }, 400);
     const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);

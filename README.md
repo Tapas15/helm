@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.9%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-74.0%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Security_Hardening-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -24,7 +24,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 |---|---:|---|
 | **Overall** | **73.8%** | Latest CI: [green (45579879631)](https://github.com/Tapas15/helm/actions/runs/45579879631) on `main`. Local lint/typecheck/build/test PASS. P4 real OAuth write E2E verified. P6 BrowserOS MCP adapter hardened (19/19 contract, env-gated smoke 6/6 PASS + Playwright perf baseline 1/1 PASS, controlled local page); screenshot capture remains best-effort. Remaining: deeper P6 parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff. |
 | Phase 0 Foundation | 94% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; backend tsconfig dist/src include workaround removed (api/worker/browser-worker); local gates PASS; fresh-clone CI confirmation after push remains |
-| Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
+| Phase 1 UI/Task Core | 92% | Chat/SSE/approvals/preview/takeover usable; SSE `Last-Event-ID` resume fallback + cursor validation added with env-gated integration coverage; live UI smoke/fault-injection depth pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; live WS/takeover smoke pending |
 | Phase 4 Connectors/Vault | 90% | Vault AES-GCM, Gmail/Calendar read+write, guarded receipts/reconcile UI; real OAuth connect/test/send/create E2E verified; refresh/revoke/uncertain-reconcile hardening pending |

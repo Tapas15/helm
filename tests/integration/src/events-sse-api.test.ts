@@ -100,4 +100,52 @@ async function readSSE(url: string, headers: Record<string, string>, stop: (buf:
     const body = await badStream.json().catch(() => null);
     expect(body?.error?.code).toBe("VALIDATION_ERROR");
   }, 20000);
+  it("resumes from Last-Event-ID when after is omitted", async () => {
+    const create = await api("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: "sse last-event-id test", kind: "assistant" }) });
+    expect(create.status).toBe(201);
+    const taskId = create.json?.task?.id as string;
+    expect(taskId).toBeTruthy();
+
+    const initial = await api(`/v1/tasks/${encodeURIComponent(taskId)}/events?after=-1&limit=200`);
+    expect(initial.status).toBe(200);
+    const events = (initial.json?.events ?? []) as Array<{ sequence: number }>;
+    expect(events.length).toBeGreaterThan(0);
+    const maxSeq = Math.max(...events.map((e) => Number(e.sequence)));
+
+    const followUp = await api(`/v1/tasks/${encodeURIComponent(taskId)}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content: "follow up for last-event-id" }),
+    });
+    expect(followUp.status).toBe(200);
+
+    const buf = await readSSE(
+      `${base}/v1/events/stream?taskId=${encodeURIComponent(taskId)}`,
+      { "x-user-id": "usr_local_dev", "Last-Event-ID": String(maxSeq) },
+      (b) => b.includes("task.followup") && b.includes("event: heartbeat"),
+      12000,
+    );
+    expect(buf).toContain("task.followup");
+    expect(buf).not.toContain('"type":"task.created"');
+    const idMatches = Array.from(buf.matchAll(/^id: (\d+)$/gm)).map((m) => Number(m[1]));
+    for (const id of idMatches) expect(id).toBeGreaterThan(maxSeq);
+  }, 30000);
+
+  it("treats malformed Last-Event-ID as -1 and returns validation error for negative after", async () => {
+    const create = await api("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: "sse malformed cursor", kind: "assistant" }) });
+    expect(create.status).toBe(201);
+    const taskId = create.json?.task?.id as string;
+    expect(taskId).toBeTruthy();
+
+    const malformedLastId = await readSSE(
+      `${base}/v1/events/stream?taskId=${encodeURIComponent(taskId)}`,
+      { "x-user-id": "usr_local_dev", "Last-Event-ID": "not-a-number" },
+      (b) => b.includes("event: event") && b.includes("event: heartbeat"),
+      12000,
+    );
+    expect(malformedLastId).toContain("task.created");
+
+    const badNeg = await api(`/v1/tasks/${encodeURIComponent(taskId)}/events?after=-2`);
+    expect(badNeg.status).toBe(400);
+    expect(badNeg.json?.error?.code).toBe("VALIDATION_ERROR");
+  }, 30000);
 });
