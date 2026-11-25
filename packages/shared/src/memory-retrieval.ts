@@ -1,4 +1,4 @@
-export type MemoryRetrievalMode = "lexical" | "semantic-hash-fallback";
+export type MemoryRetrievalMode = "lexical" | "semantic-hash-fallback" | "semantic-embedding";
 
 export interface MemoryRetrievalDocument {
   id: string;
@@ -17,9 +17,19 @@ export interface MemoryRetrievalMatch {
   mode: MemoryRetrievalMode;
 }
 
+export interface MemoryEmbeddingProvider {
+  readonly id: string;
+  embed(texts: string[]): Promise<number[][]>;
+}
+
 export interface MemoryRetrievalProvider {
   readonly mode: MemoryRetrievalMode;
   query(input: { query: string; documents: MemoryRetrievalDocument[]; limit: number }): Promise<MemoryRetrievalMatch[]> | MemoryRetrievalMatch[];
+}
+
+export interface MemoryRetrievalProviderOptions {
+  env?: Record<string, string | undefined>;
+  embeddingProvider?: MemoryEmbeddingProvider | null;
 }
 
 function tokenize(text: string): string[] {
@@ -109,7 +119,48 @@ export class HashedSemanticMemoryRetrievalProvider implements MemoryRetrievalPro
   }
 }
 
-export function createMemoryRetrievalProvider(env: Record<string, string | undefined> = process.env as any): MemoryRetrievalProvider {
-  if (env.HELM_MEMORY_SEMANTIC_RETRIEVAL === "1") return new HashedSemanticMemoryRetrievalProvider();
+export class EmbeddingMemoryRetrievalProvider implements MemoryRetrievalProvider {
+  readonly mode = "semantic-embedding" as const;
+  private lexical = new LexicalMemoryRetrievalProvider();
+  constructor(private embeddingProvider: MemoryEmbeddingProvider) {}
+  async query(input: { query: string; documents: MemoryRetrievalDocument[]; limit: number }): Promise<MemoryRetrievalMatch[]> {
+    const lexical = this.lexical.query(input);
+    try {
+      const texts = [input.query, ...input.documents.map((d) => `${d.kind ?? ""} ${d.content ?? ""}`)];
+      const vectors = await this.embeddingProvider.embed(texts);
+      const qVec = vectors[0];
+      if (!qVec || !Array.isArray(qVec)) return lexical;
+      const byId = new Map(lexical.map((m) => [m.id, m]));
+      for (let i = 0; i < input.documents.length; i++) {
+        const doc = input.documents[i]!;
+        const dVec = vectors[i + 1];
+        if (!dVec || !Array.isArray(dVec)) continue;
+        const sim = cosine(qVec, dVec);
+        if (sim <= 0.05) continue;
+        const meta = (doc.metadata ?? {}) as Record<string, unknown>;
+        const { provenance, confidence } = provenanceConfidence(meta);
+        const prev = byId.get(doc.id);
+        const semanticScore = sim * 3;
+        if (prev) { prev.score += semanticScore; prev.mode = this.mode; }
+        else byId.set(doc.id, { id: doc.id, score: semanticScore + confidence * 0.2, matchedTokens: [], provenance, confidence, mode: this.mode });
+      }
+      return Array.from(byId.values()).filter((m) => m.score > 0).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(20, input.limit || 5)));
+    } catch {
+      return lexical;
+    }
+  }
+}
+
+export function createMemoryRetrievalProvider(
+  envOrOptions: Record<string, string | undefined> | MemoryRetrievalProviderOptions = process.env as any,
+): MemoryRetrievalProvider {
+  const options: MemoryRetrievalProviderOptions = ("env" in envOrOptions || "embeddingProvider" in envOrOptions)
+    ? (envOrOptions as MemoryRetrievalProviderOptions)
+    : { env: envOrOptions as Record<string, string | undefined> };
+  const env = options.env ?? (process.env as any);
+  if (env.HELM_MEMORY_SEMANTIC_RETRIEVAL === "1") {
+    if (options.embeddingProvider) return new EmbeddingMemoryRetrievalProvider(options.embeddingProvider);
+    return new HashedSemanticMemoryRetrievalProvider();
+  }
   return new LexicalMemoryRetrievalProvider();
 }
