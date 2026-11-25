@@ -7,6 +7,7 @@ import type { AppEnv } from "../types.js";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { getValidGoogleAccessToken } from "./connector-accounts.js";
 import { enforceIdentityPolicyForConnectorAccount } from "../lib/identity-policy.js";
+import { emitFeedbackEvent } from "../lib/feedback.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
@@ -140,12 +141,14 @@ export function gmailRoutes(db: Database) {
       });
     } catch (e) {
       await db.update(actionReceipts).set({ status: "uncertain", evidence: { error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "gmail.send.uncertain.network", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Gmail send outcome uncertain due to network/error", true, { receiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
       await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { error: json?.error?.message ?? "send_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "gmail.send.uncertain.provider" : "gmail.send.failed", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail send failed", uncertain, { receiptId }), res.status as any);
     }
     await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null } }).where(eq(actionReceipts.id, receiptId));
