@@ -26,14 +26,24 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
       const snap = await adapter.snapshot(session.id) as any;
       expect(snap.ok).toBe(true);
       expect(String(snap.data?.text ?? "").length).toBeGreaterThan(0);
+      expect(snap.data?.artifact?.kind).toBe("dom_snapshot");
+      expect(String(snap.data?.artifact?.mime ?? "")).toContain("text/plain");
+      expect(String(snap.data?.artifact?.sha256 ?? "")).toMatch(/^[a-f0-9]{64}$/);
+      expect(Number(snap.data?.artifact?.sizeBytes ?? 0)).toBeGreaterThan(0);
 
       try {
         const shot = await adapter.screenshot(session.id, { fullPage: false }) as any;
         if (shot.ok) {
           expect(String(shot.data?.mime ?? "")).toContain("image/png");
           expect(String(shot.data?.base64 ?? "").length).toBeGreaterThan(100);
+          expect(shot.data?.artifact?.kind).toBe("screenshot");
+          expect(String(shot.data?.artifact?.mime ?? "")).toContain("image/png");
+          expect(String(shot.data?.artifact?.sha256 ?? "")).toMatch(/^[a-f0-9]{64}$/);
+          expect(Number(shot.data?.artifact?.sizeBytes ?? 0)).toBeGreaterThan(0);
         } else {
           expect(["BROWSEROS_TIMEOUT", "BROWSEROS_ACTION_FAILED", "BROWSEROS_UNAVAILABLE"]).toContain(shot.error?.code);
+          expect(typeof shot.error?.message).toBe("string");
+          expect(typeof shot.error?.retryable).toBe("boolean");
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -52,6 +62,8 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
     const body = JSON.parse(r.text);
     expect(body.ok).toBe(false);
     expect(typeof body.error?.code).toBe("string");
+    expect(typeof body.error?.message).toBe("string");
+    expect(typeof body.error?.retryable).toBe("boolean");
   });
 
   it("reports structured selector error for click/fill", async () => {
@@ -63,12 +75,18 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
       const clickBody = JSON.parse(click.text);
       expect(clickBody.ok).toBe(false);
       expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(clickBody.error?.code);
+      expect(typeof clickBody.error?.message).toBe("string");
+      expect(typeof clickBody.error?.retryable).toBe("boolean");
+      if (clickBody.error?.code === "SELECTOR_NOT_FOUND") expect(clickBody.error.retryable).toBe(false);
 
       const fill = await adapter.request(`/v1/sessions/${session.id}/fill`, { method: "POST", body: JSON.stringify({ selector: "#helm-definitely-missing", value: "x", submit: false }) });
       expect(fill.status).toBe(400);
       const fillBody = JSON.parse(fill.text);
       expect(fillBody.ok).toBe(false);
       expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(fillBody.error?.code);
+      expect(typeof fillBody.error?.message).toBe("string");
+      expect(typeof fillBody.error?.retryable).toBe("boolean");
+      if (fillBody.error?.code === "SELECTOR_NOT_FOUND") expect(fillBody.error.retryable).toBe(false);
     } finally {
       await adapter.close(session.id).catch(() => undefined);
     }

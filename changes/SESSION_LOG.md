@@ -1535,3 +1535,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Security/compliance review for external BrowserOS adapter isolation (process boundary/auth/data handling/AGPL boundary, no copied code).
 - [ ] Performance benchmarking vs Playwright baseline.
 - [ ] CI for this batch after commit/push.
+## 2026-11-25 - P6 smoke artifact/error parity + docs cleanup
+
+- **Docs cleanup**: Replaced ugly multi-CI link clusters with single latest green CI link in `README.md` and `changes/CURRENT_STATE.md`; fixed stale README P6 contract count (12/12 -> 17/17) and broken separator; refreshed `ROADMAP.md` to 73.2%/current P6 focus/milestones.
+- **P6 parity depth (env-gated)**: Extended `backend/api/src/routes/browseros-mcp-smoke.test.ts` to assert snapshot/screenshot artifact shape (`kind/mime/sha256/sizeBytes`) and structured error shape (`code/message/retryable`, selector-not-found `retryable=false`) on unknown-session/click/fill and screenshot failure paths.
+- **Evidence**: API typecheck PASS; `browser-adapter.test.ts` 17/17 PASS; `pnpm lint` PASS (1 pre-existing warning `backend/api/src/routes/browser.ts:128`); env-gated BrowserOS MCP smoke 5/5 PASS (`HELM_BROWSEROS_MCP_SMOKE=1`, `BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp`, 121.66s).
+- **Policy**: No default-dispatch change; Playwright default; no silent fallback; external BrowserOS runtime only; no external side effects.
+

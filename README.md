@@ -22,7 +22,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **73.2%** | CI green [45559957373 45559614620 45559337267 45558313187 45557123228](https://github.com/Tapas15/helm/actions/runs/45559957373 https://github.com/Tapas15/helm/actions/runs/45559614620 https://github.com/Tapas15/helm/actions/runs/45559337267 https://github.com/Tapas15/helm/actions/runs/45558313187 https://github.com/Tapas15/helm/actions/runs/45557123228) (`41085d5`); local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
+| **Overall** | **73.2%** | Latest CI: [green (45561356201)](https://github.com/Tapas15/helm/actions/runs/45561356201) on `main`. Local lint/typecheck/build/test PASS. P4 real OAuth write E2E verified. P6 BrowserOS MCP adapter hardened (17/17 contract, env-gated smoke 5/5 PASS on 2026-11-25: capabilities/create/navigate/snapshot/close, structured unknown-session error, selector-not-found click/fill, positive local click/fill, adapter-level takeover parity); screenshot capture remains best-effort. Remaining: deeper P6 parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff. |
 | Phase 0 Foundation | 93% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push and tsconfig dist/src cleanup remain |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
@@ -33,7 +33,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, P7 tables, memory/skills/proactivity flags; identity vault/UI, scheduler, provenance/CRUD/export pending; self-improvement activation needs explicit approval |
 | Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 
-> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** � Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
+> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
 ### CI / Build Status
 

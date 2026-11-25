@@ -4,10 +4,10 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-~70%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Status](https://img.shields.io/badge/Status-Prototype_Baseline-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-Auth_Hardening_%2B_Recovery-238636?style=for-the-badge)](#-present--what-were-building-now)
-[![Blueprint](https://img.shields.io/badge/Blueprint-Phases_0--8-6e7781?style=for-the-badge)](Planning/MASTER-TECHNICAL-BLUEPRINT.md)
+[![Overall](https://img.shields.io/badge/Overall-73.2%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Focus](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Parity_%2B_Security-238636?style=for-the-badge)](#-present--what-were-building-now)
+[![Latest CI](https://img.shields.io/badge/CI-Latest_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45561356201)
 
 <br/>
 
@@ -61,25 +61,25 @@ timeline
 
 ### Overall
 
-**`~70%`** complete (Phases 0–8, equal weight)
+**`73.2%`** complete (Phases 0–8, equal weight)
 
 ```text
-[██████████████░░░░░░] 70%
+[███████████████░░░░░] 73.2%
 ```
 
-**Prototype baseline usable.** Major reliability, security, connector, and release gaps remain.
+**Usable prototype with active hardening.** P6 BrowserOS parity/security, real-provider/Temporal depth, live UI smoke, and P8 ops/legal signoff remain.
 
 </td>
 <td width="50%" valign="top">
 
 ### Current Wave
 
-**Local-first personal agent E2E**
+**P6 BrowserOS parity + security hardening**
 
-- Local Ollama, no external API key required
-- Pick strongest local tool-capable model
-- Add model/tool guardrails
-- Run browser-tool E2E smoke with approvals
+- Keep Playwright default; BrowserOS external MCP adapter explicit opt-in
+- Expand env-gated parity evidence (artifact/error/takeover semantics)
+- Harden endpoint/config validation and remote-endpoint guard
+- No silent fallback/default dispatch; dispatch gate requires parity+security+CI evidence
 
 </td>
 </tr>
@@ -87,13 +87,13 @@ timeline
 
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
-| **P0 Foundation / Repo** | 91% | Past / stabilizing | `██████████████████░░` |
-| **P1 UI / Task Core** | 91% | Past / polishing | `██████████████████░░` |
+| **P0 Foundation / Repo** | 93% | Past / stabilizing | `███████████████████░` |
+| **P1 UI / Task Core** | 91% | Present / polishing | `██████████████████░░` |
 | **P2 Agent Runtime** | 73% | **Present** | `███████████████░░░░░` |
 | **P3 Browser Execution** | 93% | **Present** | `███████████████████░` |
 | **P4 Approvals / Vault / Connectors** | 90% | **Present** | `██████████████████░░` |
 | **P5 Temporal / Reliability** | 68% | **Present** | `██████████████░░░░░░` |
-| **P6 BrowserOS Deterministic Upgrade** | 34% | **Present** | `███████░░░░░░░░░░░░░` |
+| **P6 BrowserOS Deterministic Upgrade** | 60% | **Present** | `████████████░░░░░░░░` |
 | **P7 Memory / Skills / Proactivity** | 48% | **Present** | `██████████░░░░░░░░░░` |
 | **P8 Hardening / Release** | 43% | Future / active prep | `█████████░░░░░░░░░░░` |
 
@@ -108,19 +108,19 @@ timeline
 <td width="33%" valign="top">
 
 ### 🧱 P0 — Foundation
-**90%**
+**93%**
 
 - pnpm/turbo/TS monorepo
 - Docker Postgres/Redis
 - Shared Zod contracts
 - Drizzle schema + dev bootstrap
-- Idempotency/CAS foundations
+- CWD-independent Drizzle journal alignment script
 
 </td>
 <td width="33%" valign="top">
 
 ### 💬 P1 — UI / Task Core
-**89%**
+**91%**
 
 - Chat-first task UI
 - Live SSE timeline
@@ -221,23 +221,21 @@ flowchart LR
 </td>
 <td width="33%" valign="top">
 
-### 🛡️ P4 — Approvals / Safety
-**59% · Active**
+### 🛡️ P4 — Approvals / Safety / Connectors
+**90% · Active**
 
 **Delivered**
 - Approval resolve/requeue/cancel
-- Action receipts
-- `approvalId + actionHash + idempotency`
-- Binding audit started
+- Action receipts (`approvalId + actionHash + idempotency`)
 - Session-token auth scaffold + WS auth resolver
-- Legacy unbound browser-session rebind endpoint + audit/event
-- P4 vault/connector contract scaffolds
+- Vault AES-GCM, OAuth PKCE scaffold
+- Gmail/Calendar read+write guarded routes; real OAuth E2E verified (idempotent, no duplicate external side effect)
 
 **Next**
-- Real session/OIDC UX
-- Encrypted vault/credential broker
-- Connector registry/OAuth
-- Gmail/Calendar + reconciliation
+- Real-provider refresh/revoke/uncertain-reconcile hardening
+- Connector diagnostics/policy matrix
+- Prod vault/KMS/MCP policy
+- Broader binding-audit regression tests
 
 </td>
 </tr>
@@ -247,10 +245,10 @@ flowchart LR
 
 | Priority | Why it matters | Exit signal |
 |---|---|---|
-| **Live UI E2E smoke (Ollama)** | Proves the personal-agent concept end-to-end | Assistant + browser task visible in chat/timeline/preview |
-| **Browser-tool E2E with approvals** | Validates the core safety model | Risky browser action pauses, approves once, executes once, receipt visible |
-| **Binding-audit regression tests** | Prevents side-effect bypasses | Navigate/approval/session ownership tests pass |
-| **Recovery hardening** | Makes browser state trustworthy | Crash/reconnect/recreate behavior deterministic |
+| **P6 BrowserOS parity matrix** | Proves external BrowserOS adapter can safely replace specific Playwright paths later | Env-gated parity evidence for artifact/error/takeover semantics, with no silent fallback/default dispatch |
+| **P6 security/compliance review** | Keeps AGPL/external-runtime boundary and user data safe | Threat-model notes, endpoint/credential/artifact controls reviewed, dispatch gate documented |
+| **P5 real-provider/Temporal depth** | Validates no-duplicate reconciliation under real conditions | Real-provider uncertain/timeout/lookup/no-duplicate proofs and Temporal operator evidence |
+| **P8 hardening/release evidence** | Required for trustworthy release/submission | Backup/restore drill, scan gating, PII/threat model, compliance/provenance/Dubai signoff package |
 
 ---
 
@@ -309,13 +307,11 @@ flowchart TB
 
 ### Future Milestone Targets
 
-- [ ] Binding-audit regression tests complete
-- [ ] Browser crash/reconnect deterministic contract
-- [ ] Full browser-tool E2E with approvals (local Ollama)
-- [ ] Vault/credential broker + connector registry
-- [ ] Gmail/Calendar connectors behind policy
-- [ ] Temporal durable workflows/reconciliation
-- [ ] Security/chaos/release evidence pack
+- [x] BrowserOS MCP adapter behind contract (external runtime, no AGPL code copied)
+- [x] Env-gated BrowserOS smoke 5/5 PASS (controlled local positive click/fill + adapter takeover parity)
+- [ ] BrowserOS-vs-Playwright deeper artifact/error parity evidence
+- [ ] BrowserOS external-runtime security/compliance/threat-model signoff
+- [ ] Default dispatch gate decision (explicit, evidence-backed; no silent fallback)
 
 ---
 
@@ -336,7 +332,8 @@ flowchart TB
 |---|---|
 | [`README.md`](README.md) | Project overview and quick progress snapshot |
 | [`ROADMAP.md`](ROADMAP.md) | Visual journey: past, present, future |
-| [`changes/CURRENT_STATE.md`](changes/CURRENT_STATE.md) | Operational source of truth |
+| [`changes/CURRENT_STATE.md`](changes/CURRENT_STATE.md) | Operational source of truth (percentages, blockers, evidence) |
+| [`changes/phase-6-browseros-upgrade.md`](changes/phase-6-browseros-upgrade.md) | P6 parity matrix, guardrails, and remaining gaps |
 | [`changes/PLANNING_MISSING_ITEMS.md`](changes/PLANNING_MISSING_ITEMS.md) | Detailed missing checklist |
 | [`changes/CONTINUATION_CHUNK.md`](changes/CONTINUATION_CHUNK.md) | Resume handoff for next session |
 
