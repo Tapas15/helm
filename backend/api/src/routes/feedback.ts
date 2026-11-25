@@ -78,7 +78,7 @@ export function feedbackRoutes(db: Database) {
       metadata: { generatedFrom: "feedback_event", feedbackKind: fb.kind, signal: fb.signal, redacted: true },
       createdAt: now, updatedAt: now,
     }).returning();
-    return c.json({ ok: true, evalCase: row }, 201);
+    return c.json({ ok: true, evalCase: row ?? null }, 201);
   });
 
   app.get("/eval-cases", async (c) => {

@@ -17,7 +17,7 @@ function makeApp(opts?: { selectRows?: any[]; insertRow?: any; updateRow?: any; 
     delete: () => ({ where: () => ({ returning: async () => [deleteRow] }) }),
   } as any;
   const app = new Hono();
-  app.use("*", async (c, next) => { c.set("userId", "u1"); await next(); });
+  app.use("*", async (c, next) => { (c.set as any)("userId", "u1"); await next(); });
   app.route("/v1/memory", memoryRoutes(db));
   return app;
 }
