@@ -93,6 +93,12 @@ describe("browser feedback emission (P7a)", () => {
     expect(row.taskId).toBe("tsk_1");
     expect(row.runId).toBe("run_1");
     expect(JSON.stringify(row)).not.toContain("tok_secret");
+    const actionCall = (globalThis.fetch as any).mock.calls.find((c: any[]) => String(c[0]).includes("/click"));
+    const sent = JSON.parse(String(actionCall?.[1]?.body ?? "{}"));
+    expect(sent.userId).toBe("u1");
+    expect(sent.taskId).toBe("tsk_1");
+    expect(sent.runId).toBe("run_1");
+    expect(sent.correlationId).toBe("cor_1");
   });
 
   it("does not emit guardedAct feedback when disabled", async () => {

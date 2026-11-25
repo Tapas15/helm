@@ -146,7 +146,7 @@ export function browserRoutes(db: Database) {
     const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, guard.data.idempotencyKey)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
     if (claimed.status === "executed") return c.json({ ok: true, deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey });
-    const r = await proxy(path, { method: "POST", body: JSON.stringify(base.data) });
+    const r = await proxy(path, { method: "POST", body: JSON.stringify({ ...base.data, userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
       await db.update(actionReceipts).set({ status: "failed", evidence: { ...(claimed.evidence as any ?? {}), error: json?.error ?? r.text } }).where(eq(actionReceipts.id, claimed.id));
@@ -177,7 +177,7 @@ export function browserRoutes(db: Database) {
     const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|example\.com|www\.example\.com)(\/|$)/i.test(url);
     if (!allowed) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Navigation to non-allowlisted domain requires approvalId/actionHash/idempotencyKey", false, { url }), 403);
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.navigate.low_risk", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "allowlisted low-risk navigation", metadata: { url, requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
-    const r = await proxy(`/v1/sessions/${c.req.param("id")}/navigate`, { method: "POST", body: JSON.stringify(parsed.data) });
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/navigate`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
   app.post("/sessions/:id/click", (c) => guardedAct(c, BrowserClickInput, "click", `/v1/sessions/${c.req.param("id")}/click`));
@@ -188,7 +188,7 @@ export function browserRoutes(db: Database) {
     const body = await c.req.json().catch(() => ({}));
     const parsed = BrowserScreenshotInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid screenshot input", false, parsed.error.flatten()), 400);
-    const r = await proxy(`/v1/sessions/${c.req.param("id")}/screenshot`, { method: "POST", body: JSON.stringify(parsed.data) });
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/screenshot`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.screenshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
@@ -206,7 +206,7 @@ export function browserRoutes(db: Database) {
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid takeover input", false, parsed.error.flatten()), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
-    const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/request`, { method: "POST", body: JSON.stringify(parsed.data) });
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/request`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
@@ -227,7 +227,7 @@ export function browserRoutes(db: Database) {
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid resume input", false, parsed.error.flatten()), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
-    const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/resume`, { method: "POST", body: JSON.stringify(parsed.data) });
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/resume`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
       const sessionId = c.req.param("id");
@@ -290,7 +290,7 @@ export function browserRoutes(db: Database) {
     const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
     if (claimed.status === "executed") return c.json({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey } });
-    const r = await proxy(`/v1/sessions/${c.req.param("id")}/external-action`, { method: "POST", body: JSON.stringify(input) });
+    const r = await proxy(`/v1/sessions/${c.req.param("id")}/external-action`, { method: "POST", body: JSON.stringify({ ...input, userId, taskId: approval.taskId, runId: approval.runId ?? null, correlationId }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
       await db.update(actionReceipts).set({ status: "failed", evidence: { ...(claimed.evidence as any ?? {}), error: json?.error ?? r.text } }).where(eq(actionReceipts.id, claimed.id));
