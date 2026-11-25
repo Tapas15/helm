@@ -23,8 +23,10 @@ export function proactivityRoutes(db: Database) {
     const body = await c.req.json().catch(() => ({} as any));
     const name = typeof body?.name === "string" ? body.name.trim().slice(0, 120) : "";
     if (!name) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "name required"), 400);
+    const actionKind = typeof body?.actionKind === "string" ? body.actionKind.slice(0, 50) : "draft";
+    if (actionKind !== "draft") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Only draft proactivity actions are allowed in this slice; autonomous/external execution requires explicit approval and activation"), 403);
     const now = new Date();
-    const [row] = await db.insert(proactivityRules).values({ id: uid("prv"), userId, name, enabled: body?.enabled === true, triggerKind: typeof body?.triggerKind === "string" ? body.triggerKind.slice(0, 50) : "cron", triggerConfig: typeof body?.triggerConfig === "object" && body.triggerConfig ? body.triggerConfig : {}, actionKind: typeof body?.actionKind === "string" ? body.actionKind.slice(0, 50) : "draft", actionConfig: typeof body?.actionConfig === "object" && body.actionConfig ? body.actionConfig : {}, requireApproval: body?.requireApproval !== false, createdAt: now, updatedAt: now }).returning();
+    const [row] = await db.insert(proactivityRules).values({ id: uid("prv"), userId, name, enabled: body?.enabled === true, triggerKind: typeof body?.triggerKind === "string" ? body.triggerKind.slice(0, 50) : "cron", triggerConfig: typeof body?.triggerConfig === "object" && body.triggerConfig ? body.triggerConfig : {}, actionKind: "draft", actionConfig: typeof body?.actionConfig === "object" && body.actionConfig ? body.actionConfig : {}, requireApproval: body?.requireApproval !== false, createdAt: now, updatedAt: now }).returning();
     return c.json({ ok: true, rule: row }, 201);
   });
   app.patch("/rules/:id", async (c) => {
@@ -37,7 +39,11 @@ export function proactivityRoutes(db: Database) {
     if (typeof body?.enabled === "boolean") patch.enabled = body.enabled;
     if (typeof body?.triggerKind === "string") patch.triggerKind = body.triggerKind.slice(0, 50);
     if (typeof body?.triggerConfig === "object" && body.triggerConfig) patch.triggerConfig = body.triggerConfig;
-    if (typeof body?.actionKind === "string") patch.actionKind = body.actionKind.slice(0, 50);
+    if (typeof body?.actionKind === "string") {
+      const actionKind = body.actionKind.slice(0, 50);
+      if (actionKind !== "draft") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Only draft proactivity actions are allowed in this slice; autonomous/external execution requires explicit approval and activation"), 403);
+      patch.actionKind = "draft";
+    }
     if (typeof body?.actionConfig === "object" && body.actionConfig) patch.actionConfig = body.actionConfig;
     if (typeof body?.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
     const [row] = await db.update(proactivityRules).set(patch).where(and(eq(proactivityRules.id, id), eq(proactivityRules.userId, userId))).returning();

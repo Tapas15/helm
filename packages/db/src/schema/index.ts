@@ -263,6 +263,41 @@ export const proactivityRules = pgTable("proactivity_rules", {
   index("proactivity_rules_user_enabled_idx").on(t.userId, t.enabled),
 ]);
 
+export const feedbackEvents = pgTable("feedback_events", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  taskId: text("task_id").references(() => tasks.id),
+  runId: text("run_id"),
+  kind: text("kind").notNull(), // task_outcome|approval_decision|tool_failure|user_correction|model_quality|eval_result
+  signal: text("signal").notNull(), // positive|negative|neutral
+  severity: text("severity").notNull().default("info"), // info|warn|error
+  payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+  evidenceRefs: jsonb("evidence_refs").notNull().default(sql`'[]'::jsonb`),
+  redacted: boolean("redacted").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("feedback_events_user_kind_idx").on(t.userId, t.kind),
+  index("feedback_events_task_idx").on(t.taskId),
+  index("feedback_events_user_created_idx").on(t.userId, t.createdAt),
+]);
+
+export const evalCases = pgTable("eval_cases", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  sourceFeedbackId: text("source_feedback_id").references(() => feedbackEvents.id),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("regression"), // regression|smoke|safety
+  input: jsonb("input").notNull().default(sql`'{}'::jsonb`),
+  expected: jsonb("expected").notNull().default(sql`'{}'::jsonb`),
+  status: text("status").notNull().default("draft"), // draft|active|retired
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("eval_cases_user_status_idx").on(t.userId, t.status),
+  index("eval_cases_source_feedback_idx").on(t.sourceFeedbackId),
+]);
+
 export const auditLog = pgTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
