@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, connectorAccounts, type Database } from "@helm/db";
-import { CalendarCreateEventInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
+import { CalendarCreateEventInput, CalendarDeleteEventInput, CalendarUpdateEventInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
 import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
 import { DbCredentialBroker } from "../lib/vault.js";
@@ -165,6 +165,164 @@ export function calendarRoutes(db: Database) {
     await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.create_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, calendarEventId: json?.id ?? null } });
     return c.json({ ok: true, receiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null });
+  });
+
+  app.post("/events/update", async (c) => {
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = CalendarUpdateEventInput.safeParse(body);
+    if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid calendar update input", false, parsed.error.flatten()), 400);
+    const input = parsed.data;
+    if (!input.summary && !input.description && !input.startIso && !input.endIso && !input.timeZone && !input.attendees) {
+      return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Calendar update requires at least one field"), 400);
+    }
+    if ((input.startIso && !input.endIso) || (!input.startIso && input.endIso)) {
+      return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "startIso and endIso must be provided together"), 400);
+    }
+    const [approval] = await db.select().from(approvals).where(and(eq(approvals.id, input.approvalId), eq(approvals.userId, userId))).limit(1);
+    if (!approval) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Approval not found"), 404);
+    if (approval.status !== "approved") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Approved approval required"), 403);
+    if (approval.actionHash !== input.actionHash) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "actionHash mismatch"), 403);
+
+    const [existing] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (existing) {
+      if (existing.status === "executed") return c.json({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef });
+      if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
+      if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
+    }
+
+    const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
+    if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write");
+    if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
+
+    const temporalCfg = readTemporalConfig(process.env);
+    const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+    const temporalInternal = temporalSecret ? c.req.header("x-helm-temporal-activity-secret") === temporalSecret : c.req.header("x-helm-temporal-activity") === "1";
+    if (!temporalInternal && shouldUseTemporalForAction(temporalCfg, "calendar.update_event")) {
+      try {
+        const started = await maybeStartExternalActionWorkflow({
+          taskId: approval.taskId ?? input.accountId, userId, actionKind: "calendar.update_event", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,
+          approvalId: approval.id, payload: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, summary: input.summary, description: input.description, startIso: input.startIso, endIso: input.endIso, timeZone: input.timeZone, attendees: input.attendees },
+        });
+        if (started.started) {
+          await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "calendar.update_event.temporal_started", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
+          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+        }
+      } catch (e) {
+        return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
+      }
+    }
+
+    const token = await getValidGoogleAccessToken(vault, userId, input.accountId);
+    if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Calendar token not found"), 404);
+
+    const receiptId = uid("rcpt");
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId, taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: "calendar.update_event",
+      actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
+      evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, summary: input.summary ?? null, startIso: input.startIso ?? null, endIso: input.endIso ?? null }
+    }).onConflictDoNothing();
+
+    const eventBody: Record<string, unknown> = {};
+    if (input.summary !== undefined) eventBody.summary = input.summary;
+    if (input.description !== undefined) eventBody.description = input.description;
+    if (input.startIso) eventBody.start = { dateTime: input.startIso, ...(input.timeZone ? { timeZone: input.timeZone } : {}) };
+    if (input.endIso) eventBody.end = { dateTime: input.endIso, ...(input.timeZone ? { timeZone: input.timeZone } : {}) };
+    if (input.attendees) eventBody.attendees = input.attendees.map((email) => ({ email }));
+
+    let res: Response;
+    try {
+      res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${token.token}`, "content-type": "application/json", "x-helm-idempotency": input.idempotencyKey },
+        body: JSON.stringify(eventBody),
+      });
+    } catch (e) {
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar update outcome uncertain due to network/error", true, { receiptId }), 503);
+    }
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const uncertain = res.status >= 500 || res.status === 429;
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_update_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar update failed", uncertain, { receiptId }), res.status as any);
+    }
+    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.update_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId } });
+    return c.json({ ok: true, receiptId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null });
+  });
+
+  app.post("/events/delete", async (c) => {
+    const userId = c.get("userId");
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = CalendarDeleteEventInput.safeParse(body);
+    if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid calendar delete input", false, parsed.error.flatten()), 400);
+    const input = parsed.data;
+    const [approval] = await db.select().from(approvals).where(and(eq(approvals.id, input.approvalId), eq(approvals.userId, userId))).limit(1);
+    if (!approval) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Approval not found"), 404);
+    if (approval.status !== "approved") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Approved approval required"), 403);
+    if (approval.actionHash !== input.actionHash) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "actionHash mismatch"), 403);
+
+    const [existing] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (existing) {
+      if (existing.status === "executed") return c.json({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef });
+      if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
+      if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
+    }
+
+    const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
+    if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write");
+    if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
+
+    const temporalCfg = readTemporalConfig(process.env);
+    const temporalSecret = process.env.HELM_TEMPORAL_ACTIVITY_SECRET;
+    const temporalInternal = temporalSecret ? c.req.header("x-helm-temporal-activity-secret") === temporalSecret : c.req.header("x-helm-temporal-activity") === "1";
+    if (!temporalInternal && shouldUseTemporalForAction(temporalCfg, "calendar.delete_event")) {
+      try {
+        const started = await maybeStartExternalActionWorkflow({
+          taskId: approval.taskId ?? input.accountId, userId, actionKind: "calendar.delete_event", actionHash: input.actionHash, idempotencyKey: input.idempotencyKey,
+          approvalId: approval.id, payload: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId },
+        });
+        if (started.started) {
+          await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "calendar.delete_event.temporal_started", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
+          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+        }
+      } catch (e) {
+        return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
+      }
+    }
+
+    const token = await getValidGoogleAccessToken(vault, userId, input.accountId);
+    if (!token.token) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, token.reason ?? "Calendar token not found"), 404);
+
+    const receiptId = uid("rcpt");
+    await db.insert(actionReceipts).values({
+      id: receiptId, userId, taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: "calendar.delete_event",
+      actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
+      evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId }
+    }).onConflictDoNothing();
+
+    let res: Response;
+    try {
+      res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token.token}`, "x-helm-idempotency": input.idempotencyKey },
+      });
+    } catch (e) {
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar delete outcome uncertain due to network/error", true, { receiptId }), 503);
+    }
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const uncertain = res.status >= 500 || res.status === 429;
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_delete_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar delete failed", uncertain, { receiptId }), res.status as any);
+    }
+    await db.update(actionReceipts).set({ status: "executed", externalRef: input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, deleted: true } }).where(eq(actionReceipts.id, receiptId));
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.delete_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, eventId: input.eventId } });
+    return c.json({ ok: true, receiptId, eventId: input.eventId, deleted: true });
   });
 
   return app;

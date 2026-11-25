@@ -1583,3 +1583,24 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] P6: deeper BrowserOS-vs-Playwright artifact/error parity and real browser-control takeover semantics; formal STRIDE/threat-model/PII retention evidence; default dispatch remains off.
 - [ ] Resume 6 rate-limited scouts selectively: `ses_dedfcf05effejKiZZe55LxOm07`, `ses_dedfcf021ffe9Dpua17owS8vVj`, `ses_dedfcf01bffeBFsMHLzddI4gKG`, `ses_dedfcf012ffeTd1wk0HmtcLS7D`, `ses_dedfcf00cffe1ERmT0AvWePAyz`, `ses_dedfcf006ffeNMPJOK0Y577MrX`.
 - [ ] P1 live UI smoke/AG-UI WS decision; P4/P5 real-provider proofs; P7 self-improvement activation requires explicit user approval; P8 ops/legal/manual evidence.
+
+## 2026-11-25 - P4 Calendar update/delete guarded routes
+**Time:** 2026-11-25T12:45:00Z
+**Agent:** Kilo
+**Phase:** P4 Connectors/Vault
+
+### Completed
+- [x] Added guarded `POST /v1/connectors/calendar/events/update` and `POST /v1/connectors/calendar/events/delete` in `backend/api/src/routes/calendar.ts`.
+- [x] Routes enforce: auth/ownership, approval required + `actionHash` match, idempotency receipt claim/dedupe/executing/uncertain conflict, identity policy check, Temporal routing/fail-closed internal bypass rules, uncertain-on-network/5xx/429, executed receipt + audit.
+- [x] Reconciliation support already present for `calendar.update_event`/`calendar.delete_event`; routes store reconcile metadata (`accountId`, `calendarId`, `eventId`).
+
+### Evidence
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm -C packages/shared exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm -C backend/temporal-worker exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api` PASS (0 errors, 1 pre-existing warning: `backend/api/src/routes/browser.ts:128:18` unused `act`)
+- `pnpm test --filter @helm/api` PASS (4 files passed, 1 skipped; 29 passed, 6 skipped)
+
+### Remaining / Blocked
+- [ ] Real-provider refresh/revoke/uncertain-reconcile hardening and proof (Google sandbox/creds, external).
+- [ ] Broader connector diagnostics/policy matrix, vault KMS/prod hardening, MCP policy decisions.

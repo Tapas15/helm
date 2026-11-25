@@ -12,7 +12,7 @@ High-risk actions require approval; side-effect ledger prevents double execution
 - **Auth/connector UX**: Web connector management UI; session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot.
 - **Google OAuth PKCE scaffold**: Connect/callback/revoke; callback redirects to `WEB_URL`; token refresh-on-expiry; revoke hardening with configurable `GOOGLE_REVOKE_BASE`, provider outcome captured/audited. OAuth helper tests PASS (5/5).
 - **Gmail**: Read/send guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile.
-- **Google Calendar**: Read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup.
+- **Google Calendar**: Read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup. API routes: `/v1/connectors/calendar/events/create|update|delete` (update/delete added 2026-11-25).
 - **Diagnostics/policy**: Connector account status/test routes; token expiry status/UI. Identity policy enforcement wired into Gmail send, Calendar create/update/delete, and browser external action (flag-aware).
 
 ## Checklist
@@ -26,7 +26,7 @@ High-risk actions require approval; side-effect ledger prevents double execution
 - [x] Web connector management UI; session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot.
 - [x] Google OAuth PKCE scaffold: connect/callback/revoke; callback redirects to `WEB_URL`.
 - [x] Gmail read/send guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile.
-- [x] Google Calendar read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup.
+- [x] Google Calendar read-first + create/update/delete guarded with approval/actionHash/idempotency/receipt/uncertain handling/reconcile lookup. API routes implemented: create, update, delete (2026-11-25).
 - [x] Token refresh-on-expiry; revoke hardening with configurable `GOOGLE_REVOKE_BASE`, provider outcome captured/audited.
 - [x] OAuth helper tests PASS (5/5, `backend/api/src/lib/oauth.test.ts`).
 - [x] Connector account status/test routes; token expiry status/UI.

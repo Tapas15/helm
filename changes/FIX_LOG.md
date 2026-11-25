@@ -233,3 +233,25 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Risk/rollback:** Low; test/doc-only behavior. Local test server binds loopback ephemeral port; no external side effects.
 - **Audit/event IDs:** N/A (test harness only).
 - **Status:** verified (env-gated local)
+
+## 2026-11-25 - P4 Calendar update/delete guarded routes implemented
+**Time:** 2026-11-25T12:45:00Z
+**Area:** P4 Connectors / Calendar
+**Files:** `backend/api/src/routes/calendar.ts`, `changes/phase-4-approvals-vault-connectors.md`, `changes/CURRENT_STATE.md`, `changes/PLANNING_MISSING_ITEMS.md`
+
+### Issue
+Calendar update/delete were present in shared schemas/reconciliation/Temporal activity support but missing guarded API routes, leaving P4 connector write parity incomplete.
+
+### Fix
+- Added `POST /v1/connectors/calendar/events/update` and `POST /v1/connectors/calendar/events/delete`.
+- Applied same guard pattern as create/send: input validation, ownership, approval+actionHash, idempotency receipt claim/dedupe/executing/uncertain, identity policy, Temporal routing/fail-closed, uncertain handling for network/5xx/429, executed receipt evidence, audit log.
+- Update requires at least one mutable field and paired start/end ISO when changing time.
+
+### Verification
+- API/shared/temporal-worker typecheck PASS.
+- `@helm/api` lint PASS (pre-existing browser.ts unused `act` warning only).
+- `@helm/api` tests PASS (29 passed, 6 skipped).
+
+### Risk / Follow-up
+- Real-provider uncertain/timeout/revoke/refresh proof still external.
+- Add route-level mocked integration tests for update/delete idempotency/uncertain/reconcile parity where env-gated harness allows.
