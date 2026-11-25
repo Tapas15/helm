@@ -181,7 +181,7 @@ if (shouldAutostart) {
   let running = true;
   async function loop() {
     while (running) {
-      let task: any = null;
+      let task: any;
       try {
         task = await claimNext();
       } catch (err) {

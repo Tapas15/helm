@@ -46,7 +46,7 @@ describe("worker processTask feedback integration (P7a)", () => {
   it("emits redacted tool_failure on runtime crash and never leaks secret", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
     const { db, task } = makeDb();
-    const runtime = { run: async function* () { throw new Error("Bearer sk-secret crash"); } } as any;
+    const runtime = { run: async function* () { throw new Error("Bearer sk-secret crash"); yield; } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
     const row = db.feedbackRows.find((r: any) => r.kind === "tool_failure");
     expect(row).toBeTruthy();
