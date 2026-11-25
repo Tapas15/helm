@@ -7,7 +7,7 @@
 ## P0 Foundation / Repo
 - [x] Remote CI evidence verified: GitHub Actions `45438392752` PASS, `45441229198` PASS (main); later pushes also green.
 - [x] ESLint-depth lint rules (moved from `tsc --noEmit` placeholders to ESLint).
-- [~] `tsconfig` dist/src path workaround cleanup for builds/typechecks (backend tsconfigs still include `../../packages/*/src/**/*.ts`; functional, cleanup deferred).
+- [~] `tsconfig` dist/src path workaround cleanup: removed `../../packages/*/src/**/*.ts` include workaround from `backend/api`, `backend/worker`, `backend/browser-worker` (2026-11-25, local gates PASS). Remaining: confirm clean CI/fresh-clone evidence after push.
 - [x] tsx watch stability hardened (`--clear-screen=false --ignore dist/** --ignore node_modules/**`).
 - [x] Drizzle migration-history alignment script made cwd-independent and idempotent (`scripts/align-drizzle-journal.mjs`); verified from repo root and `packages/db`. Fresh-clone CI confirmation after push.
 

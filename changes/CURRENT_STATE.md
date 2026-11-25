@@ -1,15 +1,15 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-25T07:06:00Z  
-**Overall:** 73.2% (equal-weight P0-P8) | **Remaining:** 26.8% | **Target:** 100%  
-**CI:** [Latest green run 45565058670](https://github.com/Tapas15/helm/actions/runs/45565058670) (`908c4d0`, `main`)
+**Last updated:** 2026-11-25T07:21:00Z  
+**Overall:** 73.3% (equal-weight P0-P8) | **Remaining:** 26.7% | **Target:** 100%  
+**CI:** [Latest green run 45565344504](https://github.com/Tapas15/helm/actions/runs/45565344504) (`7af118b`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
 ## Percentages
 
 | Phase | Current | Remaining | Done | Needed | Blocker |
 |---|---:|---:|---|---|---|
-| P0 Foundation | 93% | 7% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle fresh-temp-DB migrate verified; alignment script cwd-independent and idempotent from repo root/`packages/db`; local lint/typecheck/build/test PASS | Push local commit, confirm CI/fresh-clone after push; tsconfig dist/src cleanup | No destructive reset without approval |
+| P0 Foundation | 94% | 6% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle fresh-temp-DB migrate verified; alignment script cwd-independent and idempotent from repo root/`packages/db`; backend tsconfig `dist/src` include workaround removed (api/worker/browser-worker include `src` only) with lint/typecheck/build/test PASS | Push local commit, confirm CI/fresh-clone after push | No destructive reset without approval |
 | P1 UI/Task Core | 91% | 9% | Chat/SSE/approvals/preview/takeover/idempotency regressions | SSE cursor-resume E2E proof, AG-UI WS decision, live UI smoke, fault-injection depth | Browser automation surface for full UI E2E |
 | P2 Agent Runtime | 73% | 27% | Ollama streaming, tool loop/policy, model override/config validation, worker tests | Live real browser+connector E2E, integration tweaks, model/provider evidence | Real env for end-to-end validation |
 | P3 Browser Execution | 93% | 7% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions, recovery | Live WS/takeover smoke, richer remote controls, recovery depth | Browser automation for live smoke |
@@ -27,6 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
+- 2026-11-25: P0 tsconfig cleanup (local): removed `../../packages/*/src/**/*.ts` include workaround from `backend/api`, `backend/worker`, and `backend/browser-worker` tsconfigs (include `src` only). Evidence: `pnpm lint` PASS (1 pre-existing warning), `pnpm typecheck` PASS, `pnpm build` PASS, `pnpm test` PASS (12 tasks, env-gated integration skips expected). No destructive DB reset.
 - 2026-11-25: Docs/CI reporting cleaned and P6 smoke parity assertions deepened (`a6ed081`, CI [45564781818](https://github.com/Tapas15/helm/actions/runs/45564781818) green). Replaced multi-CI link clusters with single latest-CI link in README/CURRENT_STATE; refreshed ROADMAP to 73.2%/P6 focus. BrowserOS MCP smoke now asserts artifact/error shape parity (`kind/mime/sha256/sizeBytes`, `code/message/retryable`, selector-not-found non-retryable). Evidence: API typecheck PASS, `browser-adapter.test.ts` 17/17 PASS, lint PASS, env-gated BrowserOS smoke 5/5 PASS. No dispatch/default change.
 - 2026-11-25: P6 security/compliance baseline review recorded (`317da2e`, CI [45547719395](https://github.com/Tapas15/helm/actions/runs/45547719395) green): AGPL external-runtime boundary/no copied code confirmed, Helm route authZ preserved, no adapter secret logging; `.env.example` updated with `BROWSEROS_MCP_URL`, `HELM_BROWSEROS_MCP_TIMEOUT_MS`, `HELM_BROWSER_ADAPTER_DISPATCH`.
 - 2026-11-25: P6 BrowserOS parity depth (env-gated, local): extended smoke to 5/5 PASS (positive click/fill on controlled local page, adapter-level takeover request/resume/stream-status parity). CI [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green for `554f6ba`.

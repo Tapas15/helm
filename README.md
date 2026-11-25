@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.2%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.3%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Security_Hardening-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
@@ -22,8 +22,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **73.2%** | Latest CI: [green (45565058670)](https://github.com/Tapas15/helm/actions/runs/45565058670) on `main`. Local lint/typecheck/build/test PASS. P4 real OAuth write E2E verified. P6 BrowserOS MCP adapter hardened (17/17 contract, env-gated smoke 5/5 PASS on 2026-11-25: capabilities/create/navigate/snapshot/close, structured unknown-session error, selector-not-found click/fill, positive local click/fill, adapter-level takeover parity; artifact/error shape assertions added); screenshot capture remains best-effort. Remaining: deeper P6 parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff. |
-| Phase 0 Foundation | 93% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push and tsconfig dist/src cleanup remain |
+| **Overall** | **73.3%** | Latest CI: [green (45565344504)](https://github.com/Tapas15/helm/actions/runs/45565344504) on `main`. Local lint/typecheck/build/test PASS. P4 real OAuth write E2E verified. P6 BrowserOS MCP adapter hardened (17/17 contract, env-gated smoke 5/5 PASS on 2026-11-25: capabilities/create/navigate/snapshot/close, structured unknown-session error, selector-not-found click/fill, positive local click/fill, adapter-level takeover parity; artifact/error shape assertions added); screenshot capture remains best-effort. Remaining: deeper P6 parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff. |
+| Phase 0 Foundation | 94% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; backend tsconfig dist/src include workaround removed (api/worker/browser-worker); local gates PASS; fresh-clone CI confirmation after push remains |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; live WS/takeover smoke pending |
