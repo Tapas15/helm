@@ -6,23 +6,25 @@ import { logger as log } from "./lib/logger.js";
 import { emitWorkerFeedbackEvent } from "./feedback.js";
 import { HelmNativeRuntime } from "./runtime.js";
 
-const dbUrl = process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/helm";
-const { db, pool } = createDb(dbUrl);
-const workerId = `worker_${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
-const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000);
-const LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 30000);
-const runtime = new HelmNativeRuntime();
+export type WorkerDeps = {
+  db: ReturnType<typeof createDb>["db"];
+  runtime: HelmNativeRuntime;
+  workerId: string;
+  now?: () => Date;
+  emitFeedback?: typeof emitWorkerFeedbackEvent;
+};
+
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 
-async function nextSequence(taskId: string): Promise<number> {
+async function nextSequence(db: WorkerDeps["db"], taskId: string): Promise<number> {
   const rows = await db.select({ max: sql<number>`coalesce(max(${taskEvents.sequence}), -1)` }).from(taskEvents).where(eq(taskEvents.taskId, taskId));
   return Number(rows[0]?.max ?? -1) + 1;
 }
-async function insertEvent(taskId: string, userId: string, runId: string | null, type: string, correlationId: string, causationId: string | null, payload: Record<string, unknown>) {
-  const sequence = await nextSequence(taskId);
+async function insertEvent(db: WorkerDeps["db"], taskId: string, userId: string, runId: string | null, type: string, correlationId: string, causationId: string | null, payload: Record<string, unknown>) {
+  const sequence = await nextSequence(db, taskId);
   await db.insert(taskEvents).values({ id: uid("evt"), userId, taskId, runId, sequence, schemaVersion: 1, ts: new Date(), source: "worker", type, correlationId, causationId, payload });
 }
-async function recordBrowserArtifacts(task: typeof tasks.$inferSelect, runId: string, events: AgentRuntimeEvent[]) {
+async function recordBrowserArtifacts(db: WorkerDeps["db"], task: typeof tasks.$inferSelect, runId: string, events: AgentRuntimeEvent[]) {
   for (const evt of events) {
     const artifact = (evt.payload as any)?.artifact;
     const sessionId = (evt.payload as any)?.sessionId ?? evt.trace?.sessionId;
@@ -35,21 +37,13 @@ async function recordBrowserArtifacts(task: typeof tasks.$inferSelect, runId: st
   }
 }
 
-async function claimNext() {
-  const now = new Date();
-  const leaseUntil = new Date(now.getTime() + LEASE_MS);
-  const [candidate] = await db.select().from(tasks).where(and(eq(tasks.status, "queued"), or(isNull(tasks.leaseUntil), lte(tasks.leaseUntil, now)))).orderBy(tasks.createdAt).limit(1);
-  if (!candidate) return null;
-  const [claimed] = await db.update(tasks).set({ status: "running", leaseOwner: workerId, leaseUntil, startedAt: candidate.startedAt ?? now, updatedAt: now }).where(and(eq(tasks.id, candidate.id), eq(tasks.status, "queued"), or(isNull(tasks.leaseOwner), eq(tasks.leaseOwner, workerId)))).returning();
-  return claimed ?? null;
-}
-
-async function processTask(task: typeof tasks.$inferSelect) {
+export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerDeps) {
+  const { db, runtime, workerId, emitFeedback = emitWorkerFeedbackEvent, now = () => new Date() } = deps;
   const runId = uid("run");
   const correlationId = uid("corr");
   const trace = { taskId: task.id, runId, correlationId, userId: task.userId, agentId: workerId };
   const taskLog = log.child(trace);
-  await insertEvent(task.id, task.userId, runId, "task.running", correlationId, task.id, { workerId, ...trace });
+  await insertEvent(db, task.id, task.userId, runId, "task.running", correlationId, task.id, { workerId, ...trace });
   taskLog.info({ event: "task.running" }, "task running");
   const runtimeEvents: AgentRuntimeEvent[] = [];
   let deltaBuf = "";
@@ -79,21 +73,21 @@ async function processTask(task: typeof tasks.$inferSelect) {
     })) {
       runtimeEvents.push(evt);
       const sessionId = (evt.payload as any)?.sessionId ?? evt.trace?.sessionId;
-      if (sessionId) await db.update(tasks).set({ state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{activeBrowserSessionId}', ${JSON.stringify(String(sessionId))}::jsonb)`, updatedAt: new Date() }).where(eq(tasks.id, task.id));
+      if (sessionId) await db.update(tasks).set({ state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{activeBrowserSessionId}', ${JSON.stringify(String(sessionId))}::jsonb)`, updatedAt: now() }).where(eq(tasks.id, task.id));
       if (evt.type === "runtime.response.delta") {
         deltaBuf += String(evt.payload?.delta ?? "");
-        const now = Date.now();
-        if (now - lastDeltaFlush > 250 || deltaBuf.length > 120) {
-          await insertEvent(task.id, task.userId, runId, evt.type, correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace, provider: evt.payload?.provider, model: evt.payload?.model });
-          deltaBuf = ""; lastDeltaFlush = now;
+        const t = Date.now();
+        if (t - lastDeltaFlush > 250 || deltaBuf.length > 120) {
+          await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace, provider: evt.payload?.provider, model: evt.payload?.model });
+          deltaBuf = ""; lastDeltaFlush = t;
         }
         continue;
       }
-      if (deltaBuf) { await insertEvent(task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
-      await insertEvent(task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
+      if (deltaBuf) { await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
+      await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
     }
-    if (deltaBuf) await insertEvent(task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: new Date().toISOString(), trace });
-    await recordBrowserArtifacts(task, runId, runtimeEvents);
+    if (deltaBuf) await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: now().toISOString(), trace });
+    await recordBrowserArtifacts(db, task, runId, runtimeEvents);
     const result = HelmNativeRuntime.toResult(runtimeEvents);
     const approvalProposal = [...runtimeEvents].reverse().find((e) => e.type === "runtime.tool.proposed" && e.payload?.approvalRequired === true);
     if (result.status === "waiting_approval" && approvalProposal) {
@@ -101,17 +95,17 @@ async function processTask(task: typeof tasks.$inferSelect) {
       const actionKind = String(approvalProposal.payload.action ?? "external.high_risk");
       const summary = String(approvalProposal.message ?? "High-risk action requires approval");
       const [existing] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, actionHash))).limit(1);
-      const approval = existing ?? (await db.insert(approvals).values({ id: uid("apr"), userId: task.userId, taskId: task.id, runId, actionKind, actionHash, status: "pending", summary, evidence: { prompt: task.prompt, event: approvalProposal, trace }, requestedAt: new Date() }).returning())[0];
+      const approval = existing ?? (await db.insert(approvals).values({ id: uid("apr"), userId: task.userId, taskId: task.id, runId, actionKind, actionHash, status: "pending", summary, evidence: { prompt: task.prompt, event: approvalProposal, trace }, requestedAt: now() }).returning())[0];
       if (!existing) {
-        await db.insert(auditLog).values({ id: uid("aud"), userId: task.userId, ts: new Date(), actorType: "agent", actorId: "helm-native", taskId: task.id, action: "approval.requested", resourceType: "approval", resourceId: approval?.id ?? null, decision: "require_approval", reason: summary, metadata: { actionHash, actionKind, runId, correlationId } });
-        await insertEvent(task.id, task.userId, runId, "runtime.approval.requested", correlationId, approval?.id ?? task.id, { approvalId: approval?.id, actionHash, actionKind, summary, ...trace });
+        await db.insert(auditLog).values({ id: uid("aud"), userId: task.userId, ts: now(), actorType: "agent", actorId: "helm-native", taskId: task.id, action: "approval.requested", resourceType: "approval", resourceId: approval?.id ?? null, decision: "require_approval", reason: summary, metadata: { actionHash, actionKind, runId, correlationId } });
+        await insertEvent(db, task.id, task.userId, runId, "runtime.approval.requested", correlationId, approval?.id ?? task.id, { approvalId: approval?.id, actionHash, actionKind, summary, ...trace });
       }
-      await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: new Date(), result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+      await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
       taskLog.info({ event: "approval.requested", approvalId: approval?.id }, "task waiting approval");
       return;
     }
     if (result.status === "waiting_input") {
-      await db.update(tasks).set({ status: "waiting_input", leaseOwner: null, leaseUntil: null, updatedAt: new Date(), result: { status: "waiting_input", output: result.output } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+      await db.update(tasks).set({ status: "waiting_input", leaseOwner: null, leaseUntil: null, updatedAt: now(), result: { status: "waiting_input", output: result.output } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
       taskLog.info({ event: "task.waiting_input" }, "task waiting input/takeover");
       return;
     }
@@ -122,14 +116,14 @@ async function processTask(task: typeof tasks.$inferSelect) {
         if (existingReceipt?.status === "executed") continue;
         if (apr.actionKind.startsWith("browser.") || apr.actionKind.startsWith("external.")) {
           if (!existingReceipt) {
-            await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "approved", evidence: { runId, correlationId, note: "approved but not executed via guarded external-action path in this run" }, createdAt: new Date() }).onConflictDoNothing();
+            await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "approved", evidence: { runId, correlationId, note: "approved but not executed via guarded external-action path in this run" }, createdAt: now() }).onConflictDoNothing();
           }
           continue;
         }
-        await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "executed", evidence: { runId, correlationId, auto: true }, createdAt: new Date() }).onConflictDoNothing();
+        await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "executed", evidence: { runId, correlationId, auto: true }, createdAt: now() }).onConflictDoNothing();
       }
     }
-    const doneAt = new Date();
+    const doneAt = now();
     const output = result.output ?? "Completed";
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: output, metadata: { runId, correlationId, status: result.status }, createdAt: doneAt }).catch(() => undefined);
     const [updated] = await db.update(tasks).set({
@@ -139,8 +133,8 @@ async function processTask(task: typeof tasks.$inferSelect) {
       errorCode: result.error?.code ?? null, errorMessage: result.error?.message ?? null,
     }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId))).returning();
     if (updated) {
-      await insertEvent(task.id, task.userId, runId, "task.completed", correlationId, task.id, { status: updated.status, output, ...trace });
-      await emitWorkerFeedbackEvent(db, {
+      await insertEvent(db, task.id, task.userId, runId, "task.completed", correlationId, task.id, { status: updated.status, output, ...trace });
+      await emitFeedback(db, {
         userId: task.userId, taskId: task.id, runId, kind: "task_outcome",
         signal: updated.status === "succeeded" ? "positive" : updated.status === "failed" ? "negative" : "neutral",
         severity: updated.status === "failed" ? "error" : "info",
@@ -152,11 +146,11 @@ async function processTask(task: typeof tasks.$inferSelect) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const doneAt = new Date();
+    const doneAt = now();
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: `Error: ${message}`, metadata: { runId, correlationId, status: "failed" }, createdAt: doneAt }).catch(() => undefined);
     await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
-    await insertEvent(task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
-    await emitWorkerFeedbackEvent(db, {
+    await insertEvent(db, task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
+    await emitFeedback(db, {
       userId: task.userId, taskId: task.id, runId, kind: "tool_failure",
       signal: "negative", severity: "error", summary: "task.failed.runtime_crash",
       payload: { code: "RUNTIME_CRASH", message: message.slice(0, 300) },
@@ -166,9 +160,28 @@ async function processTask(task: typeof tasks.$inferSelect) {
   }
 }
 
-let running = true;
-async function loop() { while (running) { try { const task = await claimNext(); if (task) await processTask(task); else await new Promise((r) => setTimeout(r, POLL_MS)); } catch (err) { log.error({ err, agentId: workerId }, "worker loop error"); await new Promise((r) => setTimeout(r, POLL_MS)); } } }
-log.info({ workerId, pollMs: POLL_MS, leaseMs: LEASE_MS, runtime: runtime.provider }, "helm-worker started");
-void loop();
-const shutdown = async () => { running = false; log.info({ workerId }, "helm-worker shutting down"); await pool.end(); process.exit(0); };
-process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);
+const shouldAutostart = process.env.NODE_ENV !== "test" && process.env.HELM_WORKER_AUTOSTART !== "0";
+if (shouldAutostart) {
+  const dbUrl = process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/helm";
+  const { db, pool } = createDb(dbUrl);
+  const workerId = `worker_${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
+  const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 2000);
+  const LEASE_MS = Number(process.env.WORKER_LEASE_MS ?? 30000);
+  const runtime = new HelmNativeRuntime();
+
+  async function claimNext() {
+    const n = new Date();
+    const leaseUntil = new Date(n.getTime() + LEASE_MS);
+    const [candidate] = await db.select().from(tasks).where(and(eq(tasks.status, "queued"), or(isNull(tasks.leaseUntil), lte(tasks.leaseUntil, n)))).orderBy(tasks.createdAt).limit(1);
+    if (!candidate) return null;
+    const [claimed] = await db.update(tasks).set({ status: "running", leaseOwner: workerId, leaseUntil, startedAt: candidate.startedAt ?? n, updatedAt: n }).where(and(eq(tasks.id, candidate.id), eq(tasks.status, "queued"), or(isNull(tasks.leaseOwner), eq(tasks.leaseOwner, workerId)))).returning();
+    return claimed ?? null;
+  }
+
+  let running = true;
+  async function loop() { while (running) { try { const task = await claimNext(); if (task) await processTask(task, { db, runtime, workerId }); else await new Promise((r) => setTimeout(r, POLL_MS)); } catch (err) { log.error({ err, agentId: workerId }, "worker loop error"); await new Promise((r) => setTimeout(r, POLL_MS)); } } }
+  log.info({ workerId, pollMs: POLL_MS, leaseMs: LEASE_MS, runtime: runtime.provider }, "helm-worker started");
+  void loop();
+  const shutdown = async () => { running = false; log.info({ workerId }, "helm-worker shutting down"); await pool.end(); process.exit(0); };
+  process.on("SIGINT", shutdown); process.on("SIGTERM", shutdown);
+}
