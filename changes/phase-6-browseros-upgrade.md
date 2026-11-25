@@ -12,7 +12,7 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - **API/dispatch hooks**: `GET /v1/browser/adapter/status`; `GET /v1/browser/adapters/browseros/capabilities`; `HELM_BROWSER_ADAPTER_DISPATCH` flag; adapter-aware browser routes/session lookup; request/requestBinary dispatch supported.
 - **Hardening**: MCP timeout `BROWSEROS_MCP_TIMEOUT_MS` (default 30s); capability detection via `tools/list` (required `tabs,navigate,snapshot,screenshot`); structured error classification `BROWSEROS_TIMEOUT/UNAVAILABLE/CAPABILITY_MISSING/SELECTOR_NOT_FOUND`; click/fill use `evaluate_in_page` returning `selector_not_found|ok` for reliable selector detection (`0616ad1`).
 - **Verification**: `backend/api/src/lib/browser-adapter.test.ts` PASS (12/12). Env-gated smoke `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000` PASS (5/5, 2026-11-25): capabilities + create/navigate/snapshot/close, structured unknown-session error, click/fill selector-not-found structured error, **positive click/fill success on controlled local page (no external side effects)**, **adapter-level takeover request/resume/stream-status parity**; screenshot best-effort (timeout classified retryable).
-- **Commits**: pushed through `098bebe` on `main`; CI [45541052283](https://github.com/Tapas15/helm/actions/runs/45541052283) green for `098bebe`.
+- **Commits**: pushed through `554f6ba` on `main`; CI [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green for `554f6ba`.
 
 ## IP/License Guardrail
 - [x] No BrowserOS/Obscura/Hermes source code copying.
@@ -34,7 +34,7 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (5/5, 2026-11-25): capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error, **positive click/fill success on controlled local page**, **adapter-level takeover request/resume/stream-status parity**; screenshot best-effort. Still needed: deeper artifact/error parity, BrowserOS-vs-Playwright takeover semantics under real browser control, security review.
 - [ ] Security/compliance review for external adapter isolation (process boundary, auth, data handling).
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
-- [x] Push `0616ad1` and verify GitHub Actions CI green (CI [45541052283](https://github.com/Tapas15/helm/actions/runs/45541052283) green on `098bebe`).
+- [x] Push `0616ad1` and verify GitHub Actions CI green (CI [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green on `554f6ba`, includes P6 smoke parity batch).
 - [ ] Define explicit fallback/dispatch policy: Playwright default, BrowserOS opt-in only via explicit env/config; no silent runtime switch; dispatch by default only after parity+security evidence.
 - [ ] Performance benchmarking vs Playwright baseline.
 
@@ -42,8 +42,8 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - `backend/api/src/lib/browser-adapter.test.ts` PASS (12/12).
 - `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (5/5, 2026-11-25) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`: capabilities/create/navigate/snapshot/close; unknown-session structured error; click/fill selector-not-found structured error; positive click/fill on controlled local page (no external side effects); adapter-level takeover request/resume/stream-status parity. Screenshot best-effort (timeout classified retryable).
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS.
-- CI: [45541052283](https://github.com/Tapas15/helm/actions/runs/45541052283) green (`098bebe`, main).
-- Commits: pushed through `098bebe` on `main`.
+- CI: [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) green (`554f6ba`, main).
+- Commits: pushed through `554f6ba` on `main`.
 
 ## Dispatch / Fallback Policy (explicit, no silent switch)
 - **Default**: `BROWSER_ADAPTER=playwright` / dispatch off by default behavior remains Playwright.

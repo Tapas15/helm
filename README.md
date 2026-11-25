@@ -22,7 +22,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **73.2%** | CI green through `098bebe`; local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
+| **Overall** | **73.2%** | CI green [45544378416](https://github.com/Tapas15/helm/actions/runs/45544378416) (`554f6ba`); local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
 | Phase 0 Foundation | 93% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push and tsconfig dist/src cleanup remain |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
