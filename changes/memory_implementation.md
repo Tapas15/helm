@@ -118,8 +118,8 @@ Stored in `memory_notes` table:
 
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` - PASS (2026-11-25, after P7b draft cleanup).
 - `pnpm lint --filter @helm/api` - PASS (0 errors, 1 pre-existing warning: `backend/api/src/routes/browser.ts:128:18`).
-- Runtime/integration tests for P7b routes - **not run yet**.
-- CI for this P7b draft - **not pushed yet**.
+- `pnpm -C backend/api exec vitest run src/routes/memory.test.ts src/lib/identity-policy.test.ts src/smoke.test.ts --reporter=verbose` - PASS (12/12, 2026-11-25).
+- CI for latest P7b docs/test commits - **not watched per directive**.
 
 ## Change Log
 
