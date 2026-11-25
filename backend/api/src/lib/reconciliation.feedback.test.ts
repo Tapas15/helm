@@ -92,4 +92,17 @@ describe("reconcileUncertainReceipts feedback emission (P7a)", () => {
     expect(db.auditRows.some((r: any) => r.action === "receipt.reconciled")).toBe(false);
     expect(db.updates.some((u: any) => u.values?.status === "executed" || u.values?.status === "failed")).toBe(false);
   });
+
+  it("does not emit feedback or mutate receipt status on lookup exception (no blind retry)", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    vi.mocked(lookupGmailSend).mockRejectedValueOnce(new Error("Bearer secret-token network boom"));
+    const db = makeDb({ receipts: [{ id: "rcpt_4", userId: "u1", taskId: "tsk_4", runId: "run_4", actionKind: "gmail.send", idempotencyKey: "idem_4", externalRef: null, evidence: {}, status: "uncertain", createdAt: new Date(Date.now() - 120000) }] });
+    const res = await reconcileUncertainReceipts(db, { limit: 10, olderThanMs: 0 });
+    expect(res.reconciled).toBe(0);
+    expect(res.failed).toBe(1);
+    expect(res.errors[0]?.receiptId).toBe("rcpt_4");
+    expect(db.feedbackRows).toHaveLength(0);
+    expect(db.auditRows.some((r: any) => r.action === "receipt.reconciled")).toBe(false);
+    expect(db.updates.some((u: any) => u.values?.status === "executed" || u.values?.status === "failed")).toBe(false);
+  });
 });
