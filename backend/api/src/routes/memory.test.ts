@@ -80,11 +80,26 @@ describe("memory routes (P7b)", () => {
     const res = await makeApp(db).request("/v1/memory/status");
     expect(res.status).toBe(200);
     const body = await res.json() as any;
+    expect(Object.keys(body).sort()).toEqual([
+      "consolidationDryRunEnabled",
+      "embeddingProviderInjected",
+      "embeddingProviderSelection",
+      "enabled",
+      "inferredAllowed",
+      "mode",
+      "notesVisible",
+      "ok",
+      "retentionDryRunEnabled",
+      "retrievalEnabled",
+      "semanticRetrievalEnabled",
+    ]);
     expect(body.enabled).toBe(false);
     expect(body.mode).toBe("disabled");
     expect(body.notesVisible).toBe(0);
     expect(body.embeddingProviderSelection).toBe("external-unknown");
     expect(body.embeddingProviderInjected).toBe(false);
+    expect(body).not.toHaveProperty("notes");
+    expect(body).not.toHaveProperty("content");
     expect(selectCalls).toBe(0);
   });
 

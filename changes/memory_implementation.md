@@ -61,7 +61,7 @@ P7a remembers what went well or badly. It stores feedback from real events so He
 
 ## P7b — Long-term Memory Notes
 
-**How much implemented:** ~90%
+**How much implemented:** ~92%
 
 ### What this memory is for
 P7b is Helm’s notebook for important user/task facts. It remembers useful notes, not every chat message. It is designed to be safe, user-scoped, and user-controlled.
