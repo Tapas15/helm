@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-11-25T03:35:00Z  
 **Overall:** 72.9% (equal-weight P0-P8) | **Remaining:** 27.1% | **Target:** 100%  
-**CI:** green [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) (`c2989db`, main)  
+**CI:** green [45541052283](https://github.com/Tapas15/helm/actions/runs/45541052283) (`098bebe`, main)  
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
 ## Percentages
@@ -15,7 +15,7 @@
 | P3 Browser Execution | 93% | 7% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions, recovery | Live WS/takeover smoke, richer remote controls, recovery depth | Browser automation for live smoke |
 | P4 Connectors/Vault | 90% | 10% | OAuth PKCE scaffold, vault AES-GCM, Gmail/Calendar read+write guarded, reconcile, web UI; real OAuth connect/test verified 2026-11-24 (simplytaps3@gmail.com); scope fix pushed (`ddd445d`); Gmail send + Calendar create E2E with idempotency/no-duplicate PASS (same receipt/externalRef, no duplicate calendar event) | Real-provider refresh/revoke/uncertain-reconcile hardening, diagnostics/policy matrix | Google creds configured; deeper no-duplicate/uncertain scenarios remain |
 | P5 Temporal | 68% | 32% | ADR-002, routing/fail-closed, stub/real/mock proofs, DB-canonical reconciliation/scheduler, Temporal schedule/fault-injection guards, env-gated temporal-reconciliation e2e PASS | Real-provider no-duplicate, broader real Temporal schedule/monitor/fault-injection depth, retry-policy/operator depth | Real Temporal env + provider sandbox |
-| P6 BrowserOS | 58% | 42% | Playwright default; MCP adapter/client (`BROWSEROS_MCP_URL`), capability/report, timeout/error classification; selector-not-found click/fill hardening (`0616ad1`, local unpushed); contract 12/12 PASS; env-gated smoke 3/3 PASS (capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort) | Push+CI for `0616ad1`, positive click/fill/takeover parity, security/fallback/dispatch policy, CI/e2e evidence | Real BrowserOS parity/security; AGPL external-runtime only |
+| P6 BrowserOS | 58% | 42% | Playwright default; MCP adapter/client (`BROWSEROS_MCP_URL`), capability/report, timeout/error classification; selector-not-found click/fill hardening (`0616ad1`); contract 12/12 PASS; env-gated smoke 3/3 PASS (capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort) | Positive click/fill/takeover parity, security/fallback/dispatch policy, CI/e2e evidence | Real BrowserOS parity/security; AGPL external-runtime only |
 | P7 Identity/Memory/Skills | 48% | 52% | Identity/policy enforcement, memory/skills/proactivity flags, P7 tables, connector/browser binding | Identity vault/UI, broader policy coverage, skill/proactivity scheduler | Self-improvement activation needs explicit user approval |
 | P8 Hardening/Release | 43% | 57% | CI green, backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline | Full backup/restore drill, scan gating, threat model, PII policy/impl, compliance/provenance/Dubai signoff | Ops/manual/legal evidence & decisions |
 
