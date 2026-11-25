@@ -50,6 +50,31 @@ async function writeMemoryAudit(db: Database, input: { userId: string; action: s
   }
 }
 
+function tokenize(text: string): string[] {
+  return String(text ?? "").toLowerCase().replace(/[^a-z0-9\s_-]/g, " ").split(/\s+/).filter((t) => t.length >= 2).slice(0, 80);
+}
+
+function scoreMemoryNote(note: any, query: string, qTokens: string[]) {
+  const content = String(note?.content ?? "");
+  const kind = String(note?.kind ?? "");
+  const hay = `${kind} ${content}`.toLowerCase();
+  const tokens = new Set(tokenize(hay));
+  let score = 0;
+  const matched: string[] = [];
+  for (const t of qTokens) {
+    if (tokens.has(t)) { score += 2; matched.push(t); }
+    else if (hay.includes(t)) { score += 1; matched.push(t); }
+  }
+  if (query && hay.includes(query.toLowerCase())) score += 3;
+  const meta = (note?.metadata as Record<string, unknown> ?? {});
+  const provenance = String((meta.provenance as any)?.kind ?? "user_confirmed");
+  if (provenance === "user_confirmed") score += 0.5;
+  if (provenance === "observed") score += 0.2;
+  const confidence = typeof meta.confidence === "number" ? Math.max(0, Math.min(1, meta.confidence)) : 0;
+  score += confidence * 0.3;
+  return { score, matched: Array.from(new Set(matched)).slice(0, 20), provenance, confidence };
+}
+
 export function memoryRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_MEMORY_ENABLED === "1";
@@ -195,6 +220,46 @@ export function memoryRoutes(db: Database) {
     return c.json({ ok: true, dryRun: true, deleted: 0, scanned: rows.length, candidates, note: "No memory rows were deleted. This is a dry-run report only." });
   });
 
+
+  app.get("/retrieval", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
+    if (process.env.HELM_MEMORY_RETRIEVAL_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory retrieval disabled (HELM_MEMORY_RETRIEVAL_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const q = (c.req.query("q") ?? "").trim().slice(0, 200);
+    const qTokens = Array.from(new Set(tokenize(q))).slice(0, 20);
+    if (!q || qTokens.length === 0) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "q required"), 400);
+    const limit = Math.max(1, Math.min(20, Number(c.req.query("limit") ?? 5) || 5));
+    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(200);
+    const matches = rows.map((r) => {
+      const s = scoreMemoryNote(r, q, qTokens);
+      return { note: r, score: s.score, matchedTokens: s.matched, provenance: s.provenance, confidence: s.confidence };
+    }).filter((m) => m.score > 0).sort((a, b) => b.score - a.score || +new Date(b.note.createdAt as any) - +new Date(a.note.createdAt as any)).slice(0, limit);
+    await writeMemoryAudit(db, { userId, action: "memory.retrieval.query", metadata: { qLength: q.length, tokens: qTokens.length, scanned: rows.length, matches: matches.length, limit } });
+    return c.json({ ok: true, query: q, scanned: rows.length, matches, note: "Bounded lexical retrieval only; no semantic embeddings, no auto-delete, no autonomous behavior change." });
+  });
+
+  app.get("/consolidation/dry-run", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
+    if (process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory consolidation dry-run disabled (HELM_MEMORY_CONSOLIDATION_DRY_RUN!=1)"), 403);
+    const userId = c.get("userId");
+    const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(200);
+    const groups = new Map<string, any[]>();
+    for (const r of rows) {
+      const key = `${String(r.kind ?? "note").toLowerCase()}::${String(r.content ?? "").trim().toLowerCase()}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(r);
+      groups.set(key, arr);
+    }
+    const candidates = Array.from(groups.entries()).filter(([, arr]) => arr.length > 1).slice(0, 50).map(([key, arr]) => ({
+      key: key.slice(0, 180),
+      count: arr.length,
+      keepId: arr[0]?.id,
+      duplicateIds: arr.slice(1).map((r) => r.id),
+      reason: "exact_content_kind_match",
+    }));
+    await writeMemoryAudit(db, { userId, action: "memory.consolidation.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, deleted: 0, modified: 0, dryRun: true } });
+    return c.json({ ok: true, dryRun: true, scanned: rows.length, deleted: 0, modified: 0, candidates, note: "No memory rows were deleted or modified. Consolidation dry-run report only." });
+  });
 
   app.get("/audit/recent", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);

@@ -130,6 +130,69 @@ describe("memory routes (P7b)", () => {
     expect(body.note.metadata.expiresAt).toBe("2026-12-31T00:00:00.000Z");
     expect(body.note.metadata.pii).toBe("possible");
   });
+
+  it("returns bounded lexical retrieval matches when flag enabled", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
+    const rows = [
+      { id: "mem_1", userId: "u1", kind: "preference", content: "User prefers dark mode in editor", metadata: { provenance: { kind: "user_confirmed" }, confidence: 1, version: 1 }, createdAt: new Date("2026-01-02T00:00:00Z") },
+      { id: "mem_2", userId: "u1", kind: "note", content: "Uses vim keybindings", metadata: { provenance: { kind: "observed" }, confidence: 0.8, version: 1 }, createdAt: new Date("2026-01-01T00:00:00Z") },
+    ];
+    const db = makeDb({ selectRows: rows });
+    const res = await makeApp(db).request("/v1/memory/retrieval?q=dark%20mode");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(body.matches.length).toBeGreaterThan(0);
+    expect(body.matches[0].note.id).toBe("mem_1");
+    expect(body.note).toMatch(/no auto-delete/i);
+    expect(db.auditRows.some((r: any) => r.action === "memory.retrieval.query")).toBe(true);
+  });
+
+  it("retrieval is forbidden when retrieval flag disabled", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "0";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/retrieval?q=dark");
+    expect(res.status).toBe(403);
+  });
+
+  it("consolidation dry-run reports duplicate candidates and makes no changes", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
+    const rows = [
+      { id: "mem_1", userId: "u1", kind: "note", content: "Same fact", metadata: { version: 1 }, createdAt: new Date("2026-01-03T00:00:00Z") },
+      { id: "mem_2", userId: "u1", kind: "note", content: "Same fact", metadata: { version: 1 }, createdAt: new Date("2026-01-02T00:00:00Z") },
+      { id: "mem_3", userId: "u1", kind: "note", content: "Different", metadata: { version: 1 }, createdAt: new Date("2026-01-01T00:00:00Z") },
+    ];
+    let deleteCalls = 0;
+    let updateCalls = 0;
+    const db = makeDb({ selectRows: rows });
+    const origDelete = db.delete;
+    const origUpdate = db.update;
+    db.delete = (...args: any[]) => { deleteCalls++; return origDelete(...args); };
+    db.update = (...args: any[]) => { updateCalls++; return origUpdate(...args); };
+    const res = await makeApp(db).request("/v1/memory/consolidation/dry-run");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.dryRun).toBe(true);
+    expect(body.deleted).toBe(0);
+    expect(body.modified).toBe(0);
+    expect(body.candidates).toHaveLength(1);
+    expect(body.candidates[0].duplicateIds).toContain("mem_2");
+    expect(deleteCalls).toBe(0);
+    expect(updateCalls).toBe(0);
+    expect(db.auditRows.some((r: any) => r.action === "memory.consolidation.dry_run" && r.metadata?.dryRun === true)).toBe(true);
+  });
+
+  it("consolidation dry-run is forbidden when flag disabled", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "0";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/consolidation/dry-run");
+    expect(res.status).toBe(403);
+  });
+
   it("retention dry-run reports candidates and does not delete", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
