@@ -33,7 +33,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, P7 tables, memory/skills/proactivity flags; identity vault/UI, scheduler, provenance/CRUD/export pending; self-improvement activation needs explicit approval |
 | Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 
-> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
+> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** ï¿½ Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
 ### CI / Build Status
 
