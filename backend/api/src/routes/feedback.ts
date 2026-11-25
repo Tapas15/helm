@@ -64,13 +64,14 @@ export function feedbackRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const id = c.req.param("id");
-    const [fb] = await db.select().from(feedbackEvents).where(and(eq(feedbackEvents.id, id), eq(feedbackEvents.userId, userId))).limit(1);
-    if (!fb) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Feedback event not found"), 404);
+    const rows = await db.select().from(feedbackEvents).where(and(eq(feedbackEvents.id, id), eq(feedbackEvents.userId, userId))).limit(1);
+    const fb = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+    if (!fb || typeof fb.id !== "string") return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Feedback event not found"), 404);
     const body = await c.req.json().catch(() => ({} as any));
     const now = new Date();
     const [row] = await db.insert(evalCases).values({
       id: uid("eval"), userId, sourceFeedbackId: fb.id,
-      name: typeof body?.name === "string" && body.name.trim() ? body.name.trim().slice(0, 160) : `regression-${fb.kind}-${fb.id.slice(-8)}`,
+      name: typeof body?.name === "string" && body.name.trim() ? body.name.trim().slice(0, 160) : `regression-${fb.kind}-${String(fb.id ?? "").slice(-8)}`,
       kind: typeof body?.kind === "string" ? body.kind.slice(0, 40) : "regression",
       input: (redact(body?.input ?? { feedbackEventId: fb.id, kind: fb.kind }) as Record<string, unknown>),
       expected: (redact(body?.expected ?? { noRegression: true }) as Record<string, unknown>),

@@ -1,6 +1,6 @@
 ﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { memoryNotes, type Database } from "@helm/db";
+import { auditLog, memoryNotes, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
@@ -27,6 +27,18 @@ function noteMeta(existing: unknown, patch: Record<string, unknown>): Record<str
   return { ...base, ...patch, version: prevVersion + 1 };
 }
 
+async function writeMemoryAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; decision?: "allow" | "deny"; reason?: string | null; metadata?: Record<string, unknown> }) {
+  try {
+    await db.insert(auditLog).values({
+      id: uid("aud"), userId: input.userId, ts: new Date(), actorType: "user", actorId: input.userId,
+      action: input.action, resourceType: "memory_note", resourceId: input.resourceId ?? null,
+      decision: input.decision ?? "allow", reason: input.reason ?? null, metadata: input.metadata ?? {},
+    });
+  } catch {
+    // Audit must not change memory behavior.
+  }
+}
+
 export function memoryRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_MEMORY_ENABLED === "1";
@@ -50,6 +62,7 @@ export function memoryRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(500);
+    await writeMemoryAudit(db, { userId, action: "memory.export", metadata: { count: rows.length } });
     return c.json({ ok: true, exportedAt: new Date().toISOString(), count: rows.length, notes: rows });
   });
 
@@ -79,6 +92,7 @@ export function memoryRoutes(db: Database) {
       }),
       createdAt: now, updatedAt: now,
     }).returning();
+    await writeMemoryAudit(db, { userId, action: "memory.create", resourceId: row?.id, metadata: { kind: row?.kind, provenance: provenanceKind, sensitivity: r.sensitivity, confidence, redacted: r.redacted, version: (row?.metadata as any)?.version ?? 1 } });
     return c.json({ ok: true, note: row }, 201);
   });
 
@@ -115,6 +129,7 @@ export function memoryRoutes(db: Database) {
       });
     }
     const [row] = await db.update(memoryNotes).set(patch).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning();
+    await writeMemoryAudit(db, { userId, action: "memory.update", resourceId: row?.id ?? id, metadata: { kind: row?.kind, provenance: provKind, version: (row?.metadata as any)?.version ?? null, redacted: (row?.metadata as any)?.redactedSensitive ?? null } });
     return c.json({ ok: true, note: row });
   });
 
@@ -133,6 +148,7 @@ export function memoryRoutes(db: Database) {
     const id = c.req.param("id");
     const [row] = await db.delete(memoryNotes).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning({ id: memoryNotes.id });
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
+    await writeMemoryAudit(db, { userId, action: "memory.delete", resourceId: row.id, metadata: { deleted: true } });
     return c.json({ ok: true, deletedId: row.id });
   });
 

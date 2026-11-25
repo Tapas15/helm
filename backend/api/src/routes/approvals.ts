@@ -3,6 +3,7 @@ import { approvals, auditLog, taskEvents, tasks, actionReceipts, type Database }
 import { HELM_ERROR_CODES, ResolveApprovalInput } from "@helm/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../types.js";
+import { emitFeedbackEvent } from "../lib/feedback.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
@@ -41,6 +42,13 @@ export function approvalRoutes(db: Database) {
       await db.insert(taskEvents).values({ id: uid("evt"), userId, taskId: task.id, runId: approval.runId, sequence: seq, schemaVersion: 1, ts, source: "api", type: desired === "approved" ? "approval.approved" : "approval.rejected", correlationId, causationId: approval.id, payload: { approvalId: approval.id, actionHash: approval.actionHash, decision: desired, reason: parsed.data.reason ?? null, requestId, correlationId } });
     }
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts, actorType: "user", actorId: userId, taskId: approval.taskId, action: `approval.${desired}`, resourceType: "approval", resourceId: approval.id, decision: desired === "approved" ? "allow" : "deny", reason: parsed.data.reason ?? null, metadata: { actionHash: approval.actionHash, actionKind: approval.actionKind, requestId, correlationId } });
+    await emitFeedbackEvent(db, {
+      userId, taskId: approval.taskId, runId: approval.runId, kind: "approval_decision",
+      signal: desired === "approved" ? "positive" : "negative", severity: desired === "approved" ? "info" : "warn",
+      summary: `approval.${desired}`,
+      payload: { approvalId: approval.id, actionKind: approval.actionKind, decision: desired, actionHash: approval.actionHash },
+      evidenceRefs: [{ type: "audit", action: `approval.${desired}`, approvalId: approval.id }],
+    });
     return c.json({ approval: updated });
   });
   return app;
