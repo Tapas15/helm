@@ -435,6 +435,54 @@ describe("memory routes (P7b)", () => {
     expect(deleteCalls).toBe(0);
     expect(updateCalls).toBe(0);
   });
+
+  it("route inventory enforces enabled gate except status and dry-runs remain non-mutating", async () => {
+    process.env.HELM_MEMORY_ENABLED = "0";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
+    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
+    let selectCalls = 0;
+    let deleteCalls = 0;
+    let updateCalls = 0;
+    const db = makeDb({ selectRows: [{ id: "mem_1", userId: "u1", kind: "note", content: "Same fact", metadata: { retentionPolicy: "ephemeral", expiresAt: "2020-01-01T00:00:00.000Z" }, createdAt: new Date("2026-01-01T00:00:00Z") }] });
+    const origSelect = db.select; const origDelete = db.delete; const origUpdate = db.update;
+    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
+    db.delete = (...args: any[]) => { deleteCalls++; return origDelete(...args); };
+    db.update = (...args: any[]) => { updateCalls++; return origUpdate(...args); };
+    const app = makeApp(db);
+
+    const dataRoutes: Array<{ method: "GET" | "POST" | "PATCH" | "DELETE"; path: string; body?: unknown }> = [
+      { method: "GET", path: "/v1/memory/notes" },
+      { method: "GET", path: "/v1/memory/export" },
+      { method: "POST", path: "/v1/memory/notes", body: { content: "x" } },
+      { method: "PATCH", path: "/v1/memory/notes/mem_1", body: { content: "y" } },
+      { method: "GET", path: "/v1/memory/notes/mem_1" },
+      { method: "DELETE", path: "/v1/memory/notes/mem_1" },
+      { method: "GET", path: "/v1/memory/retention/dry-run" },
+      { method: "GET", path: "/v1/memory/retrieval?q=dark" },
+      { method: "GET", path: "/v1/memory/consolidation/dry-run" },
+      { method: "GET", path: "/v1/memory/audit/recent" },
+    ];
+    for (const r of dataRoutes) {
+      const res = await app.request(r.path, r.method === "GET" ? undefined : { method: r.method, headers: { "content-type": "application/json" }, body: JSON.stringify(r.body ?? {}) });
+      expect(res.status, `disabled gate ${r.method} ${r.path}`).toBe(403);
+    }
+    expect(selectCalls).toBe(0);
+    expect(deleteCalls).toBe(0);
+    expect(updateCalls).toBe(0);
+
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const dryRunRoutes = ["/v1/memory/consolidation/dry-run", "/v1/memory/retention/dry-run"];
+    for (const path of dryRunRoutes) {
+      const res = await app.request(path);
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.dryRun).toBe(true);
+      expect(body.deleted).toBe(0);
+    }
+    expect(deleteCalls).toBe(0);
+    expect(updateCalls).toBe(0);
+  });
 });
 
 
