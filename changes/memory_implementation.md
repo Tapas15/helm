@@ -61,7 +61,7 @@ P7a remembers what went well or badly. It stores feedback from real events so He
 
 ## P7b — Long-term Memory Notes
 
-**How much implemented:** ~80%
+**How much implemented:** ~90%
 
 ### What this memory is for
 P7b is Helm’s notebook for important user/task facts. It remembers useful notes, not every chat message. It is designed to be safe, user-scoped, and user-controlled.
@@ -124,6 +124,8 @@ P7b is Helm’s notebook for important user/task facts. It remembers useful note
 - Secret and PII redaction before save.
 - Confidence/version/sensitivity/retention/PII metadata.
 - Read-only recent memory audit.
+- Flag-gated bounded lexical retrieval (`GET /v1/memory/retrieval`) with deterministic `semantic-hash-fallback` behind explicit semantic flag; optional embedding provider seam is fail-closed (no default provider wiring, unknown selection -> hash fallback, provider failure -> lexical). Status exposes retrieval/semantic/embedding selection/injected flags.
+- Consolidation dry-run (`GET /v1/memory/consolidation/dry-run`) is report-only with merge-preview metadata (`applied=false`, `deleted:0`, `modified:0`); no apply endpoint (contract-tested 404/405).
 - Retention dry-run report with no deletion.
 - Bounded runtime memory loading in worker.
 

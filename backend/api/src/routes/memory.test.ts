@@ -178,6 +178,27 @@ describe("memory routes (P7b)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("retrieval audit records bounded metadata without raw query content", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
+    const rows = [
+      { id: "mem_1", userId: "u1", kind: "note", content: "prefers dark mode", metadata: { provenance: { kind: "user_confirmed" }, confidence: 1 }, createdAt: new Date("2026-01-02T00:00:00Z") },
+    ];
+    const db = makeDb({ selectRows: rows });
+    const q = "dark mode";
+    const res = await makeApp(db).request(`/v1/memory/retrieval?q=${encodeURIComponent(q)}`);
+    expect(res.status).toBe(200);
+    const audit = db.auditRows.find((r: any) => r.action === "memory.retrieval.query");
+    expect(audit).toBeTruthy();
+    expect(audit.metadata?.qLength).toBe(q.length);
+    expect(audit.metadata?.scanned).toBe(1);
+    expect(audit.metadata?.matches).toBe(1);
+    expect(typeof audit.metadata?.mode).toBe("string");
+    expect(audit.metadata).not.toHaveProperty("query");
+    expect(audit.metadata).not.toHaveProperty("q");
+    expect(JSON.stringify(audit.metadata)).not.toContain(q);
+  });
+
   it("consolidation dry-run reports duplicate candidates and makes no changes", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
