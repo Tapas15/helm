@@ -41,4 +41,14 @@ describe("enforceIdentityPolicyForConnectorAccount", () => {
     const r = await enforceIdentityPolicyForConnectorAccount(fakeDb({ id: "a1", metadata: { identityId: "i1" } }, { id: "p1", allowExternalWrites: true, requireApproval: true }), "u1", "a1", "gmail.send");
     expect(r).toEqual({ ok: true, policyId: "p1" });
   });
+  it("denies recipient when allowlists configured", async () => {
+    process.env.HELM_IDENTITY_ENFORCEMENT = "1";
+    const r = await enforceIdentityPolicyForConnectorAccount(fakeDb({ id: "a1", metadata: { identityId: "i1" } }, { id: "p1", allowExternalWrites: true, requireApproval: true, allowedRecipients: ["ok@example.com"], allowedDomains: ["safe.com"] }), "u1", "a1", "gmail.send", { recipients: ["bad@other.com"] });
+    expect(r.ok).toBe(false);
+  });
+  it("allows recipient by domain allowlist", async () => {
+    process.env.HELM_IDENTITY_ENFORCEMENT = "1";
+    const r = await enforceIdentityPolicyForConnectorAccount(fakeDb({ id: "a1", metadata: { identityId: "i1" } }, { id: "p1", allowExternalWrites: true, requireApproval: true, allowedRecipients: [], allowedDomains: ["safe.com"] }), "u1", "a1", "gmail.send", { recipients: ["user@safe.com"] });
+    expect(r).toEqual({ ok: true, policyId: "p1" });
+  });
 });

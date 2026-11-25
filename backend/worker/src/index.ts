@@ -61,10 +61,18 @@ async function processTask(task: typeof tasks.$inferSelect) {
     const approvedActionHash = approvedRows[0]?.actionHash ?? null;
     const recentMessages = await db.select({ role: taskMessages.role, content: taskMessages.content, createdAt: taskMessages.createdAt }).from(taskMessages).where(and(eq(taskMessages.taskId, task.id), eq(taskMessages.userId, task.userId))).orderBy(taskMessages.createdAt).limit(20);
     const thread = recentMessages.map((m) => ({ role: (m.role === "user" || m.role === "assistant" || m.role === "system" || m.role === "tool" ? m.role : "user") as "user"|"assistant"|"system"|"tool", content: m.content, ts: m.createdAt?.toISOString?.() ?? undefined }));
+    let memoryFacts: string[] = [];
+    if (process.env.HELM_MEMORY_ENABLED === "1") {
+      try {
+        const memRows = await db.select({ content: (await import("@helm/db")).memoryNotes.content, kind: (await import("@helm/db")).memoryNotes.kind, updatedAt: (await import("@helm/db")).memoryNotes.updatedAt }).from((await import("@helm/db")).memoryNotes).where(and(eq((await import("@helm/db")).memoryNotes.userId, task.userId))).orderBy((await import("@helm/db")).memoryNotes.updatedAt).limit(8);
+        memoryFacts = memRows.map((r) => `[${r.kind}] ${String(r.content).slice(0, 300)}`).slice(-8);
+        if (memoryFacts.length > 0) runtimeEvents.push({ type: "runtime.memory.loaded", ts: new Date().toISOString(), trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" }, message: "Loaded memory notes", payload: { count: memoryFacts.length } });
+      } catch (err) { taskLog.warn({ err }, "memory load failed"); }
+    }
     for await (const evt of runtime.run({
       taskId: task.id, runId, userId: task.userId, prompt: task.prompt, kind: task.kind,
       model: typeof (task.state as any)?.modelOverride?.model === "string" ? String((task.state as any).modelOverride.model) : undefined,
-      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
+      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
       thread,
       trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
     })) {

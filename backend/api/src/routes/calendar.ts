@@ -106,7 +106,7 @@ export function calendarRoutes(db: Database) {
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
-    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write");
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write", { recipients: input.attendees });
     if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
 
     const temporalCfg = readTemporalConfig(process.env);
@@ -193,7 +193,7 @@ export function calendarRoutes(db: Database) {
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-calendar" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Calendar account not active"), 409);
-    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write");
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "calendar.external_write", { recipients: input.attendees ?? [] });
     if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
 
     const temporalCfg = readTemporalConfig(process.env);

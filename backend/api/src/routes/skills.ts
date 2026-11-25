@@ -10,7 +10,7 @@ const err = (code: string, message: string, retryable = false) => ({ error: { co
 export function skillsRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_SKILLS_ENABLED === "1";
-  app.get("/status", (c) => c.json({ ok: true, enabled: enabled(), selfImprovement: { allowed: false, reason: "Requires explicit user approval before implementation/activation." } }));
+  app.get("/status", (c) => c.json({ ok: true, enabled: enabled(), selfImprovement: { allowed: false, requiresExplicitApproval: true, reason: "Requires explicit user approval before implementation/activation." } }));
   app.get("/", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Skills disabled (HELM_SKILLS_ENABLED!=1)"), 403);
     const userId = c.get("userId");

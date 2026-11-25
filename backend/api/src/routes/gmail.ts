@@ -92,7 +92,7 @@ export function gmailRoutes(db: Database) {
     }
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
     if (!account || account.connectorId !== "google-gmail" || account.status !== "active") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Gmail account not active"), 409);
-    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "gmail.send");
+    const policy = await enforceIdentityPolicyForConnectorAccount(db, userId, input.accountId, "gmail.send", { recipients: input.to });
     if (!policy.ok) return c.json(err(policy.code, policy.message), policy.status);
 
     const temporalCfg = readTemporalConfig(process.env);

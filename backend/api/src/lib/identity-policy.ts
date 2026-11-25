@@ -4,7 +4,17 @@ import { HELM_ERROR_CODES } from "@helm/shared";
 
 export type IdentityPolicyDecision = { ok: true; policyId?: string } | { ok: false; status: 403 | 409; code: string; message: string };
 
-export async function enforceIdentityPolicyForConnectorAccount(db: Database, userId: string, accountId: string, actionKind: string): Promise<IdentityPolicyDecision> {
+type ActionContext = { recipients?: string[]; domains?: string[]; actionKind?: string };
+
+function normalizeList(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => String(x ?? "").trim().toLowerCase()).filter(Boolean) : [];
+}
+function domainOf(addr: string): string | null {
+  const m = String(addr).toLowerCase().match(/@([a-z0-9.-]+)$/);
+  return m?.[1] ?? null;
+}
+
+export async function enforceIdentityPolicyForConnectorAccount(db: Database, userId: string, accountId: string, actionKind: string, ctx: ActionContext = {}): Promise<IdentityPolicyDecision> {
   const [account] = await db.select({ id: connectorAccounts.id, metadata: connectorAccounts.metadata }).from(connectorAccounts).where(and(eq(connectorAccounts.id, accountId), eq(connectorAccounts.userId, userId))).limit(1);
   const identityId = account && typeof (account.metadata as any)?.identityId === "string" ? String((account.metadata as any).identityId) : null;
   const enforce = process.env.HELM_IDENTITY_ENFORCEMENT === "1";
@@ -19,5 +29,19 @@ export async function enforceIdentityPolicyForConnectorAccount(db: Database, use
   }
   if (!policy.allowExternalWrites) return { ok: false, status: 403, code: HELM_ERROR_CODES.FORBIDDEN, message: `Identity policy denies external writes (${actionKind})` };
   if (!policy.requireApproval) return { ok: false, status: 403, code: HELM_ERROR_CODES.FORBIDDEN, message: "Identity policy invalid: external writes require approval" };
+
+  const allowedRecipients = normalizeList((policy as any).allowedRecipients);
+  const allowedDomains = normalizeList((policy as any).allowedDomains);
+  const recipients = normalizeList(ctx.recipients);
+  if (recipients.length > 0 && (allowedRecipients.length > 0 || allowedDomains.length > 0)) {
+    for (const r of recipients) {
+      const domain = domainOf(r);
+      const recipientOk = allowedRecipients.includes(r);
+      const domainOk = !!domain && allowedDomains.includes(domain);
+      if (!recipientOk && !domainOk) {
+        return { ok: false, status: 403, code: HELM_ERROR_CODES.FORBIDDEN, message: `Identity policy denies recipient/domain for ${actionKind}` };
+      }
+    }
+  }
   return { ok: true, policyId: policy.id };
 }
