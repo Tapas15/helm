@@ -1,6 +1,6 @@
 ﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
-import { evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
+import { auditLog, evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 
@@ -21,6 +21,18 @@ function redact(value: unknown, depth = 0): unknown {
   }
   if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}â€¦[TRUNCATED]` : value;
   return value;
+}
+
+async function writeFeedbackAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; metadata?: Record<string, unknown> }) {
+  try {
+    await db.insert(auditLog).values({
+      id: uid("aud"), userId: input.userId, ts: new Date(), actorType: "user", actorId: input.userId,
+      action: input.action, resourceType: "self_improvement_proposal", resourceId: input.resourceId ?? null,
+      decision: "allow", reason: null, metadata: input.metadata ?? {},
+    });
+  } catch {
+    // Audit must not change feedback/proposal behavior.
+  }
 }
 
 export function feedbackRoutes(db: Database) {
@@ -128,6 +140,7 @@ export function feedbackRoutes(db: Database) {
       evidenceRefs: Array.isArray(body?.evidenceRefs) ? (redact(body.evidenceRefs.slice(0, 50)) as unknown[]) : [],
       createdAt: now, updatedAt: now,
     }).returning();
+    await writeFeedbackAudit(db, { userId, action: "proposal.draft.created", resourceId: row?.id ?? null, metadata: { status: "draft", activation: "blocked", requiresApproval: true, sourceFeedbackId, sourceEvalCaseId } });
     return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. No apply/activation path exists." }, 201);
   });
 
@@ -168,6 +181,7 @@ export function feedbackRoutes(db: Database) {
     if (body?.payload !== undefined) patch.payload = redact(body.payload) as Record<string, unknown>;
     if (Array.isArray(body?.evidenceRefs)) patch.evidenceRefs = redact(body.evidenceRefs.slice(0, 50)) as unknown[];
     const [row] = await db.update(selfImprovementProposals).set(patch).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).returning();
+    await writeFeedbackAudit(db, { userId, action: "proposal.draft.updated", resourceId: row?.id ?? id, metadata: { status: "draft", activation: "blocked", requiresApproval: true, fields: Object.keys(patch).filter((k) => k !== "updatedAt") } });
     return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. Activation remains blocked." });
   });
   return app;

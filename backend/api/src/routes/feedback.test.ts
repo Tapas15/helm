@@ -1,6 +1,6 @@
 ﻿import { Hono } from "hono";
 import { afterEach, describe, expect, it } from "vitest";
-import { evalCases, feedbackEvents, selfImprovementProposals } from "@helm/db";
+import { auditLog, evalCases, feedbackEvents, selfImprovementProposals } from "@helm/db";
 import { feedbackRoutes } from "../routes/feedback.js";
 
 const env = { ...process.env };
@@ -23,7 +23,7 @@ function makeDb(opts?: { events?: any[]; evals?: any[]; proposals?: any[] }) {
     events,
     evals,
     db: {
-      select: () => ({ from: (table: unknown) => query(rowsFor(table)) }),
+      select: () => ({ from: (table: unknown) => query(table === auditLog ? auditRows : rowsFor(table)) }),
       insert: (table: unknown) => ({
         values: (v: any) => ({
           returning: async () => {
@@ -157,6 +157,7 @@ describe("feedback routes (P7a)", () => {
     expect(res.status).toBe(400);
   });
 });
+
 
 
 
