@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, identityPolicies, taskEvents, tasks, type Database } from "@helm/db";
 import { emitFeedbackEvent } from "../lib/feedback.js";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
@@ -103,6 +103,14 @@ export function browserRoutes(db: Database) {
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}`);
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+  });
+  app.get("/sessions/:id/artifacts", async (c) => {
+    const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
+    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 50) || 50, 1), 100);
+    const rows = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.userId, c.get("userId")), eq(browserArtifacts.sessionId, c.req.param("id")))).orderBy(desc(browserArtifacts.createdAt)).limit(limit);
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.artifacts.list", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "list", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), count: rows.length, limit } }).catch(() => undefined);
+    return c.json({ ok: true, sessionId: c.req.param("id"), artifacts: rows.map((r) => ({ id: r.id, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt })) });
   });
   app.get("/sessions/:id/screenshot.png", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
