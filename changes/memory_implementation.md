@@ -233,6 +233,10 @@ P7d would be for small, carefully controlled self-tuning (like prompt/routing tw
 
 ## Simple approval boundaries
 
+## Contracts / evidence
+- Memory status/retrieval/consolidation/retention contract: `changes/p7b-memory-status-contract.md`
+- Retention/PII policy scaffold: `changes/p7b-retention-pii-policy.md`
+
 - **P7c/P7d activation/apply/auto-run/autonomous self-improvement**: needs your explicit written “yes” with allowed scope, required gates, and forbidden changes.
 - **P7b retention enforcement/delete**: needs your explicit “yes”, accepted dry-run report, audit evidence, retention windows, privacy/legal signoff; vault secrets never deleted.
 - **Skills/proactivity execution**: needs your explicit “yes” with allowed actions, approval/idempotency/audit/receipt, rate limits, and kill switch.
