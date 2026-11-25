@@ -33,7 +33,7 @@ app.get("/v1/sessions/:id/stream/status", async (c) => c.json(await executor.str
 function correlationFrom(input: any) {
   const c = input && typeof input === "object" ? input : {};
   const pick = (k: string) => typeof c[k] === "string" && c[k].trim() ? c[k].trim().slice(0, 200) : undefined;
-  return {
+  const corr = {
     userId: pick("userId"),
     taskId: pick("taskId"),
     runId: typeof c.runId === "string" && c.runId.trim() ? c.runId.trim().slice(0, 200) : c.runId === null ? null : undefined,
@@ -41,17 +41,20 @@ function correlationFrom(input: any) {
     approvalId: pick("approvalId"),
     actionHash: pick("actionHash"),
   };
+  return Object.fromEntries(Object.entries(corr).filter(([, v]) => v !== undefined));
 }
 
 async function action<T extends z.ZodTypeAny>(c: any, schema: T, actionName: string, fn: (input: z.infer<T>) => Promise<unknown>) {
   const body = await c.req.json().catch(() => ({}));
+  const corr = correlationFrom(body);
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400);
-  const corr = correlationFrom(parsed.data);
+  if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, { issues: parsed.error.flatten(), correlation: corr }), 400);
+  const safeCorr = correlationFrom(parsed.data);
   const result = await fn(parsed.data);
   const ok = !!(result as any)?.ok;
-  log.info({ requestId: c.get("requestId"), traceCorrelationId: c.get("correlationId"), sessionId: c.req.param("id"), action: actionName, ok, ...corr }, "browser action");
-  return c.json(result, ok ? 200 : 400);
+  log.info({ requestId: c.get("requestId"), traceCorrelationId: c.get("correlationId"), sessionId: c.req.param("id"), action: actionName, ok, ...safeCorr }, "browser action");
+  const payload = result && typeof result === "object" ? { ...(result as Record<string, unknown>), correlation: safeCorr } : result;
+  return c.json(payload, ok ? 200 : 400);
 }
 app.post("/v1/sessions/:id/navigate", (c) => action(c, BrowserNavigateInput, "navigate", (input) => executor.navigate(c.req.param("id"), input)));
 app.post("/v1/sessions/:id/click", (c) => action(c, BrowserClickInput, "click", (input) => executor.click(c.req.param("id"), input)));
