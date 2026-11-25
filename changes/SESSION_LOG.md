@@ -1542,3 +1542,25 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: API typecheck PASS; `browser-adapter.test.ts` 17/17 PASS; `pnpm lint` PASS (1 pre-existing warning `backend/api/src/routes/browser.ts:128`); env-gated BrowserOS MCP smoke 5/5 PASS (`HELM_BROWSEROS_MCP_SMOKE=1`, `BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp`, 121.66s).
 - **Policy**: No default-dispatch change; Playwright default; no silent fallback; external BrowserOS runtime only; no external side effects.
 
+
+## 2026-11-25 - P6 smoke rerun + scout consolidation (local)
+**Time:** 2026-11-25T11:52:00Z
+**Agent:** Kilo
+**Phase:** P6 BrowserOS / cross-phase planning consolidation
+
+### Completed
+- [x] Reran env-gated BrowserOS MCP smoke on controlled local page (no external side effects): `browser-adapter.test.ts` 17/17 PASS; `browseros-mcp-smoke.test.ts` 6/6 PASS. Baseline: `{"capabilities":23,"create":204,"navigate":975,"snapshot":90,"fill":116,"click":267,"takeover_request":1,"takeover_resume":1,"close":75}` ms. Screenshot best-effort; selector-not-found structured non-retryable; takeover request/resume parity verified.
+- [x] Consolidated 11/17 completed P0-P8 scout findings into `changes/PLANNING_MISSING_ITEMS.md` with blocker classification and resumable IDs for 6 rate-limited scouts.
+- [x] Recorded P6 dispatch/fallback policy confirmation: Playwright default, no silent fallback/default dispatch, `HELM_BROWSER_ADAPTER_DISPATCH` off until parity+security+CI evidence.
+- [x] Updated `changes/CURRENT_STATE.md`, `changes/phase-6-browseros-upgrade.md`, `changes/PLANNING_MISSING_ITEMS.md`.
+
+### Evidence
+- `pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts` PASS (17/17)
+- `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000 pnpm -C backend/api exec vitest run src/routes/browseros-mcp-smoke.test.ts` PASS (6/6, 224.85s)
+- `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS
+- `pnpm lint --filter @helm/api` PASS (0 errors, 1 pre-existing warning: `backend/api/src/routes/browser.ts:128:18` unused `act`)
+
+### Blocked / Remaining
+- [ ] P6: deeper BrowserOS-vs-Playwright artifact/error parity and real browser-control takeover semantics; formal STRIDE/threat-model/PII retention evidence; default dispatch remains off.
+- [ ] Resume 6 rate-limited scouts selectively: `ses_dedfcf05effejKiZZe55LxOm07`, `ses_dedfcf021ffe9Dpua17owS8vVj`, `ses_dedfcf01bffeBFsMHLzddI4gKG`, `ses_dedfcf012ffeTd1wk0HmtcLS7D`, `ses_dedfcf00cffe1ERmT0AvWePAyz`, `ses_dedfcf006ffeNMPJOK0Y577MrX`.
+- [ ] P1 live UI smoke/AG-UI WS decision; P4/P5 real-provider proofs; P7 self-improvement activation requires explicit user approval; P8 ops/legal/manual evidence.
