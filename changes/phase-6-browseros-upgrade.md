@@ -34,7 +34,7 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - [~] MCP adapter scaffold integrated behind contract; capability/report + timeout/error classification added; env-gated smoke PASS (3/3: capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort). Still needed: positive click/fill success on controlled selector, takeover semantics, artifact/error parity depth, security review.
 - [ ] Security/compliance review for external adapter isolation (process boundary, auth, data handling).
 - [~] Capability detection/report added (`tools/list` required-tool check, `/v1/capabilities` adapter path) with deterministic contract tests for missing capabilities/timeout mapping; automatic fallback/dispatch policy still explicit-only (no silent default switch).
-- [ ] Push `0616ad1` and verify GitHub Actions CI green for pushed P6 commits.
+- [x] Push `0616ad1` and verify GitHub Actions CI green (CI [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) green on `c2989db`).
 - [ ] Wire adapter dispatch by default only after parity.
 - [ ] Performance benchmarking vs Playwright baseline.
 
@@ -42,4 +42,5 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - `backend/api/src/lib/browser-adapter.test.ts` PASS (12/12).
 - `backend/api/src/routes/browseros-mcp-smoke.test.ts` PASS (3/3) with `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000` (screenshot best-effort timeout observed).
 - `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS.
-- Commits: pushed through `3a8073c`; local unpushed `0616ad1` (click/fill selector-not-found hardening), CI pending.
+- CI: [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) green (`c2989db`, main).
+- Commits: pushed through `c2989db` (includes `0616ad1` selector hardening + docs sync).

@@ -1,8 +1,8 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-25T03:20:00Z  
+**Last updated:** 2026-11-25T03:35:00Z  
 **Overall:** 72.9% (equal-weight P0-P8) | **Remaining:** 27.1% | **Target:** 100%  
-**CI:** green through `3a8073c` (`origin/main`); local `0616ad1` unpushed, CI not verified  
+**CI:** green [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) (`c2989db`, main)  
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
 ## Percentages
@@ -27,7 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
-- 2026-11-25: P6 BrowserOS click/fill selector detection hardened (`0616ad1`, local unpushed). `evaluate_in_page` click/fill returns structured `selector_not_found|ok`; adapter classifies missing selectors as `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false). Env-gated smoke expects structured selector-not-found for click/fill. Local: `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `browser-adapter.test.ts` 12/12 PASS; `HELM_BROWSEROS_MCP_SMOKE=1` smoke 3/3 PASS. CI pending after push.
+- 2026-11-25: Pushed P6 docs+hardening to `main` (`0616ad1`, `c2989db`); GitHub Actions [45540317436](https://github.com/Tapas15/helm/actions/runs/45540317436) **green**. P6 BrowserOS click/fill selector detection hardened: `evaluate_in_page` returns `selector_not_found|ok`; adapter maps missing selector to `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false). Evidence: API typecheck PASS, `browser-adapter.test.ts` 12/12 PASS, env-gated smoke 3/3 PASS.
 - 2026-11-24: P0 closeout evidence: fixed `scripts/align-drizzle-journal.mjs` to resolve repo-root paths (cwd-independent); `db:migrate:align` idempotent PASS from repo root and `packages/db`. Full local gates PASS: `pnpm lint` (1 pre-existing warning), `pnpm typecheck`, `pnpm build`, `pnpm test` (12 tasks; env-gated integration skips expected).
 - 2026-11-24: P6 BrowserOS MCP parity depth (`e36e4f3`,`505736f`,`2fb891a`,`3a8073c`, `0616ad1` local): capability/report, timeout/error classification; adapter contract 12/12 PASS. Env-gated smoke 3/3 PASS (capabilities/create/navigate/snapshot/close, unknown-session structured error, click/fill selector-not-found structured error; screenshot best-effort). Playwright remains default; external runtime only.
 - `ddd445d` P4: added `gmail.send` + `calendar.events` OAuth scopes to connector definitions (write-scope E2E unblock).
@@ -38,7 +38,7 @@
 - 2026-11-24 docs: added explicit "What we have done" sections to `phase-1`..`phase-8`.
 
 ## Active Blockers
-- P6: full BrowserOS action parity/security review, capability fallback hardening, and default-dispatch decision remain; env-gated smoke 3/3 PASS but positive click/fill/takeover parity and CI evidence for `0616ad1` pending.
+- P6: full BrowserOS action parity/security review, capability fallback hardening, and default-dispatch decision remain; env-gated smoke 3/3 PASS, but positive click/fill/takeover parity and deeper artifact/error parity still pending.
 - Real Temporal server + provider sandbox for deep P5 proof.
 - P0: confirm Drizzle alignment in CI/fresh-clone after push; tsconfig dist/src cleanup deferred.
 - P8 ops/legal: full backup/restore drill, scan gating, threat model, PII, compliance/provenance/Dubai signoff.
