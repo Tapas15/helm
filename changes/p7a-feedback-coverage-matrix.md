@@ -19,9 +19,11 @@
 | `backend/worker/src/index.ts:153` | tool_failure RUNTIME_CRASH | helper-tested + integration (`process-task.feedback.test.ts`) | helper yes | helper yes | n/a | emission flag-gated/no-throw |
 
 ## Gaps / Non-emittable by design (current contract)
-- Worker loop catch (`backend/worker/src/index.ts:182`) logs infra/claim failures without `userId/taskId/runId`; cannot emit user-scoped feedback safely without contract change. No behavior change.
+- Worker loop claim failures (`backend/worker/src/index.ts`) occur before task claim/correlation; cannot emit user-scoped feedback safely without additive system-feedback contract. Loop now logs `worker.claim.error` without fabricating IDs.
+- Worker process unexpected catch is defense-in-depth with task/user/run logging; `processTask` owns expected failure/completion feedback. Avoid duplicate feedback unless dedupe contract added.
 - Browser-worker (`backend/browser-worker/src/index.ts`, executor) has no DB/feedback dependency and no task/run correlation in HTTP/WS contract; emitting P7a feedback requires cross-service contract+DB wiring decision. No behavior change.
-- Browser guardedAct/external-action failure emissions are wired but need dedicated route-level enabled/disabled/redaction tests.
+- Browser guardedAct/external-action failure emissions are wired and route-tested (`browser.feedback.test.ts` PASS 4/4). Keep matrix synced for new callsites.
+- See `changes/p7a-feedback-correlation-contract.md` for draft additive correlation contract (no activation).
 
 ## P7b memory retrieval/consolidation coverage (related but separate)
 - `backend/api/src/routes/memory.ts` retrieval `GET /v1/memory/retrieval` - flag-gated `HELM_MEMORY_RETRIEVAL_ENABLED=1`, user-scoped, bounded scan/limit, audit `memory.retrieval.query`, no auto-delete. Covered by `memory.test.ts`.
