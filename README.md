@@ -1,4 +1,4 @@
-﻿# Helm
+# Helm
 
 [![CI](https://github.com/Tapas15/helm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tapas15/helm/actions/workflows/ci.yml)
 
@@ -16,13 +16,13 @@ Helm is an original personal AI operating assistant built from scratch for the D
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Security_Hardening-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
-**[Explore the full visual roadmap â†’](ROADMAP.md)**
+**[Explore the full visual roadmap →](ROADMAP.md)**
 
 </div>
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **73.2%** | CI green [45545739648](https://github.com/Tapas15/helm/actions/runs/45545739648) (`3e606e4`); local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
+| **Overall** | **73.2%** | CI green [45559337267](https://github.com/Tapas15/helm/actions/runs/45559337267) (`5597a95`); local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
 | Phase 0 Foundation | 93% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push and tsconfig dist/src cleanup remain |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
@@ -33,12 +33,12 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, P7 tables, memory/skills/proactivity flags; identity vault/UI, scheduler, provenance/CRUD/export pending; self-improvement activation needs explicit approval |
 | Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 
-> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
+> Detailed journey, milestones, and past/present/future plan: **[ROADMAP.md](ROADMAP.md)** � Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)**
 
 ### CI / Build Status
 
 - **GitHub Actions CI is green on `main`** when lint, typecheck, test, and build pass. The badge above reflects the latest `main` workflow result.
-- **Why the green line may look â€œconstantâ€:** CI runs on every push/PR and reports pass/fail for that commit; it does not measure product completion. During active build phases, many commits may pass CI while feature completeness is still partial. A flat green contribution/check line means checks are passing consistently, not that the project is 100% complete.
+- **Why the green line may look “constant”:** CI runs on every push/PR and reports pass/fail for that commit; it does not measure product completion. During active build phases, many commits may pass CI while feature completeness is still partial. A flat green contribution/check line means checks are passing consistently, not that the project is 100% complete.
 - **Service-dependent integration tests** (Postgres/API/browser live) are gated behind explicit env vars (`HELM_INTEGRATION=1`, `HELM_INTEGRATION_API=1`) so default CI stays deterministic; they are run intentionally in environments where those services are provisioned.
 
 ## Architecture
