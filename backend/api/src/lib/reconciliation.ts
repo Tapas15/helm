@@ -4,6 +4,7 @@ import { createLogger } from "@helm/observability";
 import { DbCredentialBroker } from "./vault.js";
 import { lookupGmailSend } from "../routes/gmail.js";
 import { lookupCalendarCreate, lookupCalendarEventById } from "../routes/calendar.js";
+import { emitFeedbackEvent } from "./feedback.js";
 
 const log = createLogger({ name: "helm-reconciliation" });
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -83,6 +84,14 @@ export async function reconcileUncertainReceipts(db: Database, opts?: { limit?: 
         id: uid("aud"), userId: row.userId, ts: new Date(), actorType: "system", actorId: "reconciliation",
         taskId: row.taskId, action: "receipt.reconciled", resourceType: "action_receipt", resourceId: row.id,
         decision: "allow", reason: `auto_lookup_${resolvedOutcome}`, metadata: { actionKind: row.actionKind, idempotencyKey: row.idempotencyKey, externalRef: resolvedExternalRef, autoLookup },
+      });
+      await emitFeedbackEvent(db, {
+        userId: row.userId, taskId: row.taskId, runId: row.runId, kind: "tool_failure",
+        signal: resolvedOutcome === "executed" ? "positive" : "negative",
+        severity: resolvedOutcome === "executed" ? "info" : "warn",
+        summary: `reconciliation.${resolvedOutcome}`,
+        payload: { actionKind: row.actionKind, receiptId: row.id, idempotencyKey: row.idempotencyKey, externalRef: resolvedExternalRef, outcome: resolvedOutcome },
+        evidenceRefs: [{ type: "receipt", id: row.id }, { type: "audit", action: "receipt.reconciled" }],
       });
       if (row.taskId) {
         try {
