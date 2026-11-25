@@ -67,36 +67,41 @@ app.post("/v1/sessions/:id/external-action", (c) => action(c, BrowserExternalAct
 app.post("/v1/sessions/:id/close", async (c) => c.json(await executor.closeSession(c.req.param("id"))));
 app.onError((caught, c) => { log.error({ err: caught, requestId: c.get("requestId"), correlationId: c.get("correlationId") }, "unhandled error"); return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Internal server error", true), 500); });
 
-const server = serve({ fetch: app.fetch, port }, () => log.info({ port }, "helm-browser-worker listening"));
-const wss = new WebSocketServer({ noServer: true });
-server.on("upgrade", async (req, socket, head) => {
-  try {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? `127.0.0.1:${port}`}`);
-    const m = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/stream$/);
-    if (!m) { socket.destroy(); return; }
-    const auth = req.headers.authorization;
-    if (auth !== `Bearer ${token}`) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
-    const sessionId = decodeURIComponent(m[1] ?? "");
-    const session = await executor.getSession(sessionId);
-    if (!session) { socket.write("HTTP/1.1 404 Not Found\r\n\r\n"); socket.destroy(); return; }
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      const send = (obj: unknown) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
-      send({ type: "session", session });
-      const last = executor.getLastFrame(sessionId);
-      if (last) send({ type: "frame", sessionId, data: last, ts: Date.now() });
-      const unsub = executor.subscribe(sessionId, (frame) => send({ type: "frame", ...frame }));
-      const ping = setInterval(() => send({ type: "ping", ts: Date.now() }), 15000);
-      ws.on("message", async (raw) => {
-        try {
-          const msg = JSON.parse(String(raw));
-          if (msg?.type === "input") {
-            const result = await executor.sendInput(sessionId, msg.input ?? msg);
-            send({ type: "input.result", ...result, ts: Date.now() });
-          }
-        } catch (e) { send({ type: "input.result", ok: false, error: e instanceof Error ? e.message : String(e) }); }
+export { app, executor, correlationFrom };
+
+const shouldAutostart = process.env.NODE_ENV !== "test" && process.env.BROWSER_WORKER_AUTOSTART !== "0";
+if (shouldAutostart) {
+  const server = serve({ fetch: app.fetch, port }, () => log.info({ port }, "helm-browser-worker listening"));
+  const wss = new WebSocketServer({ noServer: true });
+  server.on("upgrade", async (req, socket, head) => {
+    try {
+      const url = new URL(req.url ?? "/", `http://${req.headers.host ?? `127.0.0.1:${port}`}`);
+      const m = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/stream$/);
+      if (!m) { socket.destroy(); return; }
+      const auth = req.headers.authorization;
+      if (auth !== `Bearer ${token}`) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+      const sessionId = decodeURIComponent(m[1] ?? "");
+      const session = await executor.getSession(sessionId);
+      if (!session) { socket.write("HTTP/1.1 404 Not Found\r\n\r\n"); socket.destroy(); return; }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        const send = (obj: unknown) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
+        send({ type: "session", session });
+        const last = executor.getLastFrame(sessionId);
+        if (last) send({ type: "frame", sessionId, data: last, ts: Date.now() });
+        const unsub = executor.subscribe(sessionId, (frame) => send({ type: "frame", ...frame }));
+        const ping = setInterval(() => send({ type: "ping", ts: Date.now() }), 15000);
+        ws.on("message", async (raw) => {
+          try {
+            const msg = JSON.parse(String(raw));
+            if (msg?.type === "input") {
+              const result = await executor.sendInput(sessionId, msg.input ?? msg);
+              send({ type: "input.result", ...result, ts: Date.now() });
+            }
+          } catch (e) { send({ type: "input.result", ok: false, error: e instanceof Error ? e.message : String(e) }); }
+        });
+        ws.on("close", () => { clearInterval(ping); unsub?.(); });
+        ws.on("error", () => { clearInterval(ping); unsub?.(); });
       });
-      ws.on("close", () => { clearInterval(ping); unsub?.(); });
-      ws.on("error", () => { clearInterval(ping); unsub?.(); });
-    });
-  } catch (e) { log.error({ err: e }, "ws upgrade failed"); socket.destroy(); }
-});
+    } catch (e) { log.error({ err: e }, "ws upgrade failed"); socket.destroy(); }
+  });
+}
