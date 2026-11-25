@@ -35,6 +35,10 @@ Document safe, additive correlation contracts needed before emitting user-scoped
 - Accept metadata only from trusted API caller (existing bearer token boundary), never from untrusted web content.
 - Browser-worker should return correlation in error payloads/logs; API remains source of truth for DB feedback writes where possible.
 
+**Implemented in this slice (additive, no DB write):**
+- `packages/shared/src/browser.ts`: browser action inputs now accept optional correlation fields (`userId`, `taskId`, `runId`, `correlationId`) via `BrowserActionCorrelation`.
+- `backend/browser-worker/src/index.ts`: action handler parses correlation fields and logs them with request/action outcome (`traceCorrelationId` kept separate from input correlation). No feedback DB writes, no behavior change.
+
 **Preferred wiring order:**
 1. API emits feedback when it has correlation (already done for guardedAct/external-action failures).
 2. Add optional correlation fields to browser-worker action inputs/responses.

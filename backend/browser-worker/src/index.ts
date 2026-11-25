@@ -30,15 +30,37 @@ app.post("/v1/sessions", async (c) => { const body = await c.req.json().catch(()
 app.get("/v1/sessions/:id", async (c) => { const session = await executor.getSession(c.req.param("id")); if (!session) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Browser session not found"), 404); return c.json({ session }); });
 app.get("/v1/sessions/:id/screenshot.png", async (c) => { const b64 = await executor.getScreenshot(c.req.param("id")); if (!b64) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "No screenshot available"), 404); c.header("content-type","image/png"); c.header("cache-control","no-store"); return c.body(Buffer.from(b64,"base64")); });
 app.get("/v1/sessions/:id/stream/status", async (c) => c.json(await executor.streamStatus(c.req.param("id"))));
-async function action<T extends z.ZodTypeAny>(c: any, schema: T, fn: (input: z.infer<T>) => Promise<unknown>) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const result = await fn(parsed.data); return c.json(result, (result as any).ok ? 200 : 400); }
-app.post("/v1/sessions/:id/navigate", (c) => action(c, BrowserNavigateInput, (input) => executor.navigate(c.req.param("id"), input)));
-app.post("/v1/sessions/:id/click", (c) => action(c, BrowserClickInput, (input) => executor.click(c.req.param("id"), input)));
-app.post("/v1/sessions/:id/fill", (c) => action(c, BrowserFillInput, (input) => executor.fill(c.req.param("id"), input)));
+function correlationFrom(input: any) {
+  const c = input && typeof input === "object" ? input : {};
+  const pick = (k: string) => typeof c[k] === "string" && c[k].trim() ? c[k].trim().slice(0, 200) : undefined;
+  return {
+    userId: pick("userId"),
+    taskId: pick("taskId"),
+    runId: typeof c.runId === "string" && c.runId.trim() ? c.runId.trim().slice(0, 200) : c.runId === null ? null : undefined,
+    correlationId: pick("correlationId"),
+    approvalId: pick("approvalId"),
+    actionHash: pick("actionHash"),
+  };
+}
+
+async function action<T extends z.ZodTypeAny>(c: any, schema: T, actionName: string, fn: (input: z.infer<T>) => Promise<unknown>) {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400);
+  const corr = correlationFrom(parsed.data);
+  const result = await fn(parsed.data);
+  const ok = !!(result as any)?.ok;
+  log.info({ requestId: c.get("requestId"), traceCorrelationId: c.get("correlationId"), sessionId: c.req.param("id"), action: actionName, ok, ...corr }, "browser action");
+  return c.json(result, ok ? 200 : 400);
+}
+app.post("/v1/sessions/:id/navigate", (c) => action(c, BrowserNavigateInput, "navigate", (input) => executor.navigate(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/click", (c) => action(c, BrowserClickInput, "click", (input) => executor.click(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/fill", (c) => action(c, BrowserFillInput, "fill", (input) => executor.fill(c.req.param("id"), input)));
 app.post("/v1/sessions/:id/snapshot", async (c) => c.json(await executor.snapshot(c.req.param("id"))));
-app.post("/v1/sessions/:id/screenshot", (c) => action(c, BrowserScreenshotInput, (input) => executor.screenshot(c.req.param("id"), input)));
-app.post("/v1/sessions/:id/takeover/request", (c) => action(c, BrowserTakeoverInput, (input) => executor.requestTakeover(c.req.param("id"), input)));
-app.post("/v1/sessions/:id/takeover/resume", (c) => action(c, BrowserResumeInput, (input) => executor.resumeAgent(c.req.param("id"), input)));
-app.post("/v1/sessions/:id/external-action", (c) => action(c, BrowserExternalActionInput, (input) => executor.externalAction(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/screenshot", (c) => action(c, BrowserScreenshotInput, "screenshot", (input) => executor.screenshot(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/takeover/request", (c) => action(c, BrowserTakeoverInput, "takeover.request", (input) => executor.requestTakeover(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/takeover/resume", (c) => action(c, BrowserResumeInput, "takeover.resume", (input) => executor.resumeAgent(c.req.param("id"), input)));
+app.post("/v1/sessions/:id/external-action", (c) => action(c, BrowserExternalActionInput, "external-action", (input) => executor.externalAction(c.req.param("id"), input)));
 app.post("/v1/sessions/:id/close", async (c) => c.json(await executor.closeSession(c.req.param("id"))));
 app.onError((caught, c) => { log.error({ err: caught, requestId: c.get("requestId"), correlationId: c.get("correlationId") }, "unhandled error"); return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Internal server error", true), 500); });
 

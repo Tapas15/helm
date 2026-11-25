@@ -47,12 +47,20 @@ export const BrowserActionGuard = z.object({
 });
 export type BrowserActionGuard = z.infer<typeof BrowserActionGuard>;
 
-export const BrowserNavigateInput = z.object({ url: z.string().url() });
-export const BrowserClickInput = z.object({ selector: z.string().min(1) });
-export const BrowserFillInput = z.object({ selector: z.string().min(1), value: z.string(), submit: z.boolean().default(false) });
-export const BrowserScreenshotInput = z.object({ fullPage: z.boolean().default(false) });
-export const BrowserTakeoverInput = z.object({ reason: z.string().min(1).max(500) });
-export const BrowserResumeInput = z.object({ note: z.string().max(500).optional() });
+export const BrowserActionCorrelation = z.object({
+  userId: z.string().min(1).optional(),
+  taskId: z.string().min(1).optional(),
+  runId: z.string().min(1).nullable().optional(),
+  correlationId: z.string().min(1).optional(),
+});
+export type BrowserActionCorrelation = z.infer<typeof BrowserActionCorrelation>;
+
+export const BrowserNavigateInput = z.object({ url: z.string().url() }).merge(BrowserActionCorrelation);
+export const BrowserClickInput = z.object({ selector: z.string().min(1) }).merge(BrowserActionCorrelation);
+export const BrowserFillInput = z.object({ selector: z.string().min(1), value: z.string(), submit: z.boolean().default(false) }).merge(BrowserActionCorrelation);
+export const BrowserScreenshotInput = z.object({ fullPage: z.boolean().default(false) }).merge(BrowserActionCorrelation);
+export const BrowserTakeoverInput = z.object({ reason: z.string().min(1).max(500) }).merge(BrowserActionCorrelation);
+export const BrowserResumeInput = z.object({ note: z.string().max(500).optional() }).merge(BrowserActionCorrelation);
 export const BrowserExternalActionInput = z.object({
   action: z.enum(["submit", "purchase", "checkout", "payment", "send_email", "delete"]),
   actionHash: z.string().min(1),
@@ -60,7 +68,7 @@ export const BrowserExternalActionInput = z.object({
   approvalId: z.string().min(1),
   selector: z.string().optional(),
   metadata: z.record(z.unknown()).default({}),
-});
+}).merge(BrowserActionCorrelation);
 
 export const BrowserActionResult = z.object({
   ok: z.boolean(),
