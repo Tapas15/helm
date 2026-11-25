@@ -272,9 +272,31 @@ describe("memory routes (P7b)", () => {
   it("retrieval is forbidden when retrieval flag disabled", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "0";
-    const db = makeDb({ selectRows: [] });
+    const db = makeDb({ selectRows: [{ id: "mem_1", content: "secret-note" }] });
     const res = await makeApp(db).request("/v1/memory/retrieval?q=dark");
     expect(res.status).toBe(403);
+    const body = await res.json() as any;
+    expect(body.error?.code).toBe("FORBIDDEN");
+    expect(body.error?.message).toMatch(/retrieval disabled/i);
+    expect(typeof body.error?.retryable).toBe("boolean");
+    expect(JSON.stringify(body)).not.toContain("secret-note");
+  });
+
+  it("disabled memory retrieval returns standard forbidden error shape without note leakage", async () => {
+    process.env.HELM_MEMORY_ENABLED = "0";
+    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
+    let selectCalls = 0;
+    const db = makeDb({ selectRows: [{ id: "mem_1", content: "secret-note" }] });
+    const origSelect = db.select;
+    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
+    const res = await makeApp(db).request("/v1/memory/retrieval?q=secret-note");
+    expect(res.status).toBe(403);
+    const body = await res.json() as any;
+    expect(body.error?.code).toBe("FORBIDDEN");
+    expect(body.error?.message).toMatch(/Memory is disabled/i);
+    expect(typeof body.error?.retryable).toBe("boolean");
+    expect(JSON.stringify(body)).not.toContain("secret-note");
+    expect(selectCalls).toBe(0);
   });
 
   it("retrieval audit records bounded metadata without raw query content", async () => {
