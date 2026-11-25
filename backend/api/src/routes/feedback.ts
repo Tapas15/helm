@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+﻿import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
 import { evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
@@ -19,7 +19,7 @@ function redact(value: unknown, depth = 0): unknown {
     for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 100)) out[k] = SENSITIVE_KEY.test(k) ? "[REDACTED]" : redact(v, depth + 1);
     return out;
   }
-  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}…[TRUNCATED]` : value;
+  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}â€¦[TRUNCATED]` : value;
   return value;
 }
 
@@ -139,5 +139,36 @@ export function feedbackRoutes(db: Database) {
     return c.json({ ok: true, proposals: rows });
   });
 
+  app.get("/proposals/:id", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
+    if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [row] = await db.select().from(selfImprovementProposals).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).limit(1);
+    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Proposal not found"), 404);
+    return c.json({ ok: true, proposal: row });
+  });
+
+  app.patch("/proposals/:id", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
+    if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [existing] = await db.select().from(selfImprovementProposals).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).limit(1);
+    if (!existing) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Proposal not found"), 404);
+    const body = await c.req.json().catch(() => ({} as any));
+    if (body?.status !== undefined && body.status !== "draft") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal status cannot move out of draft in this slice"), 403);
+    if (body?.activation !== undefined && body.activation !== "blocked") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal activation is blocked until explicit approval"), 403);
+    if (body?.requiresApproval !== undefined && body.requiresApproval !== true) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal requiresApproval cannot be disabled"), 403);
+    const patch: Record<string, unknown> = { updatedAt: new Date(), status: "draft", activation: "blocked", requiresApproval: true };
+    if (typeof body?.title === "string" && body.title.trim()) patch.title = body.title.trim().slice(0, 160);
+    if (typeof body?.summary === "string") patch.summary = body.summary.slice(0, 1000);
+    if (typeof body?.riskLevel === "string") patch.riskLevel = body.riskLevel.slice(0, 20);
+    if (typeof body?.kind === "string") patch.kind = body.kind.slice(0, 40);
+    if (body?.payload !== undefined) patch.payload = redact(body.payload) as Record<string, unknown>;
+    if (Array.isArray(body?.evidenceRefs)) patch.evidenceRefs = redact(body.evidenceRefs.slice(0, 50)) as unknown[];
+    const [row] = await db.update(selfImprovementProposals).set(patch).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).returning();
+    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. Activation remains blocked." });
+  });
   return app;
 }

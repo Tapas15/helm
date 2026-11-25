@@ -33,7 +33,18 @@ function makeDb(opts?: { events?: any[]; evals?: any[]; proposals?: any[] }) {
           },
         }),
       }),
-    } as any,
+      update: (table: unknown) => ({
+        set: (v: any) => ({
+          where: () => ({
+            returning: async () => {
+              const arr = rowsFor(table);
+              if (arr.length === 0) return [];
+              arr[0] = { ...arr[0], ...v };
+              return [arr[0]];
+            },
+          }),
+        }),
+      }),    } as any,
   };
 }
 
@@ -121,6 +132,24 @@ describe("feedback routes (P7a)", () => {
     expect(body.note).toMatch(/Draft-only/);
     expect(body.proposal?.id).toBeTruthy(); if (Array.isArray(proposals)) expect(proposals.length).toBe(1);
   });
+  it("gets proposal by id and blocks activation/status escape on patch", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    process.env.HELM_FEEDBACK_PROPOSALS_ENABLED = "1";
+    const proposal = { id: "sip_1", userId: "u1", status: "draft", activation: "blocked", requiresApproval: true, title: "t", summary: "s", riskLevel: "low", kind: "prompt_tuning", payload: {}, evidenceRefs: [], updatedAt: new Date() };
+    const mk = makeDb({ proposals: [proposal] }) as any;
+    const app = makeApp(mk.db);
+    const get = await app.request("/v1/feedback/proposals/sip_1");
+    expect(get.status).toBe(200);
+    const bad = await app.request("/v1/feedback/proposals/sip_1", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ activation: "active" }) });
+    expect(bad.status).toBe(403);
+    const ok = await app.request("/v1/feedback/proposals/sip_1", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ summary: "updated", riskLevel: "medium", payload: { sessionToken: "secret" } }) });
+    expect(ok.status).toBe(200);
+    const body = await ok.json() as any;
+    expect(body.proposal.status).toBe("draft");
+    expect(body.proposal.activation).toBe("blocked");
+    expect(body.proposal.requiresApproval).toBe(true);
+    expect(body.proposal.summary).toBe("updated");
+  });
   it("rejects invalid kind", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
     const { db } = makeDb();
@@ -128,6 +157,8 @@ describe("feedback routes (P7a)", () => {
     expect(res.status).toBe(400);
   });
 });
+
+
 
 
 
