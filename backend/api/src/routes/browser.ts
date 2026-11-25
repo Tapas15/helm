@@ -189,14 +189,24 @@ export function browserRoutes(db: Database) {
     const parsed = BrowserScreenshotInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid screenshot input", false, parsed.error.flatten()), 400);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/screenshot`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
-    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.screenshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    const json = (() => { try { return JSON.parse(r.text || "{}"); } catch { return null as any; } })();
+    const artifact = json?.data?.artifact;
+    if (r.status < 400 && artifact?.artifactId) {
+      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "screenshot"), path: String(artifact.path), mime: String(artifact.mime ?? "image/png"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: (artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}, createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
+    }
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.screenshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), artifactId: artifact?.artifactId ?? null } });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
   app.post("/sessions/:id/snapshot", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/snapshot`, { method: "POST", body: "{}" });
-    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.snapshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
+    const json = (() => { try { return JSON.parse(r.text || "{}"); } catch { return null as any; } })();
+    const artifact = json?.data?.artifact;
+    if (r.status < 400 && artifact?.artifactId) {
+      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "dom_snapshot"), path: String(artifact.path), mime: String(artifact.mime ?? "text/plain; charset=utf-8"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: (artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}, createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
+    }
+    await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.snapshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), artifactId: artifact?.artifactId ?? null } });
     return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
   });
 
