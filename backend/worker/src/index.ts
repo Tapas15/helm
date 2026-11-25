@@ -179,7 +179,27 @@ if (shouldAutostart) {
   }
 
   let running = true;
-  async function loop() { while (running) { try { const task = await claimNext(); if (task) await processTask(task, { db, runtime, workerId }); else await new Promise((r) => setTimeout(r, POLL_MS)); } catch (err) { log.error({ err, agentId: workerId }, "worker loop error"); await new Promise((r) => setTimeout(r, POLL_MS)); } } }
+  async function loop() {
+    while (running) {
+      let task: any = null;
+      try {
+        task = await claimNext();
+      } catch (err) {
+        // No task correlation available; cannot emit user-scoped feedback safely.
+        log.error({ err, agentId: workerId, event: "worker.claim.error" }, "worker claim error");
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        continue;
+      }
+      if (!task) { await new Promise((r) => setTimeout(r, POLL_MS)); continue; }
+      try {
+        await processTask(task, { db, runtime, workerId });
+      } catch (err) {
+        // processTask is expected to handle its own failures/feedback; this is defense-in-depth.
+        log.error({ err, agentId: workerId, taskId: task?.id, userId: task?.userId, runId: task?.currentStepId ?? null, event: "worker.process.unexpected" }, "worker process unexpected error");
+        await new Promise((r) => setTimeout(r, POLL_MS));
+      }
+    }
+  }
   log.info({ workerId, pollMs: POLL_MS, leaseMs: LEASE_MS, runtime: runtime.provider }, "helm-worker started");
   void loop();
   const shutdown = async () => { running = false; log.info({ workerId }, "helm-worker shutting down"); await pool.end(); process.exit(0); };
