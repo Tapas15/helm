@@ -1,7 +1,7 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-24T23:55:00Z  
-**Overall:** 72.7% (equal-weight P0-P8) | **Remaining:** 27.3% | **Target:** 100%  
+**Last updated:** 2026-11-25T00:05:00Z  
+**Overall:** 72.9% (equal-weight P0-P8) | **Remaining:** 27.1% | **Target:** 100%  
 **CI:** green `45441229198` (main, 2026-11-24); local P6 adapter tests PASS, full build/test not rerun  
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
@@ -15,7 +15,7 @@
 | P3 Browser Execution | 93% | 7% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions, recovery | Live WS/takeover smoke, richer remote controls, recovery depth | Browser automation for live smoke |
 | P4 Connectors/Vault | 90% | 10% | OAuth PKCE scaffold, vault AES-GCM, Gmail/Calendar read+write guarded, reconcile, web UI; real OAuth connect/test verified 2026-11-24 (simplytaps3@gmail.com); scope fix pushed (`ddd445d`); Gmail send + Calendar create E2E with idempotency/no-duplicate PASS (same receipt/externalRef, no duplicate calendar event) | Real-provider refresh/revoke/uncertain-reconcile hardening, diagnostics/policy matrix | Google creds configured; deeper no-duplicate/uncertain scenarios remain |
 | P5 Temporal | 68% | 32% | ADR-002, routing/fail-closed, stub/real/mock proofs, DB-canonical reconciliation/scheduler, Temporal schedule/fault-injection guards, env-gated temporal-reconciliation e2e PASS | Real-provider no-duplicate, broader real Temporal schedule/monitor/fault-injection depth, retry-policy/operator depth | Real Temporal env + provider sandbox |
-| P6 BrowserOS | 56% | 44% | Playwright default; HTTP/stub; MCP adapter/client (`BROWSEROS_MCP_URL`), capability detection/report, timeout/error classification; contract 12/12 PASS; env-gated smoke 2/2 PASS (capabilities/create/navigate/snapshot/close + structured unknown-session error; screenshot best-effort) | Full action parity/security review, fallback/dispatch policy, broader click/fill/takeover parity, CI/e2e evidence | Real BrowserOS parity/security; AGPL external-runtime only |
+| P6 BrowserOS | 58% | 42% | Playwright default; HTTP/stub; MCP adapter/client (`BROWSEROS_MCP_URL`), capability/report, timeout/error classification; contract 12/12 PASS; env-gated smoke 3/3 PASS (capabilities/create/navigate/snapshot/close, unknown-session error, click/fill selector-not-found structured error; screenshot best-effort) | Full action parity/security review, fallback/dispatch policy, takeover/fill-success parity, CI/e2e evidence | Real BrowserOS parity/security; AGPL external-runtime only |
 | P7 Identity/Memory/Skills | 48% | 52% | Identity/policy enforcement, memory/skills/proactivity flags, P7 tables, connector/browser binding | Identity vault/UI, broader policy coverage, skill/proactivity scheduler | Self-improvement activation needs explicit user approval |
 | P8 Hardening/Release | 43% | 57% | CI green, backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline | Full backup/restore drill, scan gating, threat model, PII policy/impl, compliance/provenance/Dubai signoff | Ops/manual/legal evidence & decisions |
 
@@ -28,7 +28,7 @@
 
 ## Latest Completed
 - 2026-11-24: P0 closeout evidence: fixed `scripts/align-drizzle-journal.mjs` to resolve repo-root paths (cwd-independent); `db:migrate:align` idempotent PASS from repo root and `packages/db`. Full local gates PASS: `pnpm lint` (1 pre-existing warning), `pnpm typecheck`, `pnpm build`, `pnpm test` (12 tasks; env-gated integration skips expected).
-- 2026-11-24: P6 BrowserOS MCP parity depth (`e36e4f3`,`505736f`,`2fb891a`, working tree): capability detection/report, timeout/error classification, missing-capability/timeout mapping; adapter contract 12/12 PASS. Env-gated smoke 2/2 PASS (capabilities/create/navigate/snapshot/close + structured unknown-session error; screenshot best-effort timeout classified retryable). Playwright remains default; external runtime only.
+- 2026-11-24: P6 BrowserOS MCP parity depth (`e36e4f3`,`505736f`,`2fb891a`,`3a8073c`, working tree): capability/report, timeout/error classification; adapter contract 12/12 PASS. Env-gated smoke 3/3 PASS (capabilities/create/navigate/snapshot/close, unknown-session error, click/fill selector-not-found structured error; screenshot best-effort). Fixed evaluate_in_page result parsing for click/fill selector detection. Playwright remains default; external runtime only.
 - `ddd445d` P4: added `gmail.send` + `calendar.events` OAuth scopes to connector definitions (write-scope E2E unblock).
 - 2026-11-24: Real Google OAuth connect/test verified (Gmail `simplytaps3@gmail.com`, Calendar 1 calendar). Approval-gated Gmail send executed (`rcpt_7a0bc795...`, `gmailMessageId=1a20f3b6dad91d55`) and same-idempotency retry returned deduped same receipt/externalRef. Approval-gated Calendar create executed (`rcpt_da3b4961...`, `calendarEventId=jshv868h65pplmu3tjmbtu2eo0`) and same-idempotency retry deduped; calendar list shows single `Helm E2E Test` event. No auto-delete performed.
 - `8471aef` P5: Temporal reconciliation workflow/activity/schedule bootstrap, schedule status/ensure, `HELM_RECONCILIATION_FAULT_INJECT` no-blind-retry guards, env-gated e2e scaffold; CI `45441229198` green.

@@ -179,7 +179,7 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
   async click(sessionId: string, input: unknown): Promise<BrowserActionResult> {
     const p = BrowserClickInput.parse(input);
     return this.withPage(sessionId, "click", async (_s, pageId) => {
-      const code = `(() => { const el = document.querySelector(${JSON.stringify(p.selector)}); if (!el) return { ok:false, error:'selector_not_found' }; el.scrollIntoView({block:'center'}); el.click(); return { ok:true }; })()`;
+      const code = `return (() => { const el = document.querySelector(${JSON.stringify(p.selector)}); if (!el) return 'selector_not_found'; el.scrollIntoView({block:'center'}); el.click(); return 'ok'; })()`;
       const r = await this.client.callTool("evaluate_in_page", { page: pageId, code });
       if (r?.isError) throw new Error(toolErrorMessage(r));
       const txt = toolText(r);
@@ -190,7 +190,7 @@ export class BrowserOSMcpExecutor implements BrowserExecutor {
   async fill(sessionId: string, input: unknown): Promise<BrowserActionResult> {
     const p = BrowserFillInput.parse(input);
     return this.withPage(sessionId, "fill", async (_s, pageId) => {
-      const code = `(() => { const el = document.querySelector(${JSON.stringify(p.selector)}); if (!el) return { ok:false, error:'selector_not_found' }; el.focus(); if ('value' in el) { el.value = ${JSON.stringify(p.value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } else { el.textContent = ${JSON.stringify(p.value)}; } ${p.submit ? "const f=el.form||el.closest('form'); if(f) f.requestSubmit ? f.requestSubmit() : f.submit();" : ""} return { ok:true }; })()`;
+      const code = `return (() => { const el = document.querySelector(${JSON.stringify(p.selector)}); if (!el) return 'selector_not_found'; el.focus(); if ('value' in el) { el.value = ${JSON.stringify(p.value)}; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); } else { el.textContent = ${JSON.stringify(p.value)}; } ${p.submit ? "const f=el.form||el.closest('form'); if(f) f.requestSubmit ? f.requestSubmit() : f.submit();" : ""} return 'ok'; })()`;
       const r = await this.client.callTool("evaluate_in_page", { page: pageId, code });
       if (r?.isError) throw new Error(toolErrorMessage(r));
       const txt = toolText(r);

@@ -52,4 +52,24 @@ describe.skipIf(!enabled)("BrowserOS MCP adapter smoke (env-gated)", () => {
     expect(body.ok).toBe(false);
     expect(typeof body.error?.code).toBe("string");
   });
+
+  it("reports structured selector error for click/fill", async () => {
+    const adapter = new BrowserOSMcpAdapter(mcpUrl);
+    const session = await adapter.createSession({ initialUrl: testUrl, headless: false });
+    try {
+      const click = await adapter.request(`/v1/sessions/${session.id}/click`, { method: "POST", body: JSON.stringify({ selector: "#helm-definitely-missing" }) });
+      expect(click.status).toBe(400);
+      const clickBody = JSON.parse(click.text);
+      expect(clickBody.ok).toBe(false);
+      expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(clickBody.error?.code);
+
+      const fill = await adapter.request(`/v1/sessions/${session.id}/fill`, { method: "POST", body: JSON.stringify({ selector: "#helm-definitely-missing", value: "x", submit: false }) });
+      expect(fill.status).toBe(400);
+      const fillBody = JSON.parse(fill.text);
+      expect(fillBody.ok).toBe(false);
+      expect(["SELECTOR_NOT_FOUND","BROWSEROS_ACTION_FAILED","BROWSEROS_TIMEOUT"]).toContain(fillBody.error?.code);
+    } finally {
+      await adapter.close(session.id).catch(() => undefined);
+    }
+  }, 180_000);
 });
