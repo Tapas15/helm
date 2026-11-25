@@ -219,10 +219,17 @@ ode dist/index.js / pnpm start for smoke; keep build green. Needs proper dev-pat
 - **Status:** partial (local baseline verified; real provider/Temporal-native schedule/monitor pending).
 
 
-## 2026-11-24 - P5 Temporal reconciliation schedule/fault-injection hardening
-
-- **Files**: `packages/shared/src/temporal.ts`, `packages/shared/src/temporal.test.ts`, `backend/api/src/lib/temporal.ts`, `backend/api/src/lib/reconciliation.ts`, `backend/api/src/routes/reconciliation.ts`, `backend/temporal-worker/src/workflows.ts`, `backend/temporal-worker/src/activities.ts`, `backend/temporal-worker/src/index.ts`, `tests/integration/src/temporal-reconciliation-e2e.test.ts`, `.env.example`, `changes/phase-5-temporal-reliability.md`, `changes/CURRENT_STATE.md`
-- **Problem**: Uncertain receipt reconciliation had DB-canonical lookup-first service/API/scheduler, but Temporal-native reconciliation schedule/monitor/fault-injection depth was incomplete; CI also needed green baseline before continuing feature work.
-- **Fix**: Added Temporal reconciliation schedule config/helpers (`HELM_TEMPORAL_RECONCILIATION_SCHEDULE_*`), reconciliation schedule status/ensure API hooks, Temporal workflow/activity/schedule bootstrap for `helmReconciliationWorkflow`, and fault-injection env guards (`HELM_RECONCILIATION_FAULT_INJECT`) that preserve no-blind-retry invariant (lookup errors keep receipts uncertain, no external re-execution). Added env-gated Temporal reconciliation e2e test scaffold.
-- **Regression coverage**: `packages/shared` temporal tests PASS; `pnpm --filter @helm/shared typecheck`, `pnpm --filter @helm/api typecheck`, `pnpm --filter @helm/temporal-worker typecheck` PASS. Full workspace lint/typecheck/build/test PASS locally; GitHub Actions run `45438392752` PASS.
-- **Audit/safety**: No blind retry of uncertain external writes; reconciliation remains lookup-first and DB-canonical; schedule management endpoint guarded by `HELM_ALLOW_DEV_AUTH=1`; fault-injection hooks are test-only env controls.
+## FIX-20261125-browseros-positive-parity-smoke
+- **Date:** 2026-11-25T09:23:01+05:30
+- **Reporter:** agent
+- **Severity:** medium
+- **Component:** api/browseros-mcp smoke/parity evidence
+- **Symptom:** P6 BrowserOS MCP smoke covered capabilities, unknown-session, and selector-not-found errors, but lacked positive click/fill and takeover parity evidence.
+- **Root cause:** Smoke matrix was intentionally minimal for first hardening pass; BrowserOS navigate refused `data:` URLs, so positive control needed a safe local controlled page.
+- **Evidence:** Initial positive `data:` URL attempt failed with structured `BROWSEROS_ACTION_FAILED` "navigate refuses data: URLs; only http(s) is allowed". After switching to local `127.0.0.1` test server, env-gated smoke PASS (5/5).
+- **Fix applied:** Extended `backend/api/src/routes/browseros-mcp-smoke.test.ts` with (1) positive click/fill on controlled local page (no external side effects), (2) adapter-level takeover request/resume + stream/status parity. Recorded explicit dispatch/fallback policy in `changes/phase-6-browseros-upgrade.md`.
+- **Verification:** `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts` PASS (12/12); `HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000 pnpm -C backend/api exec vitest run src/routes/browseros-mcp-smoke.test.ts` PASS (5/5).
+- **Regression test:** `backend/api/src/routes/browseros-mcp-smoke.test.ts` (env-gated).
+- **Risk/rollback:** Low; test/doc-only behavior. Local test server binds loopback ephemeral port; no external side effects.
+- **Audit/event IDs:** N/A (test harness only).
+- **Status:** verified (env-gated local)

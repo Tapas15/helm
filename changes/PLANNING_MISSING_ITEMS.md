@@ -115,8 +115,8 @@
 - [ ] Idempotency/audit coverage matrix for every mutating endpoint/tool.
 - [ ] ADRs: canonical event schema (AG-UI extension vs custom), secret vault, observability stack, BrowserOS/Obscura external adapter policy.
 
-## 2026-11-25 - P6 BrowserOS MCP parity hardening (local, CI pending)
-- Hardened click/fill selector detection in BrowserOS MCP executor: `evaluate_in_page` returns structured `selector_not_found|ok`; adapter maps missing selector to `BROWSEROS_SELECTOR_NOT_FOUND` (retryable false).
-- Env-gated smoke expects structured selector-not-found for click/fill; capabilities/create/navigate/snapshot/close and unknown-session structured error remain covered; screenshot best-effort.
-- Evidence: `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `browser-adapter.test.ts` 12/12 PASS; `HELM_BROWSEROS_MCP_SMOKE=1 ...` smoke 3/3 PASS.
-- Commit: `0616ad1` local unpushed; CI not verified. Remaining: push+CI, positive click/fill/takeover parity, security/fallback/dispatch policy.
+## 2026-11-25 - P6 BrowserOS MCP parity depth (local evidence)
+- Added env-gated smoke cases: positive click/fill on controlled local page (no external side effects) and adapter-level takeover request/resume/stream-status parity.
+- Evidence: `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS; `browser-adapter.test.ts` 12/12 PASS; env-gated smoke 5/5 PASS (`HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000`).
+- Policy recorded: Playwright default; BrowserOS opt-in explicit; no silent fallback/default dispatch; dispatch-by-default gate requires parity+security+CI evidence.
+- Remaining: deeper BrowserOS-vs-Playwright artifact/error/takeover-control parity, security/compliance review, performance baseline, CI for this batch.

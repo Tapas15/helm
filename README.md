@@ -12,8 +12,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-72.9%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Parity_%2B_CI_Evidence-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-73.2%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Parity_%2B_Security_Gate-238636?style=for-the-badge)](ROADMAP.md#present--what-were-building-now)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-f2cc60?style=for-the-badge)](ROADMAP.md)
 
 **[Explore the full visual roadmap â†’](ROADMAP.md)**
@@ -22,14 +22,14 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **72.9%** | CI green through `3a8073c` evidence history; local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, 3/3 env-gated smoke); local `0616ad1` unpushed/CI pending; real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
+| **Overall** | **73.2%** | CI green through `098bebe`; local lint/typecheck/build/test PASS; P4 real OAuth write E2E verified; P6 BrowserOS MCP adapter hardened (12/12 contract, env-gated smoke 5/5 PASS on 2026-11-25 including positive click/fill on controlled local page + adapter-level takeover parity); deeper parity/security/dispatch gate, real-provider/Temporal depth, live UI smoke, ops/legal signoff remain |
 | Phase 0 Foundation | 93% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push and tsconfig dist/src cleanup remain |
 | Phase 1 UI/Task Core | 91% | Chat/SSE/approvals/preview/takeover usable; SSE cursor-resume/fault-injection E2E depth and live UI smoke pending |
 | Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; live real browser+connector E2E and eval evidence pending |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; live WS/takeover smoke pending |
-| Phase 4 Approvals/Vault/Connectors | 90% | Vault/OAuth PKCE, Gmail/Calendar read+write approval-gated; real Gmail send + Calendar create E2E idempotent/no-duplicate verified; refresh/revoke/uncertain hardening pending |
-| Phase 5 Temporal Reliability | 68% | Routing/fail-closed, DB-canonical reconciliation/scheduler, env-gated reconciliation e2e PASS; real-provider no-duplicate and deeper Temporal/operator proof pending |
-| Phase 6 BrowserOS Upgrade | 58% | Playwright default; external BrowserOS MCP adapter (`BROWSEROS_MCP_URL`) behind contract; capability/timeout/error classification; selector-not-found click/fill hardening; contract 12/12 PASS; env-gated smoke 3/3 PASS; full parity/security/fallback policy pending |
+| Phase 4 Connectors/Vault | 90% | Vault AES-GCM, Gmail/Calendar read+write, guarded receipts/reconcile UI; real OAuth connect/test/send/create E2E verified; refresh/revoke/uncertain-reconcile hardening pending |
+| Phase 5 Temporal/Reliability | 68% | ADR-002, DB-canonical reconciliation/scheduler/dry-run, Temporal schedule/fault-injection guards, env-gated reconciliation e2e PASS; real-provider no-duplicate and deeper Temporal operator/sandbox proof pending |
+| Phase 6 BrowserOS Upgrade | 60% | Playwright default; external BrowserOS MCP adapter (`BROWSEROS_MCP_URL`) behind contract; capability/timeout/error classification; selector-not-found hardening; contract 12/12 PASS; env-gated smoke 5/5 PASS (2026-11-25, includes positive click/fill local page + takeover request/resume/stream-status parity); deeper artifact/error parity, security/compliance review, explicit dispatch gate pending |
 | Phase 7 Memory/Skills/Proactivity | 48% | Identity/policy enforcement, P7 tables, memory/skills/proactivity flags; identity vault/UI, scheduler, provenance/CRUD/export pending; self-improvement activation needs explicit approval |
 | Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 

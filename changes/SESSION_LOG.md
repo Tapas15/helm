@@ -1513,3 +1513,25 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Fix**: scripts/align-drizzle-journal.mjs resolves journal/hash paths from repo root (cwd-independent). Verified idempotent from repo root and packages/db.
 - **Gates**: pnpm lint PASS (1 pre-existing warning), pnpm typecheck PASS, pnpm build PASS, pnpm test PASS (12 tasks; env-gated integration skips expected).
 - **Remaining P0**: tsconfig dist/src cleanup deferred (functional workaround), CI/fresh-clone confirmation after push.
+
+## Session: 2026-11-25 - P6 BrowserOS MCP parity depth
+**Time:** 2026-11-25T09:23:01+05:30
+**Agent:** Kilo
+**Phase:** P6 BrowserOS Upgrade
+
+### Completed
+- [x] Added env-gated BrowserOS MCP smoke coverage for positive click/fill on controlled local page (loopback HTTP, no external side effects). Initial data: URL attempt failed with structured BROWSEROS_ACTION_FAILED ("navigate refuses data: URLs; only http(s) is allowed"); test adjusted to local server.
+- [x] Added env-gated adapter-level takeover parity: 	akeover/request, stream/status during takeover, 	akeover/resume all PASS with expected control owner transitions.
+- [x] Recorded explicit P6 dispatch/fallback policy in changes/phase-6-browseros-upgrade.md: Playwright default, BrowserOS opt-in explicit, no silent runtime fallback/switch, default dispatch gated by parity+security+CI evidence.
+- [x] Updated docs: changes/CURRENT_STATE.md (73.2%, P6 60%), changes/phase-6-browseros-upgrade.md, changes/PLANNING_MISSING_ITEMS.md, changes/FIX_LOG.md, README.md.
+
+### Evidence
+- pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS
+- pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts PASS (12/12)
+- HELM_BROWSEROS_MCP_SMOKE=1 BROWSEROS_MCP_URL=http://127.0.0.1:9210/mcp BROWSEROS_MCP_SMOKE_URL=https://example.com BROWSEROS_MCP_TIMEOUT_MS=45000 pnpm -C backend/api exec vitest run src/routes/browseros-mcp-smoke.test.ts PASS (5/5)
+
+### Blocked / Remaining
+- [ ] Deeper BrowserOS-vs-Playwright artifact/error parity and real browser-control takeover semantics (CDP/live preview handoff).
+- [ ] Security/compliance review for external BrowserOS adapter isolation (process boundary/auth/data handling/AGPL boundary, no copied code).
+- [ ] Performance benchmarking vs Playwright baseline.
+- [ ] CI for this batch after commit/push.
