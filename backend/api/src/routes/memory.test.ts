@@ -1,21 +1,43 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
+import { auditLog, memoryNotes } from "@helm/db";
 import { memoryRoutes } from "../routes/memory.js";
 
 const env = { ...process.env };
 afterEach(() => { process.env = { ...env }; });
 
-function makeApp(opts?: { selectRows?: any[]; insertRow?: any; updateRow?: any; deleteRow?: any }) {
+function makeDb(opts?: { selectRows?: any[]; insertRow?: any; updateRow?: any; deleteRow?: any }) {
   const selectRows = opts?.selectRows ?? [];
   const insertRow = opts?.insertRow ?? { id: "mem_1", metadata: {} };
   const updateRow = opts?.updateRow ?? { id: "mem_1", metadata: {} };
   const deleteRow = opts?.deleteRow ?? { id: "mem_1" };
+  const auditRows: any[] = [];
   const db = {
-    select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: async () => selectRows }), limit: async () => selectRows }) }) }),
-    insert: () => ({ values: (v: any) => ({ returning: async () => [{ ...insertRow, ...v, metadata: v.metadata ?? insertRow.metadata }] }) }),
+    auditRows,
+    select: () => ({
+      from: (table: unknown) => ({
+        where: () => ({
+          orderBy: () => ({ limit: async () => (table === memoryNotes ? selectRows : []) }),
+          limit: async () => (table === memoryNotes ? selectRows : []),
+        }),
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (v: any) => {
+        const row = { ...insertRow, ...v, metadata: v.metadata ?? insertRow.metadata };
+        if (table === auditLog) auditRows.push(v);
+        return {
+          returning: async () => [table === auditLog ? v : row],
+        };
+      },
+    }),
     update: () => ({ set: (v: any) => ({ where: () => ({ returning: async () => [{ ...updateRow, ...v, metadata: v.metadata ?? updateRow.metadata }] }) }) }),
     delete: () => ({ where: () => ({ returning: async () => [deleteRow] }) }),
   } as any;
+  return db;
+}
+
+function makeApp(db: any) {
   const app = new Hono();
   app.use("*", async (c, next) => { (c.set as any)("userId", "u1"); await next(); });
   app.route("/v1/memory", memoryRoutes(db));
@@ -25,32 +47,36 @@ function makeApp(opts?: { selectRows?: any[]; insertRow?: any; updateRow?: any; 
 describe("memory routes (P7b)", () => {
   it("rejects when disabled", async () => {
     process.env.HELM_MEMORY_ENABLED = "0";
-    const res = await makeApp().request("/v1/memory/notes");
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/memory/notes");
     expect(res.status).toBe(403);
   });
 
-  it("creates user_confirmed note with redaction and metadata", async () => {
+  it("creates user_confirmed note with redaction and metadata and audits create", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
-    const app = makeApp();
-    const res = await app.request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "my api_key is secret" }), headers: { "content-type": "application/json" } });
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "my api_key is secret" }), headers: { "content-type": "application/json" } });
     expect(res.status).toBe(201);
     const body = await res.json() as any;
     expect(body.note.content).toBe("[REDACTED_SENSITIVE_MEMORY]");
     expect(body.note.metadata.redactedSensitive).toBe(true);
     expect(body.note.metadata.provenance.kind).toBe("user_confirmed");
     expect(body.note.metadata.version).toBe(1);
+    expect(db.auditRows.some((r: any) => r.action === "memory.create" && r.resourceType === "memory_note")).toBe(true);
   });
 
   it("blocks inferred note unless confirmed/allowed", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     delete process.env.HELM_MEMORY_ALLOW_INFERRED;
-    const res = await makeApp().request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "guess", provenance: "inferred" }), headers: { "content-type": "application/json" } });
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "guess", provenance: "inferred" }), headers: { "content-type": "application/json" } });
     expect(res.status).toBe(403);
   });
 
   it("allows inferred note when confirmed", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
-    const res = await makeApp().request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "guess", provenance: "inferred", confirmed: true, confidence: 0.9 }), headers: { "content-type": "application/json" } });
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/memory/notes", { method: "POST", body: JSON.stringify({ content: "guess", provenance: "inferred", confirmed: true, confidence: 0.9 }), headers: { "content-type": "application/json" } });
     expect(res.status).toBe(201);
     const body = await res.json() as any;
     expect(body.note.metadata.provenance.kind).toBe("inferred");
@@ -58,15 +84,25 @@ describe("memory routes (P7b)", () => {
     expect(body.note.metadata.confidence).toBeLessThanOrEqual(0.8);
   });
 
-  it("exports and gets by id", async () => {
+  it("exports and gets by id and audits export", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     const row = { id: "mem_1", userId: "u1", content: "hi", metadata: { provenance: { kind: "user_confirmed" }, version: 1 } };
-    const app = makeApp({ selectRows: [row] });
+    const db = makeDb({ selectRows: [row] });
+    const app = makeApp(db);
     const get = await app.request("/v1/memory/notes/mem_1");
     expect(get.status).toBe(200);
     const exp = await app.request("/v1/memory/export");
     expect(exp.status).toBe(200);
     const body = await exp.json() as any;
     expect(body.count).toBe(1);
+    expect(db.auditRows.some((r: any) => r.action === "memory.export" && r.metadata?.count === 1)).toBe(true);
+  });
+
+  it("audits delete", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const db = makeDb({ deleteRow: { id: "mem_1" } });
+    const res = await makeApp(db).request("/v1/memory/notes/mem_1", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(db.auditRows.some((r: any) => r.action === "memory.delete" && r.resourceId === "mem_1")).toBe(true);
   });
 });
