@@ -1,4 +1,4 @@
-﻿import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
 import { auditLog, memoryNotes } from "@helm/db";
 import { memoryRoutes } from "../routes/memory.js";
@@ -270,36 +270,6 @@ describe("memory routes (P7b)", () => {
     expect(db.auditRows.some((r: any) => r.action === "memory.retrieval.query")).toBe(true);
   });
 
-  it("retrieval is forbidden when retrieval flag disabled", async () => {
-    process.env.HELM_MEMORY_ENABLED = "1";
-    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "0";
-    const db = makeDb({ selectRows: [{ id: "mem_1", content: "secret-note" }] });
-    const res = await makeApp(db).request("/v1/memory/retrieval?q=dark");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/retrieval disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("secret-note");
-  });
-
-  it("disabled memory retrieval returns standard forbidden error shape without note leakage", async () => {
-    process.env.HELM_MEMORY_ENABLED = "0";
-    process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "1";
-    let selectCalls = 0;
-    const db = makeDb({ selectRows: [{ id: "mem_1", content: "secret-note" }] });
-    const origSelect = db.select;
-    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
-    const res = await makeApp(db).request("/v1/memory/retrieval?q=secret-note");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/Memory is disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("secret-note");
-    expect(selectCalls).toBe(0);
-  });
-
   it("feature-flag-disabled memory endpoints return standard FORBIDDEN shape with no note leakage", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_RETRIEVAL_ENABLED = "0";
@@ -391,36 +361,6 @@ describe("memory routes (P7b)", () => {
     expect(JSON.stringify(audit?.metadata)).not.toContain("Same fact");
   });
 
-  it("consolidation dry-run is forbidden when flag disabled", async () => {
-    process.env.HELM_MEMORY_ENABLED = "1";
-    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "0";
-    const db = makeDb({ selectRows: [{ id: "mem_1", content: "Same fact" }] });
-    const res = await makeApp(db).request("/v1/memory/consolidation/dry-run");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/consolidation dry-run disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("Same fact");
-  });
-
-  it("disabled memory consolidation dry-run returns standard forbidden error shape without note leakage", async () => {
-    process.env.HELM_MEMORY_ENABLED = "0";
-    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
-    let selectCalls = 0;
-    const db = makeDb({ selectRows: [{ id: "mem_1", content: "Same fact" }] });
-    const origSelect = db.select;
-    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
-    const res = await makeApp(db).request("/v1/memory/consolidation/dry-run");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/Memory is disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("Same fact");
-    expect(selectCalls).toBe(0);
-  });
-
   it("retention dry-run reports candidates and does not delete", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
     process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
@@ -445,36 +385,6 @@ describe("memory routes (P7b)", () => {
     expect(audit?.metadata?.scanned).toBe(2);
     expect(audit?.metadata?.candidates).toBe(1);
     expect(JSON.stringify(audit?.metadata)).not.toContain("old");
-  });
-
-  it("retention dry-run is forbidden when flag disabled", async () => {
-    process.env.HELM_MEMORY_ENABLED = "1";
-    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "0";
-    const db = makeDb({ selectRows: [{ id: "mem_exp", content: "old secret" }] });
-    const res = await makeApp(db).request("/v1/memory/retention/dry-run");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/retention dry-run disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("old secret");
-  });
-
-  it("disabled memory retention dry-run returns standard forbidden error shape without note leakage", async () => {
-    process.env.HELM_MEMORY_ENABLED = "0";
-    process.env.HELM_MEMORY_RETENTION_DRY_RUN = "1";
-    let selectCalls = 0;
-    const db = makeDb({ selectRows: [{ id: "mem_exp", content: "old secret" }] });
-    const origSelect = db.select;
-    db.select = (...args: any[]) => { selectCalls++; return origSelect(...args); };
-    const res = await makeApp(db).request("/v1/memory/retention/dry-run");
-    expect(res.status).toBe(403);
-    const body = await res.json() as any;
-    expect(body.error?.code).toBe("FORBIDDEN");
-    expect(body.error?.message).toMatch(/Memory is disabled/i);
-    expect(typeof body.error?.retryable).toBe("boolean");
-    expect(JSON.stringify(body)).not.toContain("old secret");
-    expect(selectCalls).toBe(0);
   });
 
   it("filters notes by bounded q search", async () => {
