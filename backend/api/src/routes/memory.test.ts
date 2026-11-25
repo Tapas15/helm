@@ -182,7 +182,28 @@ describe("memory routes (P7b)", () => {
     expect(body.note.metadata?.pii).toBe("redacted");
     expect(body.note.metadata?.redactedSensitive).toBe(true);
   });
+
+  it("redacts PII-like phone/address content in memory notes", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const db = makeDb({ selectRows: [] });
+    const res = await makeApp(db).request("/v1/memory/notes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: "Call me at (415) 555-1212, 12 Main Street", kind: "note", confirmed: true }) });
+    expect(res.status).toBe(201);
+    const body = await res.json() as any;
+    expect(body.note.content).toBe("[REDACTED_SENSITIVE_MEMORY]");
+    expect(body.note.metadata?.pii).toBe("redacted");
+  });
+
+  it("returns bounded recent memory audit events for user", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    const db = makeDb({ selectRows: [{ id: "aud_1", ts: new Date("2026-01-01T00:00:00Z"), action: "memory.create", resourceId: "mem_1", decision: "allow", reason: null, metadata: { kind: "note" } }] });
+    const res = await makeApp(db).request("/v1/memory/audit/recent");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.events)).toBe(true);
+  });
 });
+
 
 
 

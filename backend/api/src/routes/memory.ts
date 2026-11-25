@@ -13,7 +13,7 @@ type Sensitivity = "normal" | "sensitive" | "sensitive-redacted";
 type RetentionPolicy = "user_controlled" | "ephemeral" | "session" | "indefinite";
 const RETENTION_POLICIES: readonly RetentionPolicy[] = ["user_controlled", "ephemeral", "session", "indefinite"];
 
-const PII_RE = /\b\d{3}-\d{2}-\d{4}\b|\b\d{12,19}\b|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const PII_RE = /\b\d{3}-\d{2}-\d{4}\b|\b\d{12,19}\b|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b|\b\d{1,5}\s+[A-Za-z0-9.\- ]+\s(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct)\b/i;
 function redactSensitive(text: string): { content: string; redacted: boolean; sensitivity: Sensitivity; pii: "none" | "possible" | "redacted" } {
   if (SENSITIVE_RE.test(text)) return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted", pii: "redacted" };
   if (PII_RE.test(text)) return { content: "[REDACTED_SENSITIVE_MEMORY]", redacted: true, sensitivity: "sensitive-redacted", pii: "redacted" };
@@ -195,7 +195,16 @@ export function memoryRoutes(db: Database) {
     return c.json({ ok: true, dryRun: true, deleted: 0, scanned: rows.length, candidates, note: "No memory rows were deleted. This is a dry-run report only." });
   });
 
+
+  app.get("/audit/recent", async (c) => {
+    if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
+    const userId = c.get("userId");
+    const rows = await db.select().from(auditLog).where(and(eq(auditLog.userId, userId), eq(auditLog.resourceType, "memory_note"))).orderBy(desc(auditLog.ts)).limit(50);
+    return c.json({ ok: true, events: rows.map((r) => ({ id: r.id, ts: r.ts, action: r.action, resourceId: r.resourceId, decision: r.decision, reason: r.reason, metadata: r.metadata ?? {} })) });
+  });
   return app;
 }
+
+
 
 
