@@ -10,6 +10,7 @@ function makeDb(opts?: { events?: any[]; evals?: any[]; proposals?: any[] }) {
   const events = opts?.events ?? [];
   const evals = opts?.evals ?? [];
   const proposals = opts?.proposals ?? [];
+  const auditRows: any[] = [];
   const rowsFor = (table: unknown) => (table === evalCases ? evals : table === feedbackEvents ? events : table === selfImprovementProposals ? proposals : []);
   const query = (rows: any[]) => {
     const q: any = {
@@ -22,16 +23,17 @@ function makeDb(opts?: { events?: any[]; evals?: any[]; proposals?: any[] }) {
   return {
     events,
     evals,
+    proposals,
+    auditRows,
     db: {
       select: () => ({ from: (table: unknown) => query(table === auditLog ? auditRows : rowsFor(table)) }),
       insert: (table: unknown) => ({
-        values: (v: any) => ({
-          returning: async () => {
-            const row = { id: v.id ?? "id_1", ...v };
-            rowsFor(table).push(row);
-            return [row];
-          },
-        }),
+        values: (v: any) => {
+          const row = { id: v.id ?? "id_1", ...v };
+          if (table === auditLog) { auditRows.push(v); return { returning: async () => [row] }; }
+          rowsFor(table).push(row);
+          return { returning: async () => [row] };
+        },
       }),
       update: (table: unknown) => ({
         set: (v: any) => ({
@@ -127,6 +129,7 @@ describe("feedback routes (P7a)", () => {
     expect(body.proposal.status).toBe("draft");
     expect(body.proposal.requiresApproval).toBe(true);
     expect(body.proposal.activation).toBe("blocked");
+    expect(mk.auditRows.some((r: any) => r.action === "proposal.draft.created")).toBe(true);
     expect(body.proposal.payload.sessionToken).toBe("[REDACTED]");
     expect(body.proposal.payload.note).toBe("ok");
     expect(body.note).toMatch(/Draft-only/);
@@ -149,6 +152,7 @@ describe("feedback routes (P7a)", () => {
     expect(body.proposal.activation).toBe("blocked");
     expect(body.proposal.requiresApproval).toBe(true);
     expect(body.proposal.summary).toBe("updated");
+    expect(mk.auditRows.some((r: any) => r.action === "proposal.draft.updated")).toBe(true);
   });
   it("rejects invalid kind", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
@@ -157,6 +161,11 @@ describe("feedback routes (P7a)", () => {
     expect(res.status).toBe(400);
   });
 });
+
+
+
+
+
 
 
 
