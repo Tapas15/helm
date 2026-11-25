@@ -35,6 +35,9 @@ async function writeFeedbackAudit(db: Database, input: { userId: string; action:
   }
 }
 
+const REVIEW_STATUS = new Set(["pending", "in_review", "approved_for_eval", "rejected", "changes_requested"]);
+const EVAL_GATE_STATUS = new Set(["not_run", "pending", "passed", "failed", "waived"]);
+
 export function feedbackRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   const enabled = () => process.env.HELM_FEEDBACK_ENABLED === "1";
@@ -136,11 +139,16 @@ export function feedbackRoutes(db: Database) {
       riskLevel: typeof body?.riskLevel === "string" ? body.riskLevel.slice(0, 20) : "low",
       requiresApproval: true,
       activation: "blocked",
+      reviewStatus: "pending",
+      evalGateStatus: "not_run",
+      reviewNote: null,
+      reviewedAt: null,
+      reviewedBy: null,
       payload: (redact(body?.payload ?? { sourceFeedbackId, sourceEvalCaseId, feedbackKind: fb?.kind ?? null, evalKind: ev?.kind ?? null }) as Record<string, unknown>),
       evidenceRefs: Array.isArray(body?.evidenceRefs) ? (redact(body.evidenceRefs.slice(0, 50)) as unknown[]) : [],
       createdAt: now, updatedAt: now,
     }).returning();
-    await writeFeedbackAudit(db, { userId, action: "proposal.draft.created", resourceId: row?.id ?? null, metadata: { status: "draft", activation: "blocked", requiresApproval: true, sourceFeedbackId, sourceEvalCaseId } });
+    await writeFeedbackAudit(db, { userId, action: "proposal.draft.created", resourceId: row?.id ?? null, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus: "pending", evalGateStatus: "not_run", sourceFeedbackId, sourceEvalCaseId } });
     return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. No apply/activation path exists." }, 201);
   });
 
@@ -173,7 +181,20 @@ export function feedbackRoutes(db: Database) {
     if (body?.status !== undefined && body.status !== "draft") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal status cannot move out of draft in this slice"), 403);
     if (body?.activation !== undefined && body.activation !== "blocked") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal activation is blocked until explicit approval"), 403);
     if (body?.requiresApproval !== undefined && body.requiresApproval !== true) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proposal requiresApproval cannot be disabled"), 403);
-    const patch: Record<string, unknown> = { updatedAt: new Date(), status: "draft", activation: "blocked", requiresApproval: true };
+    if (body?.reviewStatus !== undefined && (typeof body.reviewStatus !== "string" || !REVIEW_STATUS.has(body.reviewStatus))) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "invalid reviewStatus"), 400);
+    if (body?.evalGateStatus !== undefined && (typeof body.evalGateStatus !== "string" || !EVAL_GATE_STATUS.has(body.evalGateStatus))) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "invalid evalGateStatus"), 400);
+
+    const reviewStatus = typeof body?.reviewStatus === "string" ? body.reviewStatus : (existing.reviewStatus ?? "pending");
+    const evalGateStatus = typeof body?.evalGateStatus === "string" ? body.evalGateStatus : (existing.evalGateStatus ?? "not_run");
+    const reviewNote = body?.reviewNote === null ? null : typeof body?.reviewNote === "string" ? body.reviewNote.slice(0, 2000) : (existing.reviewNote ?? null);
+    const reviewFieldsTouched = body?.reviewStatus !== undefined || body?.evalGateStatus !== undefined || body?.reviewNote !== undefined || body?.reviewedBy !== undefined;
+    const reviewedAt = reviewFieldsTouched ? new Date() : (existing.reviewedAt ?? null);
+    const reviewedBy = typeof body?.reviewedBy === "string" && body.reviewedBy.trim() ? body.reviewedBy.trim().slice(0, 120) : (reviewFieldsTouched ? userId : (existing.reviewedBy ?? null));
+
+    const patch: Record<string, unknown> = {
+      updatedAt: new Date(), status: "draft", activation: "blocked", requiresApproval: true,
+      reviewStatus, evalGateStatus, reviewNote, reviewedAt, reviewedBy,
+    };
     if (typeof body?.title === "string" && body.title.trim()) patch.title = body.title.trim().slice(0, 160);
     if (typeof body?.summary === "string") patch.summary = body.summary.slice(0, 1000);
     if (typeof body?.riskLevel === "string") patch.riskLevel = body.riskLevel.slice(0, 20);
@@ -181,8 +202,8 @@ export function feedbackRoutes(db: Database) {
     if (body?.payload !== undefined) patch.payload = redact(body.payload) as Record<string, unknown>;
     if (Array.isArray(body?.evidenceRefs)) patch.evidenceRefs = redact(body.evidenceRefs.slice(0, 50)) as unknown[];
     const [row] = await db.update(selfImprovementProposals).set(patch).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).returning();
-    await writeFeedbackAudit(db, { userId, action: "proposal.draft.updated", resourceId: row?.id ?? id, metadata: { status: "draft", activation: "blocked", requiresApproval: true, fields: Object.keys(patch).filter((k) => k !== "updatedAt") } });
-    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. Activation remains blocked." });
+    await writeFeedbackAudit(db, { userId, action: "proposal.draft.updated", resourceId: row?.id ?? id, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus, evalGateStatus, fields: Object.keys(patch).filter((k) => k !== "updatedAt") } });
+    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. Activation remains blocked; review/eval metadata does not activate proposals." });
   });
   return app;
 }

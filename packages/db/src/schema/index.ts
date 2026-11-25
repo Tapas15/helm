@@ -311,6 +311,11 @@ export const selfImprovementProposals = pgTable("self_improvement_proposals", {
   riskLevel: text("risk_level").notNull().default("low"),
   requiresApproval: boolean("requires_approval").notNull().default(true),
   activation: text("activation").notNull().default("blocked"), // blocked until explicit approval
+  reviewStatus: text("review_status").notNull().default("pending"), // pending|in_review|approved_for_eval|rejected|changes_requested (metadata only; no activation)
+  evalGateStatus: text("eval_gate_status").notNull().default("not_run"), // not_run|pending|passed|failed|waived (metadata only; no activation)
+  reviewNote: text("review_note"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: text("reviewed_by"),
   payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
   evidenceRefs: jsonb("evidence_refs").notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

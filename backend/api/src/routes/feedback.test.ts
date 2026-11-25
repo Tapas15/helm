@@ -129,6 +129,8 @@ describe("feedback routes (P7a)", () => {
     expect(body.proposal.status).toBe("draft");
     expect(body.proposal.requiresApproval).toBe(true);
     expect(body.proposal.activation).toBe("blocked");
+    expect(body.proposal.reviewStatus).toBe("pending");
+    expect(body.proposal.evalGateStatus).toBe("not_run");
     expect(mk.auditRows.some((r: any) => r.action === "proposal.draft.created")).toBe(true);
     expect(body.proposal.payload.sessionToken).toBe("[REDACTED]");
     expect(body.proposal.payload.note).toBe("ok");
@@ -138,7 +140,7 @@ describe("feedback routes (P7a)", () => {
   it("gets proposal by id and blocks activation/status escape on patch", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
     process.env.HELM_FEEDBACK_PROPOSALS_ENABLED = "1";
-    const proposal = { id: "sip_1", userId: "u1", status: "draft", activation: "blocked", requiresApproval: true, title: "t", summary: "s", riskLevel: "low", kind: "prompt_tuning", payload: {}, evidenceRefs: [], updatedAt: new Date() };
+    const proposal = { id: "sip_1", userId: "u1", status: "draft", activation: "blocked", requiresApproval: true, title: "t", summary: "s", riskLevel: "low", kind: "prompt_tuning", payload: {}, evidenceRefs: [], reviewStatus: "pending", evalGateStatus: "not_run", reviewNote: null, reviewedAt: null, reviewedBy: null, updatedAt: new Date() };
     const mk = makeDb({ proposals: [proposal] }) as any;
     const app = makeApp(mk.db);
     const get = await app.request("/v1/feedback/proposals/sip_1");
@@ -153,6 +155,33 @@ describe("feedback routes (P7a)", () => {
     expect(body.proposal.requiresApproval).toBe(true);
     expect(body.proposal.summary).toBe("updated");
     expect(mk.auditRows.some((r: any) => r.action === "proposal.draft.updated")).toBe(true);
+  });
+
+  it("allows draft-only review/eval metadata patch but never activation", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "1";
+    process.env.HELM_FEEDBACK_PROPOSALS_ENABLED = "1";
+    const proposal = { id: "sip_2", userId: "u1", status: "draft", activation: "blocked", requiresApproval: true, title: "t", summary: "s", riskLevel: "low", kind: "prompt_tuning", payload: {}, evidenceRefs: [], reviewStatus: "pending", evalGateStatus: "not_run", reviewNote: null, reviewedAt: null, reviewedBy: null, updatedAt: new Date() };
+    const mk = makeDb({ proposals: [proposal] }) as any;
+    const app = makeApp(mk.db);
+    const ok = await app.request("/v1/feedback/proposals/sip_2", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reviewStatus: "approved_for_eval", evalGateStatus: "passed", reviewNote: "Looks safe as draft metadata", reviewedBy: "reviewer_1" }),
+    });
+    expect(ok.status).toBe(200);
+    const body = await ok.json() as any;
+    expect(body.proposal.status).toBe("draft");
+    expect(body.proposal.activation).toBe("blocked");
+    expect(body.proposal.requiresApproval).toBe(true);
+    expect(body.proposal.reviewStatus).toBe("approved_for_eval");
+    expect(body.proposal.evalGateStatus).toBe("passed");
+    expect(body.proposal.reviewNote).toBe("Looks safe as draft metadata");
+    expect(body.proposal.reviewedBy).toBe("reviewer_1");
+    expect(body.note).toMatch(/does not activate/);
+
+    const badStatus = await app.request("/v1/feedback/proposals/sip_2", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ reviewStatus: "active" }) });
+    expect(badStatus.status).toBe(400);
+    const badActivation = await app.request("/v1/feedback/proposals/sip_2", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ activation: "enabled" }) });
+    expect(badActivation.status).toBe(403);
   });
   it("rejects invalid kind", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "1";
