@@ -273,6 +273,38 @@ describe("memory routes (P7b)", () => {
     expect(body.ok).toBe(true);
     expect(Array.isArray(body.events)).toBe(true);
   });
+
+  it("has no consolidation apply endpoint and dry-run remains non-mutating contract", async () => {
+    process.env.HELM_MEMORY_ENABLED = "1";
+    process.env.HELM_MEMORY_CONSOLIDATION_DRY_RUN = "1";
+    const rows = [
+      { id: "mem_1", userId: "u1", kind: "note", content: "Same fact", metadata: { version: 1 }, createdAt: new Date("2026-01-03T00:00:00Z") },
+      { id: "mem_2", userId: "u1", kind: "note", content: "Same fact", metadata: { version: 1 }, createdAt: new Date("2026-01-02T00:00:00Z") },
+    ];
+    let deleteCalls = 0;
+    let updateCalls = 0;
+    const db = makeDb({ selectRows: rows });
+    const origDelete = db.delete;
+    const origUpdate = db.update;
+    db.delete = (...args: any[]) => { deleteCalls++; return origDelete(...args); };
+    db.update = (...args: any[]) => { updateCalls++; return origUpdate(...args); };
+    const app = makeApp(db);
+
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"] as const) {
+      const res = await app.request("/v1/memory/consolidation/apply", { method });
+      expect([404, 405]).toContain(res.status);
+    }
+
+    const dryRun = await app.request("/v1/memory/consolidation/dry-run");
+    expect(dryRun.status).toBe(200);
+    const body = await dryRun.json() as any;
+    expect(body.dryRun).toBe(true);
+    expect(body.deleted).toBe(0);
+    expect(body.modified).toBe(0);
+    expect(body.candidates[0]?.mergePreview?.applied).toBe(false);
+    expect(deleteCalls).toBe(0);
+    expect(updateCalls).toBe(0);
+  });
 });
 
 
