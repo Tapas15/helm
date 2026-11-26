@@ -3,18 +3,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { connectorAccounts, identities, identityPolicies, type Database } from "@helm/db";
 import { HELM_ERROR_CODES, IdentityClass } from "@helm/shared";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-const redactIdentityValue = (value: unknown, keyHint = ""): unknown => {
-  const lower = keyHint.toLowerCase();
-  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
-  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
-  if (Array.isArray(value)) return value.map((v) => redactIdentityValue(v));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactIdentityValue(v, k)]));
-  return value;
-};
+const redactIdentityValue = (value: unknown) => redactSensitive(value);
 const safeConnectorAccount = (row: any) => ({
   id: row.id, userId: row.userId, connectorId: row.connectorId, status: row.status,
   scopes: Array.isArray(row.scopes) ? row.scopes : [],

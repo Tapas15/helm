@@ -3,18 +3,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { auditLog, proactivityRules, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false) => ({ error: { code, message, retryable } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-const redactValue = (value: unknown, keyHint = ""): unknown => {
-  const lower = keyHint.toLowerCase();
-  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
-  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
-  if (Array.isArray(value)) return value.map((v) => redactValue(v));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactValue(v, k)]));
-  return value;
-};
+const redactValue = (value: unknown) => redactSensitive(value);
 const safeRule = (row: any) => row ? ({ ...row, triggerConfig: redactValue(row.triggerConfig ?? {}), actionConfig: redactValue(row.actionConfig ?? {}) }) : row;
 
 async function writeProactivityAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; metadata?: Record<string, unknown> }) {

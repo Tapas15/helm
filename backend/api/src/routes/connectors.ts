@@ -5,18 +5,11 @@ import { HELM_ERROR_CODES, OAuthStartInput } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 import { DbCredentialBroker, encryptVaultValue, decryptVaultValue, saveGoogleToken } from "../lib/vault.js";
 import { buildGoogleAuthUrl, buildPkce, randomBase64Url, sha256Base64Url } from "../lib/oauth.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-const redactConnectorValue = (value: unknown, keyHint = ""): unknown => {
-  const lower = keyHint.toLowerCase();
-  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
-  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
-  if (Array.isArray(value)) return value.map((v) => redactConnectorValue(v));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactConnectorValue(v, k)]));
-  return value;
-};
+const redactConnectorValue = (value: unknown) => redactSensitive(value);
 const safeConnectorAccount = (row: any, extra?: Record<string, unknown>) => ({
   id: row.id,
   userId: row.userId,

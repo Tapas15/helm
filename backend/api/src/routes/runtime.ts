@@ -3,17 +3,10 @@ import { z } from "zod";
 import type { Database } from "@helm/db";
 import { HELM_ERROR_CODES, decideRuntimeModelPolicy, normalizeAllowlist } from "@helm/shared";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-const redactValue = (value: unknown, keyHint = ""): unknown => {
-  const lower = keyHint.toLowerCase();
-  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
-  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
-  if (Array.isArray(value)) return value.map((v) => redactValue(v));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactValue(v, k)]));
-  return value;
-};
+const redactValue = (value: unknown) => redactSensitive(value);
 const ModelOverrideInput = z.object({
   model: z.string().min(1).max(200).optional(),
   provider: z.string().min(1).max(100).optional(),
