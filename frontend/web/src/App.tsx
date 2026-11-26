@@ -128,6 +128,25 @@ export function App() {
   });
   const control = useMutation({ mutationFn: (args: { id: string; action: string }) => api(`/v1/tasks/${args.id}/control`, { method: "POST", body: JSON.stringify({ action: args.action }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); }, onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); } });
   const resolveApproval = useMutation({ mutationFn: (args: { id: string; decision: "approve" | "reject"; reason?: string }) => api(`/v1/approvals/${args.id}/resolve`, { method: "POST", body: JSON.stringify({ decision: args.decision, reason: args.reason }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); qc.invalidateQueries({ queryKey: ["receipts"] }); }, onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); } });
+  const exportTask = useMutation({
+    mutationFn: async (id: string) => api<any>(`/v1/tasks/${id}/export`),
+    onSuccess: (data, id) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `helm-task-${id}.json`; a.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
+  });
+  const deleteTask = useMutation({
+    mutationFn: async (id: string) => api<any>(`/v1/tasks/${id}/delete`, { method: "POST", headers: { "x-helm-confirm-delete": "yes" } }),
+    onSuccess: (_d, id) => {
+      if (selected === id) setSelected(null);
+      qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); qc.invalidateQueries({ queryKey: ["receipts"] }); qc.invalidateQueries({ queryKey: ["artifacts"] });
+    },
+    onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
+  });
   const takeover = useMutation({ mutationFn: (args: { id: string; reason: string }) => api(`/v1/browser/sessions/${args.id}/takeover/request`, { method: "POST", body: JSON.stringify({ reason: args.reason }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["browser-sessions"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); } });
   const resumeAgent = useMutation({ mutationFn: (args: { id: string }) => api(`/v1/browser/sessions/${args.id}/takeover/resume`, { method: "POST", body: JSON.stringify({ note: "User resumed agent" }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["browser-sessions"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); } });
   const connectOAuth = useMutation({
@@ -273,6 +292,8 @@ export function App() {
                 const acts = s === "running" || s === "planning" || s === "waiting_approval" || s === "waiting_input" ? ["pause","cancel"] : s === "paused" ? ["resume","cancel"] : s === "failed" || s === "cancelled" ? ["retry"] : [];
                 return acts.map((a) => <button key={a} disabled={control.isPending} aria-label={`${a} task`} onClick={() => control.mutate({ id: current.id, action: a })}>{control.isPending ? "…" : a}</button>);
               })()}
+              <button disabled={exportTask.isPending} aria-label="Export task" onClick={() => exportTask.mutate(current.id)}>{exportTask.isPending ? "…" : "Export"}</button>
+              <button className="danger" disabled={deleteTask.isPending} aria-label="Delete task" onClick={() => { if (window.confirm("Delete this task and its messages/events/receipts/artifacts? This requires server HELM_ALLOW_TASK_DELETE=1.")) deleteTask.mutate(current.id); }}>{deleteTask.isPending ? "…" : "Delete"}</button>
             </>}
           </div>
           {!current && <div className="muted" role="status">Select a task or send a message to start.</div>}
