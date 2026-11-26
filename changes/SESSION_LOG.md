@@ -1842,3 +1842,28 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Durable interrupt/resume/checkpoint semantics across crash/restart/Temporal.
 - [ ] Runtime eval depth under real providers/browser/connectors.
 - [ ] Live Hermes sidecar integration against real Hermes runtime (no copied Hermes code). **Blocked:** Hermes runtime/env and integration scope.
+## 2026-11-26 - P2 runtime checkpoint scaffolding
+**Time:** 2026-11-26T03:33:00Z
+**Agent:** Kilo
+**Phase:** P2 Agent Runtime
+
+### Completed
+- [x] Added runtime checkpoint derivation/persistence helpers: `backend/worker/src/runtime-checkpoint.ts` with `RuntimeCheckpoint`, `deriveRuntimeCheckpoint`, `isTerminalCheckpoint`.
+- [x] Wired worker task processing to persist checkpoints at safe boundaries (planning/tool-completed/approval/takeover/completed/failed/interrupted) into `tasks.checkpoint` and `tasks.state.runtimeCheckpoint`; waiting approval/input and crash/failure paths persist checkpoint hints.
+- [x] Added deterministic checkpoint tests: `backend/worker/src/runtime-checkpoint.test.ts`.
+- [x] Updated docs: `changes/phase-2-hermes-runtime.md` (P2 76%->78%), `changes/CURRENT_STATE.md` (overall 80.3%->80.6%).
+
+### Evidence
+- `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts --reporter=verbose` PASS (3/3).
+- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts --reporter=verbose` PASS (18/18).
+- `pnpm -C backend/worker typecheck` PASS.
+- `pnpm -C backend/worker lint` PASS.
+- Commit: `3d9a2c4` (`feat(p2): persist runtime checkpoints in worker`).
+
+### Remaining / Blocked
+- [ ] Durable resume-from-checkpoint execution path (idempotent replay/restart semantics). **Partial:** checkpoint persisted, resume not implemented.
+- [ ] Live E2E runtime validation across real browser+connector flows. **Blocked:** real env/credentials/smoke.
+- [ ] Integration-driven behavior tweaks and production/model-provider behavior evidence. **Blocked:** real runs/providers.
+- [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
+- [ ] Runtime eval depth under real providers/browser/connectors.
+- [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
