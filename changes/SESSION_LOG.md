@@ -2039,3 +2039,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/routes/gmail.feedback.test.ts src/routes/calendar.feedback.test.ts src/routes/browser.feedback.test.ts` PASS 37/37; `pnpm -C backend/api typecheck` PASS.
 - **Impact**: P5 72% -> 74%; overall 82.3% -> 82.6% (equal-weight). Deterministic contract coverage only.
 - **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, retry-policy/operator runbook depth, production/staging disable-flag rollback proof.
+## 2026-11-26 - P5 operator/runbook + config fail-closed contracts
+
+- **Config contracts**: Hardened `packages/shared/src/temporal.test.ts` (8/8). Proves enabled-without-mode defaults to `external-write`; invalid mode fails closed to `off` (no routing despite enabled flag); explicit `all` routes non-external actions only when explicitly selected; scheduleId default/override; guarded external action class and non-retryable error classification.
+- **Runbook**: Updated `changes/RUNBOOK-temporal.md` with controlled enable, fail-closed disable/rollback, 503 routing-failure behavior, reconciliation dry-run/run/schedule/ensure guardrails, dev-only fault injection, and blocked closure evidence matrix.
+- **Evidence**: `pnpm -C packages/shared exec vitest run src/temporal.test.ts` PASS 8/8.
+- **Impact**: P5 74% -> 75%; overall 82.6% -> 82.7% (equal-weight). Deterministic/operator readiness only.
+- **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof.
