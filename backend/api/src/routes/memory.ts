@@ -304,7 +304,7 @@ export function memoryRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Memory is disabled (HELM_MEMORY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(auditLog).where(and(eq(auditLog.userId, userId), eq(auditLog.resourceType, "memory_note"))).orderBy(desc(auditLog.ts)).limit(50);
-    return c.json({ ok: true, events: rows.map((r) => ({ id: r.id, ts: r.ts, action: r.action, resourceId: r.resourceId, decision: r.decision, reason: r.reason, metadata: r.metadata ?? {} })) });
+    return c.json({ ok: true, events: rows.map((r) => ({ id: r.id, ts: r.ts, action: r.action, resourceId: r.resourceId, decision: r.decision, reason: r.reason, metadata: redactExportValue(r.metadata ?? {}) })) });
   });
   return app;
 }

@@ -39,7 +39,7 @@ export function reconciliationRoutes(db: Database) {
       olderThanMs: Number(process.env.HELM_RECONCILIATION_OLDER_THAN_MS ?? 60_000),
       limit: Number(process.env.HELM_RECONCILIATION_LIMIT ?? 20),
       policy: "no-blind-retry; lookup-before-fail; uncertain receipts only; DB-canonical",
-      temporalSchedule,
+      temporalSchedule: redactValue(temporalSchedule),
       counts: counts ?? { uncertain: 0, executed: 0, failed: 0 },
       recentUncertain: recent.map((r) => {
         const evidence = (r.evidence as Record<string, unknown> | null) ?? {};

@@ -66,9 +66,9 @@ export function identityRoutes(db: Database) {
     if (!row) {
       const [byIdentity] = await db.select().from(identityPolicies).where(and(eq(identityPolicies.identityId, id), eq(identityPolicies.userId, userId))).limit(1);
       if (!byIdentity) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Identity policy not found"), 404);
-      return c.json({ ok: true, policy: byIdentity });
+      return c.json({ ok: true, policy: redactIdentityValue(byIdentity) });
     }
-    return c.json({ ok: true, policy: row });
+    return c.json({ ok: true, policy: redactIdentityValue(row) });
   });
   app.patch("/:id/policy", async (c) => {
     const userId = c.get("userId");
@@ -91,7 +91,7 @@ export function identityRoutes(db: Database) {
       return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "External writes require requireApproval=true"), 403);
     }
     const [updated] = await db.update(identityPolicies).set(patch).where(and(eq(identityPolicies.id, existing.id), eq(identityPolicies.userId, userId))).returning();
-    return c.json({ ok: true, policy: updated });
+    return c.json({ ok: true, policy: redactIdentityValue(updated) });
   });
   app.post("/:id/bind-connector-account", async (c) => {
     const userId = c.get("userId");
