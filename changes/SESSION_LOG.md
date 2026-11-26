@@ -1971,3 +1971,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.behavior.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 21/21; pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 10/10; pnpm -C backend/worker typecheck PASS.
 - **Commits**: 615c8d (eat(p2): emit runtime.tool.deduped for resumePlan duplicate side effects), 136567 (	est(p2): cover runtime.tool.deduped checkpoint boundary).
 - **Remaining**: Full durable replay execution still partial - runtime does not yet replay/skip arbitrary completed side-effect steps by resuming model/tool loop at checkpoint boundary; dedupe boundary prevents duplicate dispatch for matching actionHash but not full step-level replay.
+## 2026-11-26 - P2 streamChat resume dedupe no-dispatch eval
+
+- **Runtime eval**: Restored and extended ackend/worker/src/runtime.evals.test.ts with a deterministic streamChat-path case: mocked /chat/completions SSE returns rowser_click tool call with actionHash already in untimeResumePlan.completedActionHashes; runtime emits untime.tool.deduped, does not POST to /v1/browser/sessions/s1/click, and completes successfully.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts --reporter=verbose PASS 5/5; pnpm -C backend/worker typecheck PASS.
+- **Commit**: e0f00af (	est(p2): cover streamChat resume dedupe dispatch prevention).
+- **Remaining**: Full replay/continuation semantics still partial - dedupe prevents duplicate dispatch for known completed actionHash; runtime does not yet perform step-level replay from checkpoint to skip arbitrary completed safe work and continue deterministically through complex resumed flows.
