@@ -1,6 +1,6 @@
 # Phase 1 - UI / Task Core
 
-**Status:** `[~]` 93%  
+**Status:** `[~]` 94%  
 **Blueprint refs:** Phase 1, `03-Frontend-OpenFUSE-UI.md`, `04-Backend-Control-Plane.md`, `10-Data-Model-and-APIs.md`
 
 ## Goal
@@ -11,6 +11,7 @@ Visible task system with realtime updates. User creates task from chat and sees 
 - **Task controls UX**: Web shows only valid pause/resume/cancel/retry actions for current task status and surfaces control/approval mutation errors (`38533bc`).
 - **SSE status clarity**: Event timeline shows explicit `live` / `stale` / `offline` connection state with stale reconnect guidance (`d482c08`, current pass).
 - **A11y/UX polish (current pass)**: Task list keyboard-selectable (`role=listbox/option`, Enter/Space), chat log `role=log`/`aria-live`, labels/aria on controls and status pills, disabled/focus-visible styles, small-screen responsive layout.
+- **Task export/delete UI**: Web exposes Export (downloads `/v1/tasks/:id/export` JSON) and guarded Delete (explicit confirm + `x-helm-confirm-delete: yes`; server remains gated by `HELM_ALLOW_TASK_DELETE=1`) (`44e89af`).
 - **Task controls**: Pause/resume/cancel/retry with CAS/state guards, audit, and task events. Env-gated `task-lifecycle-api` PASS (4/4, includes invalid transition).
 - **Idempotency/follow-up guards**: Task create path guards duplicate/follow-up behavior.
 - **Browser visibility**: WS screencast preview with polling fallback; takeover-only remote input baseline.
@@ -39,10 +40,11 @@ Visible task system with realtime updates. User creates task from chat and sees 
 
 ### Remaining / Blocked
 - [ ] SSE reconnect cursor-resume E2E proof in live UI/E2E surface (env-gated API tests cover cursor/Last-Event-ID; browser-level reconnect proof still pending). **Blocked:** no browser automation surface in shell.
-- [ ] Live UI E2E smoke evidence for create/approve/reject/retry/pause/resume/cancel/preview flows. **Blocked:** no browser automation surface in shell.
+- [ ] Live UI E2E smoke evidence for create/approve/reject/retry/pause/resume/cancel/preview/export/delete flows. **Blocked:** no browser automation surface in shell.
 - [ ] DB lease worker heartbeat/recovery/fault-injection depth beyond current coverage (operational/runtime proof).
 - [x] Decide/record WS `/v1/ws` AG-UI reducer need: deferred for MVP; SSE + browser WS cover current flows.
 - [x] Artifact storage abstraction/retention polish decision: local dev dir/current artifact path for MVP; MinIO/retention abstraction deferred to P8/ops hardening.
+- [x] Task export/delete web controls: Export downloads redacted task export JSON; Delete is explicit-confirm and server-gated (`HELM_ALLOW_TASK_DELETE=1` + confirm header).
 - [~] Richer inline cards / activity-approval centers / persona-memory-provider UI / responsive-accessibility pass: current pass added keyboard/focus/ARIA/responsive polish; deeper design-system pass remains optional backlog.
 
 ## Evidence
