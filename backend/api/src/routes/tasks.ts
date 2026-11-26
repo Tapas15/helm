@@ -11,6 +11,7 @@ import {
 } from "@helm/shared";
 import { z } from "zod";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const FollowUpInput = z.object({ content: z.string().trim().min(1).max(20000) });
@@ -46,28 +47,7 @@ function errorBody(code: string, message: string, retryable: boolean, details?: 
   return { error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } };
 }
 
-const SENSITIVE_EXPORT_KEYS = new Set([
-  "authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token",
-  "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey",
-  "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted",
-]);
-
-function redactExportValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redactExportValue);
-  if (!value || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_EXPORT_KEYS.has(normalized)) {
-      out[k] = "[REDACTED]";
-    } else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) {
-      out[k] = "[REDACTED_PATH]";
-    } else {
-      out[k] = redactExportValue(v);
-    }
-  }
-  return out;
-}
+function redactExportValue(value: unknown): unknown { return redactSensitive(value); }
 
 export function taskRoutes(db: Database) {
   const app = new Hono<AppEnv>();
