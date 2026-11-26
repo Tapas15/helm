@@ -1,6 +1,6 @@
 # Phase 1 - UI / Task Core
 
-**Status:** `[~]` 91%  
+**Status:** `[~]` 92%  
 **Blueprint refs:** Phase 1, `03-Frontend-OpenFUSE-UI.md`, `04-Backend-Control-Plane.md`, `10-Data-Model-and-APIs.md`
 
 ## Goal
@@ -14,6 +14,7 @@ Visible task system with realtime updates. User creates task from chat and sees 
 - **Browser visibility**: WS screencast preview with polling fallback; takeover-only remote input baseline.
 - **Auth wiring**: Web session-token sign-in/sign-out; bearer on fetch/SSE/WS/screenshot; dev `x-user-id` fallback only when `HELM_ALLOW_DEV_AUTH=1` and `HELM_REQUIRE_AUTH!=1`.
 - **Task data controls**: Export endpoints `GET /v1/tasks/:id/export`, `POST /v1/tasks/export` capped by `HELM_TASK_EXPORT_MAX` (default 200, hard max 500). Delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`, transactional delete + audit. Env-gated `task-export-delete-api` PASS (1/1).
+- **Artifact download auth**: Web artifact download links include session token query param so new-tab downloads work when auth is required (`9d6cb23`).
 - **Validation**: Task list limit validation; web typecheck/lint PASS in prior evidence.
 
 ## Checklist
@@ -25,6 +26,7 @@ Visible task system with realtime updates. User creates task from chat and sees 
 - [x] Idempotency/follow-up guards in task create path.
 - [x] WS screencast preview + polling fallback; takeover-only remote input baseline.
 - [x] Web session-token sign-in/sign-out; bearer auth on fetch/SSE/WS/screenshot; dev `x-user-id` fallback only when `HELM_ALLOW_DEV_AUTH=1` and `HELM_REQUIRE_AUTH!=1`.
+- [x] Artifact download auth: web download links include auth token query param for new-tab downloads when auth required (`9d6cb23`).
 - [x] SSE stream regression: `tests/integration/src/events-sse-api.test.ts` env-gated coverage for cursor resume, Last-Event-ID resume/fallback, invalid cursor validation. (Run in env-gated stack for live pass evidence.)
 - [x] SSE route cursor hardening: `Last-Event-ID` fallback when `after` omitted; malformed Last-Event-ID ignored safely; explicit invalid `after` rejected.
 - [x] Task lifecycle regression: `tests/integration/src/task-lifecycle-api.test.ts` PASS (4/4, includes invalid control transition).
