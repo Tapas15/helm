@@ -88,7 +88,7 @@ export function browserRoutes(db: Database) {
     const ownedTaskIds = new Set(owned.map(t => t.id));
     const ownedSessionIds = new Set(owned.map(t => String((t.state as any)?.activeBrowserSessionId ?? "")).filter(Boolean));
     const sessions = json.sessions.filter((s: any) => (s?.taskId && ownedTaskIds.has(String(s.taskId))) || ownedSessionIds.has(String(s?.id ?? "")));
-    return c.json({ sessions });
+    return c.json(redactBrowserValue({ sessions }));
   });
   app.post("/sessions", async (c) => {
     const body = await c.req.json().catch(() => null);
