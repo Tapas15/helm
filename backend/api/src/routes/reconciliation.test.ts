@@ -191,7 +191,20 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(body.candidates).toHaveLength(1);
     expect(reconciliation.reconcileUncertainReceipts).not.toHaveBeenCalled();
   });
+
+  it("POST /schedule/ensure remains explicit dev/internal control when HELM_RECONCILIATION_ENABLED=0 (auto scheduler disabled)", async () => {
+    process.env.HELM_RECONCILIATION_ENABLED = "0";
+    process.env.HELM_ALLOW_DEV_AUTH = "1";
+    temporal.getTemporalReconciliationScheduleStatus.mockResolvedValueOnce({ enabled: true, scheduleId: "helm-reconciliation-schedule", status: "active" } as any);
+    const res = await makeApp(makeDb()).request("/v1/reconciliation/schedule/ensure", { method: "POST" });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(body.scheduleId).toBe("helm-reconciliation-schedule");
+    expect(temporal.maybeStartReconciliationSchedule).toHaveBeenCalledTimes(1);
+  });
 });
+
 
 
 
