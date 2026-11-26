@@ -98,7 +98,7 @@ export function taskRoutes(db: Database) {
         .limit(1);
       if (existing[0]) {
         c.header("idempotency-replayed", "true");
-        return c.json({ task: existing[0] }, 200);
+        return c.json({ task: redactExportValue(existing[0]) }, 200);
       }
     }
 
@@ -162,7 +162,7 @@ export function taskRoutes(db: Database) {
     });
 
     c.get("logger").info({ taskId: id, requestId, correlationId, idempotencyKey: idemKey ?? null }, "task created");
-    return c.json({ task }, 201);
+    return c.json({ task: redactExportValue(task) }, 201);
   });
 
   app.get("/", async (c) => {
@@ -176,7 +176,7 @@ export function taskRoutes(db: Database) {
     const limit = Math.min(limitNum, 200);
     const where = status ? and(eq(tasks.userId, userId), eq(tasks.status, status)) : eq(tasks.userId, userId);
     const rows = await db.select().from(tasks).where(where).orderBy(desc(tasks.updatedAt)).limit(limit);
-    return c.json({ tasks: rows });
+    return c.json({ tasks: redactExportValue(rows) });
   });
 
   app.get("/:id", async (c) => {
@@ -188,7 +188,7 @@ export function taskRoutes(db: Database) {
       .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
       .limit(1);
     if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
-    return c.json({ task });
+    return c.json({ task: redactExportValue(task) });
   });
 
   app.get("/:id/export", async (c) => {
@@ -303,7 +303,7 @@ export function taskRoutes(db: Database) {
     const seq = await nextSequence(db, id);
     await insertEventWithRetry(db, { id: uid("evt"), userId, taskId: id, sequence: seq, schemaVersion: 1, ts, source: "api", type: "task.followup", correlationId, causationId: requestId, payload: { requestId, correlationId, status: "queued" } });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts, actorType: "user", actorId: userId, taskId: id, action: "task.followup", resourceType: "task", resourceId: id, decision: "allow", metadata: { requestId, correlationId } });
-    return c.json({ task: updated }, 200);
+    return c.json({ task: redactExportValue(updated) }, 200);
   });
 
   app.get("/:id/events", async (c) => {
@@ -328,7 +328,7 @@ export function taskRoutes(db: Database) {
       .where(and(eq(taskEvents.taskId, id), sql`${taskEvents.sequence} > ${after}`))
       .orderBy(taskEvents.sequence)
       .limit(limit);
-    return c.json({ events: rows, after, limit });
+    return c.json({ events: rows.map((e) => ({ ...e, payload: redactExportValue(e.payload ?? {}) })), after, limit });
   });
 
   app.post("/:id/control", async (c) => {
@@ -406,7 +406,7 @@ export function taskRoutes(db: Database) {
       metadata: { from, to: transition.to, requestId, correlationId },
     });
     c.get("logger").info({ taskId: id, action: action.data, from, to: transition.to, requestId, correlationId }, "task control");
-    return c.json({ task: updated });
+    return c.json({ task: redactExportValue(updated) });
   });
 
   return app;
