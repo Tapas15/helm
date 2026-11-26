@@ -87,15 +87,15 @@ timeline
 
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
-| **P0 Foundation / Repo** | 100% | Complete | `????????????????????` |
-| **P1 UI / Task Core** | 92% | Present / polishing | `????????????????????` |
-| **P2 Agent Runtime** | 90% | **Present** | `????????????????????` |
-| **P3 Browser Execution** | 93% | **Present** | `????????????????????` |
-| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `????????????????????` |
-| **P5 Temporal / Reliability** | 80% | **Present** | `????????????????????` |
-| **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `????????????????????` |
-| **P7 Memory / Skills / Proactivity** | 97% | **Present** | `????????????????????` |
-| **P8 Hardening / Release** | 74% | Coding-stable; release gates pending | `????????????????????` |
+| **P0 Foundation / Repo** | 100% | Complete | `####################` |
+| **P1 UI / Task Core** | 92% | Present / polishing | `##################..` |
+| **P2 Agent Runtime** | 90% | Present | `##################..` |
+| **P3 Browser Execution** | 93% | Present | `###################.` |
+| **P4 Approvals / Vault / Connectors** | 90% | Present | `##################..` |
+| **P5 Temporal / Reliability** | 80% | Present | `################....` |
+| **P6 BrowserOS Deterministic Upgrade** | 66% | Present / gate pending | `#############.......` |
+| **P7 Memory / Skills / Proactivity** | 97% | Present | `###################.` |
+| **P8 Hardening / Release** | 74% | Coding-stable; release gates pending | `###############.....` |
 
 ---
 
@@ -158,21 +158,21 @@ timeline
 
 ## Present — What We're Building Now
 
-> The current push: make Helm feel like a real personal agent, not a demo shell.
+> Current state: Helm is a working prototype with real task/runtime/browser/approval flows. P8 coding hardening is stable; release confidence is blocked by manual ops/security/legal evidence.
 
 ```mermaid
 flowchart LR
-    A[User prompt] --> B[Chat UI + Task]
-    B --> C[HelmNativeRuntime]
-    C --> D[Local Ollama / model adapter]
-    D --> E{Tool call?}
-    E -->|No| F[Stream assistant response]
-    E -->|Yes| G[Policy / approval / idempotency]
-    G --> H[Browser worker / guarded action]
-    H --> I[Receipt + artifact + event]
-    I --> J[UI timeline / evidence / preview]
-    F --> J
-    J --> K[Next: full browser-tool E2E smoke]
+    A[User prompt] --> B[Web Chat + Task UI]
+    B --> C[API Control Plane / SSE]
+    C --> D[HelmNativeRuntime / Worker]
+    D --> E[Local Ollama / model adapter]
+    D --> F{High-risk action?}
+    F -->|No| G[Browser/connector read or safe tool]
+    F -->|Yes| H[Approval + actionHash + idempotency receipt]
+    H --> G
+    G --> I[Artifacts + receipts + audit + events]
+    I --> J[Timeline / Evidence / Preview]
+    J --> K[Next: release-gate evidence, not core coding]
 ```
 
 <table>
@@ -180,62 +180,56 @@ flowchart LR
 <td width="33%" valign="top">
 
 ### ?? P2 — Agent Runtime
-**56% · Active**
+**90% · Present**
 
 **Delivered**
-- HelmNativeRuntime
-- Normalized `runtime.*` events
-- OpenAI-compatible streaming
-- Basic tool-calling: navigate/snapshot/click
-- Ollama smoke pass (`llama3.2:latest`)
-- Browser-intent gating + model guardrails
+- HelmNativeRuntime + normalized `runtime.*` events
+- OpenAI-compatible streaming; local Ollama defaults
+- Tool loop/policy/registry, unknown tool blocked
+- High-risk approval gate + `actionHash`/idempotency
+- Checkpoint/resumePlan narrowed semantics, read/side-effect dedupe guards
+- Deterministic runtime evals; fail-closed Hermes adapter skeleton (no Hermes code copied)
 
-**Next**
-- Tool-capable model guardrails/selection
-- Full browser-tool E2E with approvals
-- Richer tool registry/policy
-- Checkpoint/resume semantics
+**Remaining (mostly non-coding proof)**
+- Real browser+connector+model-provider E2E validation
+- Live Hermes sidecar integration proof (optional, external)
+- Full durable step-level replay semantics
 
 </td>
 <td width="33%" valign="top">
 
 ### ?? P3 — Browser Execution
-**93% · Active**
+**93% · Present**
 
 **Delivered**
-- Playwright browser worker
-- CDP screencast WS + API proxy
-- Takeover pause/resume
-- DOM/screenshot artifacts
-- Guarded mutating routes
-- Session metadata/storageState restore
-- Stale-session restart recovery + integration coverage
-- WS bearer session-token authz
+- Playwright browser worker + CDP screencast/WS proxy
+- Screenshot/snapshot artifacts persisted with ownership checks
+- Takeover request/resume state contracts, audit/events
+- Guarded external actions with approval/hash/idempotency
+- Crash/recovery and ownership hardening
 
-**Next**
-- Crash/reconnect/WS stability smoke
-- Real session/OIDC UX
-- Deterministic recreate contract
-- Richer remote control
+**Remaining (mostly env/manual proof)**
+- Live interactive WS/takeover smoke (click/type/scroll/drag/modifiers)
+- Browser crash/reconnect/restart depth in real env
+- Artifact retention/download/network evidence policy
 
 </td>
 <td width="33%" valign="top">
 
 ### ??? P4 — Approvals / Safety / Connectors
-**90% · Active**
+**90% · Present**
 
 **Delivered**
-- Approval resolve/requeue/cancel
-- Action receipts (`approvalId + actionHash + idempotency`)
-- Session-token auth scaffold + WS auth resolver
-- Vault AES-GCM, OAuth PKCE scaffold
-- Gmail/Calendar read+write guarded routes; real OAuth E2E verified (idempotent, no duplicate external side effect)
+- Approval resolve/requeue/cancel + action receipts
+- Local AES-GCM vault; secrets not returned by API
+- Google OAuth PKCE scaffold, refresh/revoke hardening baseline
+- Gmail/Calendar read+write guarded; real OAuth connect/send/create E2E verified
+- Identity policy enforcement (flag-aware) on key side-effect paths
 
-**Next**
-- Real-provider refresh/revoke/uncertain-reconcile hardening
-- Connector diagnostics/policy matrix
-- Prod vault/KMS/MCP policy
-- Broader binding-audit regression tests
+**Remaining (mostly external/manual)**
+- Real-provider uncertain/timeout reconcile sandbox proof
+- Token refresh/revoke hardening against real provider behavior
+- Production vault/KMS decision and connector diagnostics/policy audit
 
 </td>
 </tr>
@@ -245,74 +239,73 @@ flowchart LR
 
 | Priority | Why it matters | Exit signal |
 |---|---|---|
-| **P6 BrowserOS parity matrix** | Proves external BrowserOS adapter can safely replace specific Playwright paths later | Env-gated parity evidence for artifact/error/takeover semantics, with no silent fallback/default dispatch |
-| **P6 security/compliance review** | Keeps AGPL/external-runtime boundary and user data safe | Threat-model notes, endpoint/credential/artifact controls reviewed, dispatch gate documented |
-| **P5 real-provider/Temporal depth** | Validates no-duplicate reconciliation under real conditions | Real-provider uncertain/timeout/lookup/no-duplicate proofs and Temporal operator evidence |
-| **P8 hardening/release evidence** | Required for trustworthy release/submission | Backup/restore drill, scan gating, PII/threat model, compliance/provenance/Dubai signoff package |
+| **P8 release-gate evidence** | Coding is stable; release confidence is not | Backup/restore drill (artifacts+vault-key), scan gating/SAST/secrets/container decisions, STRIDE/threat-model + incident/key-rotation signoff, PII/privacy/classification signoff, compliance/Dubai/provenance signoff, chaos/fault matrix, SLO/alerts, packaging/release gates |
+| **P6 BrowserOS security/parity gate** | External adapter must stay safe and equivalent before default dispatch | Formal security signoff, real-browser takeover/artifact/error parity evidence, CI gate, dispatch remains off by default |
+| **P5 real Temporal/provider proof** | Deterministic contracts exist; real infra proof still missing | Real Temporal schedule/monitor/fault-injection depth, real-provider no-duplicate proof, staging/rollback evidence |
+| **P1-P3 live E2E smoke** | Confirms user-visible flows beyond deterministic tests | Browser-level SSE reconnect, live WS/takeover smoke, full create/approve/reject/retry/pause/resume/cancel/preview evidence |
 
 ---
 
 ## Future — What We Will Achieve
 
-> The destination: a trusted, durable, personal AI operator with real integrations and release-grade safety.
+> Destination: release-grade, inspectable personal AI operator. Most remaining work is evidence/gates, not core feature coding.
 
 ```mermaid
 flowchart TB
-    NOW[Now: Prototype baseline] --> P4F[P4: Vault + Connectors]
-    P4F --> P5[P5: Temporal Reliability contracts -> real-env proof]
-    P5 --> P6[P6: BrowserOS Upgrade]
-    P5 --> P7[P7: Memory + Skills + Proactivity]
-    P7 --> P8[P8: Hardening + Release]
-    P6 --> P8[P8: Hardening + Release]
-    P7 --> P8
-    P8 --> GOAL[Goal: Trusted Personal AI Operating Assistant]
+    NOW[Now: Coding-stable prototype] --> GATES[Release gates / evidence]
+    GATES --> P8[P8: Backup drill, security, PII/legal, chaos, SLO, packaging]
+    GATES --> P6G[P6: BrowserOS formal signoff + CI/dispatch gate]
+    GATES --> P5G[P5: Real Temporal/provider no-duplicate proof]
+    P8 --> GOAL[Trusted, auditable release candidate]
+    P6G --> GOAL
+    P5G --> GOAL
 ```
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### ?? P4+ Connectors
-- Vault/credential broker
-- Connector registry + manifest schema
-- OAuth connect/refresh/revoke
-- Gmail/Calendar behind policy
-- Uncertain-outcome reconciliation
+### ?? P5 Real-Environment Proof
+- Real Temporal schedule/monitor/fault-injection depth
+- Real-provider no-duplicate side-effect proof
+- Staging/rollback/operator evidence bundle
+- SLO dashboards/alerts in real env
 
-### ?? P5 Temporal Reliability
-- Durable workflows/signals/queries
-- Class-aware retries
-- Schedules/monitors
-- Reconciliation workflows
-- DLQ/incident runbooks
+### ?? P6 BrowserOS Gate
+- Formal STRIDE/threat-model signoff
+- Real-browser takeover/artifact/error parity
+- BrowserOS-specific CI gate
+- Default dispatch remains off until evidence complete
 
 </td>
 <td width="50%" valign="top">
 
-### ?? P7 Memory / Skills / Proactivity
-- Memory provenance/CRUD/export
-- Skill registry/versioning/permissions
-- Opt-in monitors and proactive suggestions
-- Gated self-improvement implementation
+### ?? P7 Controlled Intelligence
+- Retention enforcement/delete only with explicit approval + audit + legal/privacy
+- External embedding runtime wiring remains default off until approved
+- P7c/P7d activation/apply/auto-run requires explicit written approval
+- Broader identity-policy coverage audit
 
-### ?? P8 Hardening / Release
-- Security suite: SSRF, prompt injection, redaction, authz
-- Chaos/recovery and duplicate-side-effect tests
-- Backup/export/retention/privacy
-- Observability/SLOs/runbooks
-- Submission/compliance evidence
+### ?? P8 Release Readiness
+- Backup/restore drill incl. artifacts + vault-key scope
+- Security scan gating/SAST/secrets/container decisions
+- PII retention/export/delete/privacy/classification signoff
+- Compliance/provenance/Dubai signoff, chaos matrix, packaging/release gates
 
 </td>
 </tr>
 </table>
 
-### Future Milestone Targets
+### Release-Gate Checklist
 
-- [x] BrowserOS MCP adapter behind contract (external runtime, no AGPL code copied)
-- [x] Env-gated BrowserOS MCP smoke 6/6 PASS (controlled local page; positive click/fill + adapter takeover parity)
-- [ ] BrowserOS-vs-Playwright deeper artifact/error parity evidence
-- [ ] BrowserOS external-runtime security/compliance/threat-model signoff
-- [ ] Default dispatch gate decision (explicit, evidence-backed; no silent fallback)
+- [ ] Full backup/restore drill evidence (DB + artifacts + vault-key scope)
+- [ ] Security scan triage/gating + SAST/secrets/container decisions
+- [ ] STRIDE/threat-model signoff + incident/key-rotation runbook
+- [ ] PII retention/export/delete/privacy/artifact classification signoff
+- [ ] Compliance/provenance/Dubai submission signoff
+- [ ] Chaos/fault matrix + SLO dashboards/alerts + packaging/release gates
+- [ ] P6 BrowserOS formal signoff + default-dispatch decision record
+- [ ] P5 real Temporal/provider no-duplicate proof
 
 ---
 

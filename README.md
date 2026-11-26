@@ -46,44 +46,39 @@ Helm is an original personal AI operating assistant built from scratch for the D
 ```mermaid
 flowchart TB
   subgraph Clients["Clients"]
-    WEB[Web]
+    WEB[Web UI - implemented]
     MOBILE[Mobile - planned]
     WA[WhatsApp - planned]
     CLI[CLI - planned]
   end
 
-  WEB --> GW[Helm Gateway / API Control Plane]
+  WEB --> API[API Control Plane / Hono]
 
-  GW --> CONV[Conversations / Task Messages]
-  GW --> GOALS[Goals / Tasks]
-  GW --> ROUTER[Event Router / SSE-WS]
-  GW --> SCHED[Scheduler / Worker Lease Loop - planned durable]
+  API --> AUTH[Session auth / dev auth guard]
+  API --> TASKS[Tasks / Messages / Approvals / Evidence / Receipts]
+  API --> SSE[SSE Event Stream]
+  API --> BPROXY[Browser WS Proxy + HTTP Proxy]
 
-  GOALS --> ORCH[Agent Orchestrator / HelmNativeRuntime]
-  CONV --> ORCH
-  SCHED --> ORCH
+  TASKS --> DB[(Postgres: tasks, messages, events, approvals,\naction_receipts, artifacts, audit, memory, identities)]
+  SSE --> DB
 
-  ORCH --> MR[Model Router / Adapters]
-  MR --> MODELS[OpenAI-compatible / Ollama / future native APIs]
+  API --> WORKER[Helm Worker / HelmNativeRuntime]
+  WORKER --> MODEL[Model Adapter\nOpenAI-compatible / Ollama local-first]
+  WORKER --> POLICY[Policy / Approval / actionHash / Idempotency]
+  POLICY --> BROWSER[Browser Worker / Playwright default\nBrowserOS MCP adapter optional, dispatch OFF]
+  POLICY --> CONNECTORS[Connectors: Gmail / Calendar\nVault AES-GCM]
+  CONNECTORS --> EXT[Outside World\nWebsites / Google APIs / Services]
+  BROWSER --> EXT
 
-  ORCH --> UR[UNTRUSTED RUNTIME\nfiles / shell / skills / code / subagents]
-  UR --> BB[Browser Broker / Browser Worker]
-
-  UR --> SP[SENTINEL PLANE\npolicy / approvals / egress / audit / data controls]
-  BB --> SP
-
-  SP --> CB[Credential Broker / Vault - planned]
-  SP --> CW[Connector Workers - planned]
-
-  CB --> OUT[Outside World\nwebsites / APIs / email / services]
-  CW --> OUT
-  BB --> OUT
-
-  GW --> DB[(Postgres: tasks, messages, events,\napprovals, receipts, artifacts, audit)]
-  GW --> REDIS[(Redis / queues - planned)]
+  BROWSER --> ART[(Artifacts / screenshots / DOM snapshots)]
+  WORKER --> DB
+  BROWSER --> DB
+  API --> ART
 ```
 
-**Flow:** client prompt -> gateway stores task/message -> orchestrator leases task -> model adapter streams response/tool calls -> untrusted runtime proposes actions -> sentinel plane enforces approval/hash/idempotency/audit -> browser/connector brokers execute allowed actions -> receipts/artifacts/events/messages persist -> clients render chat, timeline, approvals, evidence, live preview.
+**Current flow:** prompt -> API creates task/message -> worker leases task -> runtime streams model/tool events -> policy requires approval for high-risk actions -> browser/connector actions execute with `approvalId + actionHash + idempotency` -> receipts/artifacts/events persist -> UI renders chat, timeline, approvals, evidence, live preview.
+
+**Current status:** P0-P7 core flows implemented; P8 coding-stable (redaction/contracts/docs). Release confidence is blocked by manual/ops/legal/security evidence gates, not core coding.
 
 ## Getting Started
 
