@@ -2046,3 +2046,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C packages/shared exec vitest run src/temporal.test.ts` PASS 8/8.
 - **Impact**: P5 74% -> 75%; overall 82.6% -> 82.7% (equal-weight). Deterministic/operator readiness only.
 - **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof.
+## 2026-11-26 - P5 disable-flag rollback contracts
+
+- **Rollback contracts**: Added deterministic enabled->disabled transition assertions to `backend/api/src/routes/gmail.temporal-routing.test.ts`, `calendar.temporal-routing.test.ts`, `browser.temporal-routing.test.ts`, and `backend/api/src/lib/temporal.test.ts`.
+- **Proved invariants**: After rollback (`HELM_TEMPORAL_ENABLED=0`), gmail/calendar/browser external writes take direct guarded path with no `routed/workflowId` metadata and no `*.temporal_started` audit; reconciliation schedule status reports `temporal_disabled`.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/lib/temporal.test.ts` PASS 28/28; `pnpm -C backend/api typecheck` PASS.
+- **Impact**: P5 75% -> 76%; overall 82.7% -> 82.8% (equal-weight). Deterministic rollback contract only.
+- **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof.

@@ -91,11 +91,30 @@ describe("browser external action Temporal routing contracts (P5)", () => {
     expect(maybeStartExternalActionWorkflowMock).not.toHaveBeenCalled();
   });
 
-  it("does not route when Temporal disabled", async () => {
+    it("does not route when Temporal disabled", async () => {
     process.env.HELM_TEMPORAL_ENABLED = "0";
     const db = makeDb();
     const res = await makeApp(db).request("/v1/browser/sessions/sess_1/external-action", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     expect(res.status).toBe(200);
     expect(maybeStartExternalActionWorkflowMock).not.toHaveBeenCalled();
   });
+
+  it("rollback: disabling Temporal after enabled config uses direct path with no temporal audit metadata", async () => {
+    const db1 = makeDb();
+    const r1 = await makeApp(db1).request("/v1/browser/sessions/sess_1/external-action", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, idempotencyKey: "idem_b_en" }) });
+    expect(r1.status).toBe(202);
+    expect(maybeStartExternalActionWorkflowMock).toHaveBeenCalledTimes(1);
+
+    process.env.HELM_TEMPORAL_ENABLED = "0";
+    maybeStartExternalActionWorkflowMock.mockClear();
+    (globalThis.fetch as any).mockClear();
+    const db2 = makeDb();
+    const r2 = await makeApp(db2).request("/v1/browser/sessions/sess_1/external-action", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, idempotencyKey: "idem_b_rb" }) });
+    expect(r2.status).toBe(200);
+    const json = await r2.json() as any;
+    expect(json.routed).toBeUndefined();
+    expect(maybeStartExternalActionWorkflowMock).not.toHaveBeenCalled();
+    expect(db2.auditRows.some((r: any) => String(r.action).includes("temporal_started"))).toBe(false);
+  });
 });
+

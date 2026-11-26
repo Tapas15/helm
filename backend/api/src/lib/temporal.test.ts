@@ -50,7 +50,7 @@ describe("temporal lib (P5 stub-mode contracts, no real Temporal)", () => {
     expect(state[0]!.args).toMatchObject({ intervalMs: 60000, olderThanMs: 120000, limit: 7 });
   });
 
-  it("getTemporalReconciliationScheduleStatus reports missing/active in stub mode", async () => {
+    it("getTemporalReconciliationScheduleStatus reports missing/active in stub mode", async () => {
     process.env.HELM_TEMPORAL_ENABLED = "1";
     process.env.HELM_TEMPORAL_MODE = "external-write";
     process.env.HELM_TEMPORAL_TEST_MODE = "stub";
@@ -63,6 +63,21 @@ describe("temporal lib (P5 stub-mode contracts, no real Temporal)", () => {
     await maybeStartReconciliationSchedule();
     const active = await getTemporalReconciliationScheduleStatus();
     expect(active).toMatchObject({ enabled: true, scheduleId: "helm-recon-test", status: "active" });
+  });
+
+  it("rollback: schedule status reports temporal disabled after flag-off", async () => {
+    process.env.HELM_TEMPORAL_ENABLED = "1";
+    process.env.HELM_TEMPORAL_MODE = "external-write";
+    process.env.HELM_TEMPORAL_TEST_MODE = "stub";
+    process.env.HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ENABLED = "1";
+    process.env.HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID = "helm-recon-rb";
+    await maybeStartReconciliationSchedule();
+    const active = await getTemporalReconciliationScheduleStatus();
+    expect(active.status).toBe("active");
+
+    process.env.HELM_TEMPORAL_ENABLED = "0";
+    const disabled = await getTemporalReconciliationScheduleStatus();
+    expect(disabled).toMatchObject({ enabled: false, scheduleId: "helm-recon-rb", reason: "temporal_disabled" });
   });
 
   it("maybeStartExternalActionWorkflow does not start when routing disabled", async () => {
@@ -96,4 +111,5 @@ describe("temporal lib (P5 stub-mode contracts, no real Temporal)", () => {
     expect(state[0]!.signals).toEqual(["approve:apr_1", "approve:apr_2"]);
   });
 });
+
 

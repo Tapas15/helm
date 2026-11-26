@@ -77,11 +77,30 @@ describe("calendar Temporal routing contracts (P5)", () => {
     });
   }
 
-  it("does not route create when Temporal disabled", async () => {
+    it("does not route create when Temporal disabled", async () => {
     process.env.HELM_TEMPORAL_ENABLED = "0";
     const db = makeDb();
     const res = await makeApp(db).request(cases[0].path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cases[0].body) });
     expect(res.status).toBe(200);
     expect(maybeStartExternalActionWorkflowMock).not.toHaveBeenCalled();
   });
+
+  it("rollback: disabling Temporal after enabled config routes create on direct guarded path with no temporal metadata", async () => {
+    const db1 = makeDb();
+    const r1 = await makeApp(db1).request(cases[0].path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...cases[0].body, idempotencyKey: "idem_c_en" }) });
+    expect(r1.status).toBe(202);
+    expect(maybeStartExternalActionWorkflowMock).toHaveBeenCalledTimes(1);
+
+    process.env.HELM_TEMPORAL_ENABLED = "0";
+    maybeStartExternalActionWorkflowMock.mockClear();
+    (globalThis.fetch as any).mockClear();
+    const db2 = makeDb();
+    const r2 = await makeApp(db2).request(cases[0].path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...cases[0].body, idempotencyKey: "idem_c_rb" }) });
+    expect(r2.status).toBe(200);
+    const json = await r2.json() as any;
+    expect(json.routed).toBeUndefined();
+    expect(maybeStartExternalActionWorkflowMock).not.toHaveBeenCalled();
+    expect(db2.auditRows.some((r: any) => String(r.action).includes("temporal_started"))).toBe(false);
+  });
 });
+
