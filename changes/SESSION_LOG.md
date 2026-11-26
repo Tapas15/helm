@@ -1810,3 +1810,35 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] PII retention/export/delete/legal privacy beyond task scaffold; artifact PII classification/redaction. **Blocked:** product/legal/privacy decision.
 - [ ] Compliance/provenance/Dubai submission signoff; third-party notices refresh on dependency changes. **Blocked:** legal/submission decisions.
 - [ ] Chaos/fault matrix, SLO dashboards/alerts, packaging/release gates. **Blocked:** ops/manual/product decisions.
+## 2026-11-26 - P2 runtime self-doable slice (routing policy + evals + Hermes skeleton)
+**Time:** 2026-11-26T03:20:00Z
+**Agent:** Kilo
+**Phase:** P2 Agent Runtime
+
+### Completed
+- [x] Added shared runtime model routing policy module: `packages/shared/src/runtime-policy.ts` (local-default/override/fallback-no-model, sensitivity warning for non-local provider, tool-capability allowlist decision, normalized allowlist helpers) + tests.
+- [x] Wired policy into worker runtime: `backend/worker/src/runtime.ts` now resolves model via shared policy context (task kind/tool-calling/sensitivity), emits policy route/warnings in runtime events, and applies tool-capability guardrail only when browser tools are exposed (non-tool path continues with warning).
+- [x] Wired policy into API runtime routes: `backend/api/src/routes/runtime.ts` config now includes `defaultPolicy`; `model-validate` accepts sensitivity/taskKind/toolCallingRequired and returns policy decision.
+- [x] Added deterministic runtime eval harness: `backend/worker/src/runtime.evals.test.ts` covers approval correctness, tool-policy denial, interrupted->cancelled recovery mapping.
+- [x] Added Hermes sidecar adapter contract skeleton (fail-closed, no Hermes code copied): `backend/worker/src/hermes-runtime-adapter.ts` + contract test.
+- [x] Updated P2 docs and project status: `changes/phase-2-hermes-runtime.md`, `changes/CURRENT_STATE.md` (P2 73%->76%, overall 80.0%->80.3%).
+
+### Evidence
+- `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7).
+- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts --reporter=verbose` PASS (11/11).
+- `pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts src/hermes-runtime-adapter.test.ts --reporter=verbose` PASS (5/5).
+- `pnpm -C backend/api exec vitest run src/routes/runtime.test.ts --reporter=verbose` PASS (3/3).
+- `pnpm -C packages/shared typecheck` PASS.
+- `pnpm -C backend/worker typecheck` PASS.
+- `pnpm -C backend/api typecheck` PASS.
+- `pnpm -C backend/worker lint` PASS.
+- `pnpm -C backend/api lint` PASS (0 errors, 7 pre-existing warnings).
+- Commit: `c4a9d01` (`feat(p2): add runtime routing policy evals and hermes adapter skeleton`).
+
+### Remaining / Blocked
+- [ ] Live E2E runtime validation across real browser + connector flows. **Blocked:** real env/smoke + credentials.
+- [ ] Integration-driven behavior tweaks and production/model-provider behavior evidence. **Blocked:** real runs/providers.
+- [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
+- [ ] Durable interrupt/resume/checkpoint semantics across crash/restart/Temporal.
+- [ ] Runtime eval depth under real providers/browser/connectors.
+- [ ] Live Hermes sidecar integration against real Hermes runtime (no copied Hermes code). **Blocked:** Hermes runtime/env and integration scope.
