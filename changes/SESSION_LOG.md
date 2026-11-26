@@ -2053,3 +2053,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/lib/temporal.test.ts` PASS 28/28; `pnpm -C backend/api typecheck` PASS.
 - **Impact**: P5 75% -> 76%; overall 82.7% -> 82.8% (equal-weight). Deterministic rollback contract only.
 - **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof.
+
+## 2026-11-26 - P5 reconciliation schedule stub-backed route contracts
+- Scope: added `backend/api/src/routes/reconciliation.schedule.test.ts` (3/3) using real temporal stub mode (`HELM_TEMPORAL_TEST_MODE=stub`) through full reconciliation route stack; no real Temporal.
+- Evidence: `pnpm -C backend/api exec vitest run src/routes/reconciliation.schedule.test.ts src/routes/reconciliation.test.ts` PASS 10/10; `pnpm -C backend/api typecheck` PASS.
+- Proves: reconciliation status missing->active transition after ensure, ensure idempotent create-then-update, dev-auth guard prevents schedule creation, rollback flag-off reports `temporal_disabled`.
+- Impact: P5 76%->77%; overall 82.8%->82.9% (equal-weight P0-P8).
+- Remaining gap: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
