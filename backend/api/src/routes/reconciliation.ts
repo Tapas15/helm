@@ -53,7 +53,7 @@ export function reconciliationRoutes(db: Database) {
     const olderThanMs = Number.isFinite(body?.olderThanMs) ? Math.max(Math.floor(body.olderThanMs), 0) : 60_000;
     const cutoff = new Date(Date.now() - olderThanMs);
     const rows = await db.select().from(actionReceipts).where(and(eq(actionReceipts.userId, userId), eq(actionReceipts.status, "uncertain"), lt(actionReceipts.createdAt, cutoff))).orderBy(desc(actionReceipts.createdAt)).limit(limit);
-    return c.json({ ok: true, dryRun: true, scanned: rows.length, candidates: rows.map((r) => ({ id: r.id, actionKind: r.actionKind, idempotencyKey: r.idempotencyKey, createdAt: r.createdAt, externalRef: r.externalRef ? redactValue(r.externalRef) : null })) });
+    return c.json(redactValue({ ok: true, dryRun: true, scanned: rows.length, candidates: rows.map((r) => ({ id: r.id, actionKind: r.actionKind, idempotencyKey: r.idempotencyKey, createdAt: r.createdAt, externalRef: r.externalRef ?? null })) }));
   });
 
   return app;
