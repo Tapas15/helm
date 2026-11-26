@@ -7,6 +7,7 @@ export type AgentRuntimeProvider = z.infer<typeof AgentRuntimeProvider>;
 export const AgentRuntimeEventType = z.enum([
   "runtime.started",
   "runtime.planning",
+  "runtime.checkpoint.resumed",
   "runtime.tool.proposed",
   "runtime.approval.requested",
   "runtime.approval.resolved",

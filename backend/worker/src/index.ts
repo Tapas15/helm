@@ -62,6 +62,18 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     taskLog.info({ event: "runtime.checkpoint.terminal_ignored", checkpoint }, "ignoring stale terminal checkpoint on queued task");
     checkpoint = null;
   }
+  if (checkpoint && !isTerminalCheckpoint(checkpoint)) {
+    const resumeEvt: AgentRuntimeEvent = {
+      type: "runtime.checkpoint.resumed",
+      ts: now().toISOString(),
+      trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
+      message: "Resumed from runtime checkpoint",
+      payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null },
+    };
+    runtimeEvents.push(resumeEvt);
+    await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
+    await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resume persist failed"));
+  }
   try {
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
     const approvedActionKinds = approvedRows.map((r) => r.actionKind);
@@ -114,15 +126,22 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       const actionHash = String(approvalProposal.payload.actionHash ?? uid("ah"));
       const actionKind = String(approvalProposal.payload.action ?? "external.high_risk");
       const summary = String(approvalProposal.message ?? "High-risk action requires approval");
-      const [existing] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, actionHash))).limit(1);
-      const approval = existing ?? (await db.insert(approvals).values({ id: uid("apr"), userId: task.userId, taskId: task.id, runId, actionKind, actionHash, status: "pending", summary, evidence: { prompt: task.prompt, event: approvalProposal, trace }, requestedAt: now() }).returning())[0];
-      if (!existing) {
-        await db.insert(auditLog).values({ id: uid("aud"), userId: task.userId, ts: now(), actorType: "agent", actorId: "helm-native", taskId: task.id, action: "approval.requested", resourceType: "approval", resourceId: approval?.id ?? null, decision: "require_approval", reason: summary, metadata: { actionHash, actionKind, runId, correlationId } });
-        await insertEvent(db, task.id, task.userId, runId, "runtime.approval.requested", correlationId, approval?.id ?? task.id, { approvalId: approval?.id, actionHash, actionKind, summary, ...trace });
+      const [existingReceipt] = await db.select().from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.actionHash, actionHash))).limit(1);
+      if (existingReceipt?.status === "executed") {
+        taskLog.info({ event: "approval.receipt.deduped", actionHash, receiptId: existingReceipt.id }, "approval proposal already executed by receipt; skipping duplicate approval request");
+      } else {
+        const [existing] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, actionHash))).limit(1);
+        const approval = existing ?? (await db.insert(approvals).values({ id: uid("apr"), userId: task.userId, taskId: task.id, runId, actionKind, actionHash, status: "pending", summary, evidence: { prompt: task.prompt, event: approvalProposal, trace }, requestedAt: now() }).returning())[0];
+        if (!existing) {
+          await db.insert(auditLog).values({ id: uid("aud"), userId: task.userId, ts: now(), actorType: "agent", actorId: "helm-native", taskId: task.id, action: "approval.requested", resourceType: "approval", resourceId: approval?.id ?? null, decision: "require_approval", reason: summary, metadata: { actionHash, actionKind, runId, correlationId } });
+          await insertEvent(db, task.id, task.userId, runId, "runtime.approval.requested", correlationId, approval?.id ?? task.id, { approvalId: approval?.id, actionHash, actionKind, summary, ...trace });
+        } else {
+          taskLog.info({ event: "approval.deduped", actionHash, approvalId: approval?.id, status: approval?.status }, "approval proposal deduped by actionHash");
+        }
+        await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+        taskLog.info({ event: "approval.requested", approvalId: approval?.id }, "task waiting approval");
+        return;
       }
-      await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
-      taskLog.info({ event: "approval.requested", approvalId: approval?.id }, "task waiting approval");
-      return;
     }
     if (result.status === "waiting_input") {
       await db.update(tasks).set({ status: "waiting_input", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_input", output: result.output } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
