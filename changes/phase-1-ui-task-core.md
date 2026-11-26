@@ -8,7 +8,8 @@ Visible task system with realtime updates. User creates task from chat and sees 
 
 ## What we have done
 - **Chat/task core UI**: Web chat creates tasks and shows task list/detail, timeline, approvals/evidence/receipts panels.
-- **Realtime events**: SSE `GET /v1/events/stream?taskId=&after=` with heartbeat; honors `Last-Event-ID` when `after` omitted; malformed Last-Event-ID falls back safely; invalid explicit `after` returns 400. `useTaskEventStream` handles dedupe/order/stale indicator. Env-gated `events-sse-api` covers cursor resume, Last-Event-ID resume/fallback, invalid cursor validation.
+- **Task controls UX**: Web shows only valid pause/resume/cancel/retry actions for current task status and surfaces control/approval mutation errors (`38533bc`).
+- **SSE status clarity**: Event timeline shows explicit `live` / `stale` / `offline` connection state (`d482c08`).
 - **Task controls**: Pause/resume/cancel/retry with CAS/state guards, audit, and task events. Env-gated `task-lifecycle-api` PASS (4/4, includes invalid transition).
 - **Idempotency/follow-up guards**: Task create path guards duplicate/follow-up behavior.
 - **Browser visibility**: WS screencast preview with polling fallback; takeover-only remote input baseline.
