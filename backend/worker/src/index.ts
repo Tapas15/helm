@@ -68,11 +68,32 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       ts: now().toISOString(),
       trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
       message: "Resumed from runtime checkpoint",
-      payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null },
+      payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null, resumePlan: checkpoint.resumePlan ?? null },
     };
     runtimeEvents.push(resumeEvt);
     await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
     await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resume persist failed"));
+
+    const pending = checkpoint.resumePlan?.pendingApproval;
+    if (pending?.actionHash) {
+      const [existingReceipt] = await db.select().from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.actionHash, pending.actionHash))).limit(1);
+      if (existingReceipt?.status === "executed") {
+        taskLog.info({ event: "runtime.resume.pending_approval_already_executed", actionHash: pending.actionHash, receiptId: existingReceipt.id }, "pending approval already executed; continuing without re-proposal");
+        checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined } };
+      } else {
+        const [existingApproval] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, pending.actionHash))).limit(1);
+        if (existingApproval && ["pending", "approved", "rejected"].includes(String(existingApproval.status))) {
+          const status = String(existingApproval.status) === "approved" ? "queued" : String(existingApproval.status) === "rejected" ? "cancelled" : "waiting_approval";
+          if (status === "waiting_approval") {
+            await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_approval", approvalId: existingApproval.id, actionHash: pending.actionHash, summary: existingApproval.summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+            taskLog.info({ event: "runtime.resume.waiting_approval_deduped", actionHash: pending.actionHash, approvalId: existingApproval.id }, "resumed into waiting_approval without re-running runtime");
+            return;
+          }
+          taskLog.info({ event: "runtime.resume.approval_already_resolved", actionHash: pending.actionHash, approvalId: existingApproval.id, status: existingApproval.status }, "pending approval already resolved; continuing runtime");
+          checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined } };
+        }
+      }
+    }
   }
   try {
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));

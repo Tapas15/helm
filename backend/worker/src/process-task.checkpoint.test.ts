@@ -62,4 +62,27 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(db.insertedApprovals).toHaveLength(0);
     expect(task.status).toBe("waiting_approval");
   });
+
+  it("resumes pending approval checkpoint without re-running runtime", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.approval.requested", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "waiting_approval", resumePlan: { version: 1, lastSafeBoundary: "runtime.approval.requested", pendingApproval: { actionHash: "ah_same", actionKind: "external.high_risk", approvalId: "apr_existing" }, completedToolRefs: [] } };
+    const existing = { id: "apr_existing", taskId: "tsk_1", actionHash: "ah_same", actionKind: "external.high_risk", status: "pending", summary: "needs approval" };
+    let ran = false;
+    const { db, task } = makeDb({ checkpoint, approvals: [existing] });
+    const runtime = { run: async function* () { ran = true; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(ran).toBe(false);
+    expect(task.status).toBe("waiting_approval");
+  });
+
+  it("continues when pending approval checkpoint already executed by receipt", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.approval.requested", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "waiting_approval", resumePlan: { version: 1, lastSafeBoundary: "runtime.approval.requested", pendingApproval: { actionHash: "ah_same", actionKind: "external.high_risk", approvalId: "apr_existing" }, completedToolRefs: [] } };
+    const receipt = { id: "rcpt_1", taskId: "tsk_1", actionHash: "ah_same", status: "executed" };
+    let ran = false;
+    const { db, task } = makeDb({ checkpoint, receipts: [receipt] });
+    const runtime = { run: async function* () { ran = true; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(ran).toBe(true);
+  });
 });
