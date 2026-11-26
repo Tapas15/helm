@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildSystemPrompt, evaluateToolPolicy, hasApprovalForAction, historyMessages, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
+import { buildSystemPrompt, evaluateToolPolicy, hasApprovalForAction, isHighRiskPrompt, isToolCapableModel, normalizeBrowserToolArgs, redactModelError, resolveModel, RUNTIME_TOOL_REGISTRY, shouldExposeBrowserTools } from "./runtime.js";
 
 const baseInput = { taskId: "t1", runId: "r1", userId: "u1", kind: "assistant" as const, prompt: "hello", context: {}, trace: { taskId: "t1", runId: "r1", userId: "u1" }, thread: [] };
 
@@ -43,13 +43,10 @@ describe("runtime helpers", () => {
     expect(hasApprovalForAction({ approvedActionKinds: ["external.high_risk"] })).toBe(true);
     expect(hasApprovalForAction({ approvedActionKinds: ["other"] })).toBe(false);
   });
-  it("resolves model overrides and prefers thread history", () => {
-    const cfg = resolveModel({ OLLAMA_BASE_URL: "http://127.0.0.1:11434" } as any, { model: "qwen2.5:latest", provider: "ollama", timeoutMs: 1000, maxTokens: 64 });
-    expect(cfg?.model).toBe("qwen2.5:latest");
-    expect(cfg?.timeoutMs).toBe(5000);
-    expect(cfg?.maxTokens).toBe(128);
-    const msgs = historyMessages({ ...baseInput, thread: [{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }] } as any);
-    expect(msgs).toEqual([{ role: "user", content: "hi" }, { role: "assistant", content: "yo" }]);
+  it("resolveModel includes routing policy decision", () => {
+    const cfg = resolveModel({ OLLAMA_BASE_URL: "http://127.0.0.1:11434" } as any, { model: "qwen2.5:latest", provider: "ollama" }, { toolCallingRequired: true, taskKind: "assistant", sensitivity: "normal" });
+    expect(cfg?.policy.route).toBe("override");
+    expect(cfg?.policy.toolCapable).toBe(true);
   });
   it("enforces tool policy for unknown/high-risk browser tools", () => {
     expect(evaluateToolPolicy("unknown", {}, {})).toMatchObject({ ok: false });

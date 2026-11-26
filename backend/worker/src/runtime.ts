@@ -1,28 +1,36 @@
 import { randomUUID } from "node:crypto";
-import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeInput, AgentRuntimeResult } from "@helm/shared";
+import { decideRuntimeModelPolicy, normalizeAllowlist, type AgentRuntime, type AgentRuntimeEvent, type AgentRuntimeInput, type AgentRuntimeResult, type RuntimeModelPolicyDecision } from "@helm/shared";
 import { runBrowserTask } from "./browserTask.js";
 
 const now = () => new Date().toISOString();
 
-type ModelConfig = { baseUrl: string; apiKey?: string; model: string; provider: string; timeoutMs: number; maxTokens: number; allowlist: string[] };
+export type ModelConfig = { baseUrl: string; apiKey?: string; model: string; provider: string; timeoutMs: number; maxTokens: number; allowlist: string[]; policy: RuntimeModelPolicyDecision };
 type ChatMsg = { role: "system" | "user" | "assistant" | "tool"; content: string; tool_call_id?: string; tool_calls?: any[]; name?: string };
 
 const DEFAULT_TOOL_CAPABLE_ALLOWLIST = ["llama3.2:latest", "llama3.2:3b", "qwen2.5:latest", "qwen2.5:3b"];
 
-export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { model?: string; provider?: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; maxTokens?: number }): ModelConfig | null {
-  const model = override?.model ?? env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : "");
+export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { model?: string; provider?: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; maxTokens?: number }, ctx: { taskKind?: string; toolCallingRequired?: boolean; sensitivity?: "normal" | "sensitive" } = {}): ModelConfig | null {
+  const allowlist = normalizeAllowlist(env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(","));
+  const defaultBase = (env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "") || null;
+  const defaultModel = env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : null);
+  const defaultProvider = env.HELM_MODEL_PROVIDER ?? (defaultBase?.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
+  const policy = decideRuntimeModelPolicy({
+    requestedModel: override?.model,
+    requestedProvider: override?.provider,
+    requestedBaseUrl: override?.baseUrl,
+    sensitivity: ctx.sensitivity ?? "normal",
+    taskKind: ctx.taskKind ?? "assistant",
+    toolCallingRequired: ctx.toolCallingRequired ?? false,
+  }, { defaultModel, defaultProvider, defaultBaseUrl: defaultBase, allowlist });
+  if (!policy.selectedModel || !policy.selectedBaseUrl) return null;
   const apiKey = override?.apiKey ?? env.HELM_MODEL_API_KEY ?? env.OPENAI_API_KEY ?? "";
-  const baseUrl = (override?.baseUrl ?? env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "");
-  if (!model || !baseUrl) return null;
-  const provider = override?.provider ?? env.HELM_MODEL_PROVIDER ?? (baseUrl.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
   const timeoutMs = Math.max(5000, Number(override?.timeoutMs ?? env.HELM_MODEL_TIMEOUT_MS ?? 120000));
   const maxTokens = Math.max(128, Number(override?.maxTokens ?? env.HELM_MODEL_MAX_TOKENS ?? 1024));
-  const allowlist = (env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(",")).split(",").map(s => s.trim()).filter(Boolean);
-  return { baseUrl, apiKey: apiKey || undefined, model, provider, timeoutMs, maxTokens, allowlist };
+  return { baseUrl: policy.selectedBaseUrl.replace(/\/$/, ""), apiKey: apiKey || undefined, model: policy.selectedModel, provider: policy.selectedProvider ?? defaultProvider, timeoutMs, maxTokens, allowlist, policy };
 }
 
 export function isToolCapableModel(cfg: ModelConfig): boolean {
-  if (cfg.provider !== "ollama") return true;
+  if (cfg.provider !== "ollama") return cfg.policy.toolCapable;
   return cfg.allowlist.some(m => m.toLowerCase() === cfg.model.toLowerCase());
 }
 
@@ -221,8 +229,13 @@ export class HelmNativeRuntime implements AgentRuntime {
     const trace = { ...input.trace, taskId: input.taskId, runId: input.runId, userId: input.userId, agentId: "helm-native" };
     const ctx = (input.context ?? {}) as any;
     const override = ctx.modelOverride && typeof ctx.modelOverride === "object" ? ctx.modelOverride : undefined;
-    const model = resolveModel(process.env, override);
-    yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null } };
+    const toolsExposed = shouldExposeBrowserTools(input);
+    const sensitivity = ctx.modelSensitivity === "sensitive" || ctx.sensitivity === "sensitive" ? "sensitive" : "normal";
+    const model = resolveModel(process.env, override, { taskKind: input.kind, toolCallingRequired: toolsExposed, sensitivity });
+    yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null, modelRoute: model?.policy.route ?? "fallback-no-model", modelSensitivity: sensitivity, modelWarnings: model?.policy.warnings ?? [] } };
+    if (model?.policy.warnings.length) {
+      yield { type: "runtime.planning", ts: now(), trace, message: "Model routing policy warnings", payload: { warnings: model.policy.warnings, reasons: model.policy.reasons, route: model.policy.route, selectedModel: model.model, selectedProvider: model.provider } };
+    }
     yield { type: "runtime.planning", ts: now(), trace, message: "Planning task", payload: { prompt: input.prompt.slice(0, 500) } };
     const needsApproval = isHighRiskPrompt(input.prompt);
     const approved = hasApprovalForAction((input.context ?? {}) as Record<string, unknown>, "external.high_risk");
@@ -232,12 +245,15 @@ export class HelmNativeRuntime implements AgentRuntime {
       return;
     }
     if (model) {
-      if (!isToolCapableModel(model)) {
-        yield { type: "runtime.completed", ts: now(), trace, message: "Model not tool-capable allowlisted", payload: { status: "succeeded", output: `Configured model '${model.model}' is not in the local tool-capable allowlist. Set HELM_MODEL to an allowlisted tool-capable model (current allowlist: ${model.allowlist.join(", ")}) or update HELM_MODEL_TOOL_CAPABLE_ALLOWLIST after verifying tool-call reliability.` , provider: model.provider, model: model.model, guardrail: "tool_capability_allowlist" } };
+      if (toolsExposed && !isToolCapableModel(model)) {
+        yield { type: "runtime.completed", ts: now(), trace, message: "Model not tool-capable allowlisted", payload: { status: "succeeded", output: `Configured model '${model.model}' is not in the local tool-capable allowlist. Set HELM_MODEL to an allowlisted tool-capable model (current allowlist: ${model.allowlist.join(", ")}) or update HELM_MODEL_TOOL_CAPABLE_ALLOWLIST after verifying tool-call reliability.` , provider: model.provider, model: model.model, guardrail: "tool_capability_allowlist", policy: model.policy } };
         return;
       }
+      if (!toolsExposed && model.provider === "ollama" && !isToolCapableModel(model)) {
+        yield { type: "runtime.planning", ts: now(), trace, message: "Model not tool-capable allowlisted; continuing without browser tools", payload: { provider: model.provider, model: model.model, guardrail: "tool_capability_allowlist_non_tool_path", policy: model.policy } };
+      }
       try { for await (const evt of streamChat(input, trace, model)) yield evt; return; }
-      catch (err) { const message = redactModelError(err instanceof Error ? err.message : String(err)); yield { type: "runtime.failed", ts: now(), trace, message, payload: { code: "MODEL_ERROR", retryable: true, provider: model.provider, model: model.model } }; return; }
+      catch (err) { const message = redactModelError(err instanceof Error ? err.message : String(err)); yield { type: "runtime.failed", ts: now(), trace, message, payload: { code: "MODEL_ERROR", retryable: true, provider: model.provider, model: model.model, policy: model.policy } }; return; }
     }
     yield { type: "runtime.completed", ts: now(), trace, message: "Runtime completed", payload: { status: "succeeded", output: approved ? "Approval granted. Helm-native MVP recorded approval; external execution adapter not yet enabled for this action." : "Planned and completed in Helm-native MVP runtime. Configure HELM_MODEL/HELM_MODEL_BASE_URL (or OPENAI_API_KEY) for real model responses." } };
   }
