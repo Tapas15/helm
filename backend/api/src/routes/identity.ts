@@ -21,6 +21,13 @@ const safeConnectorAccount = (row: any) => ({
   metadata: redactIdentityValue(row.metadata ?? {}),
   createdAt: row.createdAt, updatedAt: row.updatedAt,
 });
+const safeIdentity = (row: any) => row ? ({
+  id: row.id, userId: row.userId, class: row.class, label: row.label, email: row.email, provider: row.provider,
+  scopes: Array.isArray(row.scopes) ? row.scopes : [],
+  status: row.status,
+  metadata: redactIdentityValue(row.metadata ?? {}),
+  createdAt: row.createdAt, updatedAt: row.updatedAt,
+}) : row;
 
 export function identityRoutes(db: Database) {
   const app = new Hono<AppEnv>();
@@ -31,14 +38,14 @@ export function identityRoutes(db: Database) {
       ok: true,
       defaultIdentityClass: "helm-owned",
       personalCredentialSharing: false,
-      identities: rows,
+      identities: rows.map(safeIdentity),
       delegated: { supported: false, note: "User-delegated bridge requires explicit approval and narrow scopes; not enabled by default." },
     });
   });
   app.get("/", async (c) => {
     const userId = c.get("userId");
     const rows = await db.select().from(identities).where(eq(identities.userId, userId)).orderBy(desc(identities.createdAt)).limit(100);
-    return c.json({ ok: true, identities: rows });
+    return c.json({ ok: true, identities: rows.map(safeIdentity) });
   });
   app.post("/", async (c) => {
     const userId = c.get("userId");
@@ -50,7 +57,7 @@ export function identityRoutes(db: Database) {
     const now = new Date();
         const [row] = await db.insert(identities).values({ id: uid("idn"), userId, class: "helm-owned", label, email, provider: "helm", scopes: [], status: "active", metadata: { createdBy: "api" }, createdAt: now, updatedAt: now }).returning();
     if (row) await db.insert(identityPolicies).values({ id: uid("idp"), userId, identityId: row.id, allowedDomains: [], allowedRecipients: [], allowExternalWrites: false, requireApproval: true, createdAt: now, updatedAt: now }).onConflictDoNothing();
-    return c.json({ ok: true, identity: row }, 201);
+    return c.json({ ok: true, identity: safeIdentity(row) }, 201);
   });
   app.get("/:id/policy", async (c) => {
     const userId = c.get("userId");
