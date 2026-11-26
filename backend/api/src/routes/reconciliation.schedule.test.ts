@@ -6,27 +6,6 @@ import { reconciliationRoutes } from "./reconciliation.js";
 
 const env = { ...process.env };
 
-function makeDb() {
-  const counts = { uncertain: 0, executed: 0, failed: 0 };
-  const chain = (value: any) => {
-    const c: any = {
-      where: () => c,
-      orderBy: () => c,
-      limit: async () => value,
-      then: (resolve: any, reject: any) => Promise.resolve(value).then(resolve, reject),
-      catch: (reject: any) => Promise.resolve(value).catch(reject),
-    };
-    return c;
-  };
-  return {
-    select: () => ({
-      from: (_table: unknown) => ({
-        where: () => chain([counts]), // status uses counts query then recent query; counts chain returns same shape harmlessly and recent will be [] via orderBy->limit on array? make safe below
-      }),
-    }),
-  } as any;
-}
-
 function makeSafeDb() {
   let selectCall = 0;
   const counts = { uncertain: 1, executed: 2, failed: 0 };
@@ -56,7 +35,6 @@ describe("reconciliation schedule routes (P5 stub-backed, no real Temporal)", ()
 
   it("GET /status reflects missing then active schedule after ensure; ensure is idempotent create-then-update", async () => {
     const app = makeApp(makeSafeDb());
-
     const before = await app.request("/v1/reconciliation/status");
     expect(before.status).toBe(200);
     const b = await before.json() as any;
@@ -97,5 +75,26 @@ describe("reconciliation schedule routes (P5 stub-backed, no real Temporal)", ()
     const res = await app.request("/v1/reconciliation/status");
     const body = await res.json() as any;
     expect(body.temporalSchedule).toMatchObject({ enabled: false, scheduleId: "helm-recon-int", reason: "temporal_disabled" });
+  });
+
+  it("schedule ensure/status expose stable shape across missing, active, and disabled states", async () => {
+    const app = makeApp(makeSafeDb());
+
+    const missing = await app.request("/v1/reconciliation/status");
+    const m = await missing.json() as any;
+    expect(m.temporalSchedule).toMatchObject({ enabled: true, scheduleId: "helm-recon-int", status: "missing" });
+    expect(typeof m.temporalSchedule.scheduleId).toBe("string");
+
+    const ensured = await app.request("/v1/reconciliation/schedule/ensure", { method: "POST" });
+    const e = await ensured.json() as any;
+    expect(e.ok).toBe(true);
+    expect(e.status).toMatchObject({ enabled: true, scheduleId: "helm-recon-int", status: "active" });
+    expect(e).toHaveProperty("created");
+
+    process.env.HELM_TEMPORAL_ENABLED = "0";
+    const disabled = await app.request("/v1/reconciliation/status");
+    const d = await disabled.json() as any;
+    expect(d.temporalSchedule).toMatchObject({ enabled: false, scheduleId: "helm-recon-int", reason: "temporal_disabled" });
+    expect(d.temporalSchedule).toHaveProperty("scheduleId");
   });
 });

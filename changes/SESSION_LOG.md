@@ -2101,3 +2101,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: `POST /dry-run` remains user-scoped even when `scope=all` is supplied in dev mode; existing `POST /run` scope-all dev guard/allow behavior unchanged.
 - **Impact**: P5 remains 80%; overall 83.2% (contract depth/safety hardening, no real-env closure).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation schedule status-shape contracts
+
+- **Scope**: Hardened `backend/api/src/routes/reconciliation.schedule.test.ts` (4/4) with stable ensure/status shape contract across missing/active/disabled states.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.schedule.test.ts` PASS 4/4; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: schedule status/ensure payload shape stable across missing, active, disabled rollback; includes scheduleId/status/enabled/created/reason fields as applicable.
+- **Impact**: P5 remains 80%; overall 83.2% (contract depth added).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
