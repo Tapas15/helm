@@ -22,6 +22,10 @@ function isInside(root: string, candidate: string) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+function safeArtifact(r: typeof browserArtifacts.$inferSelect) {
+  return { id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt };
+}
+
 export function artifactRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   app.get("/", async (c) => {
@@ -29,7 +33,14 @@ export function artifactRoutes(db: Database) {
     const taskId = c.req.query("taskId");
     const where = taskId ? and(eq(browserArtifacts.userId, userId), eq(browserArtifacts.taskId, taskId)) : eq(browserArtifacts.userId, userId);
     const rows = await db.select().from(browserArtifacts).where(where).orderBy(desc(browserArtifacts.createdAt)).limit(100);
-    return c.json({ artifacts: rows.map((r) => ({ id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt })) });
+    return c.json({ artifacts: rows.map(safeArtifact) });
+  });
+  app.get("/:id", async (c) => {
+    const userId = c.get("userId");
+    const id = c.req.param("id");
+    const [row] = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.id, id), eq(browserArtifacts.userId, userId))).limit(1);
+    if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Artifact not found"), 404);
+    return c.json({ artifact: safeArtifact(row) });
   });
   app.get("/:id/download", async (c) => {
     const userId = c.get("userId");
