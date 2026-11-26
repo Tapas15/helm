@@ -176,7 +176,7 @@ export function memoryRoutes(db: Database) {
     const [row] = await db.delete(memoryNotes).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning({ id: memoryNotes.id });
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
     await writeMemoryAudit(db, { userId, action: "memory.delete", resourceId: row.id, metadata: { deleted: true } });
-    return c.json({ ok: true, deletedId: row.id });
+    return c.json(redactExportValue({ ok: true, deletedId: row.id }));
   });
 
   app.get("/retention/dry-run", async (c) => {
@@ -195,7 +195,7 @@ export function memoryRoutes(db: Database) {
       return { id: r.id, kind: r.kind, retentionPolicy: meta.retentionPolicy ?? "user_controlled", expiresAt: meta.expiresAt ?? null, pii: meta.pii ?? "none", version: meta.version ?? null };
     });
     await writeMemoryAudit(db, { userId, action: "memory.retention.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, deleted: 0, dryRun: true } });
-    return c.json({ ok: true, dryRun: true, deleted: 0, scanned: rows.length, candidates, note: "No memory rows were deleted. This is a dry-run report only." });
+    return c.json(redactExportValue({ ok: true, dryRun: true, deleted: 0, scanned: rows.length, candidates, note: "No memory rows were deleted. This is a dry-run report only." }));
   });
 
 
@@ -224,7 +224,7 @@ export function memoryRoutes(db: Database) {
       return { note, score: m.score, matchedTokens: m.matchedTokens, provenance: m.provenance, confidence: m.confidence, mode: m.mode };
     }).filter(Boolean);
     await writeMemoryAudit(db, { userId, action: "memory.retrieval.query", metadata: { qLength: q.length, scanned: rows.length, matches: matches.length, limit, mode: provider.mode } });
-    return c.json({ ok: true, query: q, scanned: rows.length, mode: provider.mode, matches, note: "Bounded retrieval only; semantic mode is deterministic local hash fallback when enabled. No auto-delete, no autonomous behavior change." });
+    return c.json(redactExportValue({ ok: true, query: q, scanned: rows.length, mode: provider.mode, matches, note: "Bounded retrieval only; semantic mode is deterministic local hash fallback when enabled. No auto-delete, no autonomous behavior change." }));
   });
 
   app.get("/consolidation/dry-run", async (c) => {
@@ -268,7 +268,7 @@ export function memoryRoutes(db: Database) {
       };
     });
     await writeMemoryAudit(db, { userId, action: "memory.consolidation.dry_run", metadata: { scanned: rows.length, candidates: candidates.length, deleted: 0, modified: 0, dryRun: true } });
-    return c.json({ ok: true, dryRun: true, scanned: rows.length, deleted: 0, modified: 0, candidates, note: "No memory rows were deleted or modified. Consolidation dry-run report only; candidates are proposal-only merge previews." });
+    return c.json(redactExportValue({ ok: true, dryRun: true, scanned: rows.length, deleted: 0, modified: 0, candidates, note: "No memory rows were deleted or modified. Consolidation dry-run report only; candidates are proposal-only merge previews." }));
   });
 
   app.get("/audit/recent", async (c) => {
