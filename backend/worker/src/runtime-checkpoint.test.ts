@@ -19,9 +19,15 @@ describe("runtime checkpoint", () => {
     expect(isTerminalCheckpoint(interrupted)).toBe(true);
   });
 
-  it("captures approval request metadata", () => {
-    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.approval.requested", ts, trace, payload: { approvalId: "apr1", actionHash: "ah1", summary: "needs approval" } } as any, 4);
+  it("captures approval request metadata and resume plan", () => {
+    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.approval.requested", ts, trace, payload: { approvalId: "apr1", actionHash: "ah1", actionKind: "external.high_risk", summary: "needs approval" } } as any, 4);
     expect(cp.lastApproval?.approvalId).toBe("apr1");
-    expect(cp.statusHint).toBe("running");
+    expect(cp.resumePlan?.pendingApproval?.actionHash).toBe("ah1");
+    expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.approval.requested");
+  });
+
+  it("records completed tool refs in bounded resume plan", () => {
+    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.completed", ts, trace, payload: { name: "browser_snapshot" } } as any, 5);
+    expect(cp.resumePlan?.completedToolRefs).toEqual([{ name: "browser_snapshot", eventSeq: 5 }]);
   });
 });

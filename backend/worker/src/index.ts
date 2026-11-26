@@ -93,7 +93,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     for await (const evt of runtime.run({
       taskId: task.id, runId, userId: task.userId, prompt: task.prompt, kind: task.kind,
       model: typeof (task.state as any)?.modelOverride?.model === "string" ? String((task.state as any).modelOverride.model) : undefined,
-      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, runtimeCheckpoint: checkpoint, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
+      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, runtimeCheckpoint: checkpoint, runtimeResumePlan: checkpoint?.resumePlan ?? null, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
       thread,
       trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
     })) {
