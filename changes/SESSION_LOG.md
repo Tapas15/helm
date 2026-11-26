@@ -2200,3 +2200,8 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Added draft docs: `changes/P6-browseros-security-signoff-draft.md` (STRIDE, PII/artifact retention-redaction, credential/non-loopback, CI gate options A/B/C, signoff table) and `changes/P6-browseros-real-browser-evidence.md` (automated smoke/contract evidence + manual real-browser takeover checklist).
 - Updated `changes/phase-6-browseros-upgrade.md` and `changes/CURRENT_STATE.md` to reference drafts; status remains unapproved/draft.
 - No code/runtime/default-dispatch changes. P6 remains 66%; blockers unchanged (deep real parity, live takeover semantics, formal signoff, CI gate decision, dispatch OFF).
+### 2026-11-26T11:10:00Z - P6 parity baseline + gate decision package
+- Ran controlled parity baselines (no external side effects): BrowserOS MCP smoke PASS 6/6 (`caps 12, create 91, nav 479, snap 48, fill 53, click 205, takeover 1/0, close 35`) and Playwright perf smoke PASS 1/1 (`create 2518, nav 401, snap 312, fill 616, click 392, takeover 50/45, close 718`).
+- Recorded comparison/deviations/gaps in `changes/P6-browseros-real-browser-evidence.md`; marked automated parity baseline partial complete; manual live takeover UI checklist still owner-required.
+- Updated `changes/P6-browseros-security-signoff-draft.md` with explicit deployment decisions (non-loopback, CI gate A/B/C, dispatch keep OFF) and signoff table.
+- Updated `changes/phase-6-browseros-upgrade.md` and `changes/CURRENT_STATE.md` with owner decision requirements. No runtime/default-dispatch changes. P6 remains 66%.

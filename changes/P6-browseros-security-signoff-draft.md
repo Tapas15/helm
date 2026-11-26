@@ -10,7 +10,7 @@
 | Item | Current state | Required for dispatch gate | Owner | Signoff |
 |---|---|---|---|---|
 | AGPL boundary | External runtime only; no copied BrowserOS code | Keep boundary; no vendored AGPL code | Engineering | [ ] |
-| Endpoint policy | http/https validated; non-loopback blocked unless `HELM_BROWSEROS_ALLOW_REMOTE=1` | Confirm acceptable for target deployment | Security/Ops | [ ] |
+| Endpoint policy | http/https validated; non-loopback blocked unless `HELM_BROWSEROS_ALLOW_REMOTE=1` | Confirm acceptable for target deployment; explicitly decide "non-loopback not used" or verify TLS/auth/allowlist/no vault secrets in BrowserOS runtime | Security/Ops | [ ] |
 | PII/artifact retention | Artifacts in `BROWSER_ARTIFACT_DIR`; interim manual caution | Formal retention/redaction/access/deletion policy | Security/Legal/Privacy | [ ] |
 | Credential handling | No Helm vault secrets sent by adapter; sensitive fills approval-gated | Verify BrowserOS runtime stores no Helm vault secrets; remote TLS/auth if used | Security/Ops | [ ] |
 | BrowserOS CI gate | Local env-gated smoke only; GH-hosted has no BrowserOS | Choose required/optional/manual evidence model | Engineering/Ops | [ ] |
@@ -63,7 +63,15 @@
 - [ ] CI gate option selected and implemented/documented.
 - [ ] Explicit written approval: keep dispatch OFF or enable by controlled rollout.
 
-## 6) Signoff
+## 6) Deployment Decisions (Required)
+
+| Decision | Options | Selected | Owner | Date | Notes |
+|---|---|---|---|---|---|
+| Non-loopback BrowserOS endpoint | **Not used (keep guard, default)** / Used with TLS+auth+allowlist+vault-secret verification | Pending | Ops/Security |  | If "Not used", keep `HELM_BROWSEROS_ALLOW_REMOTE` unset/!=1. |
+| BrowserOS CI gate | A required self-hosted / B optional env-gated + manual release evidence / C manual only | Pending | Engineering/Ops |  | Recommended B now, A before default dispatch. |
+| Default dispatch | Keep OFF / Controlled rollout after gates | Keep OFF (default) | Product/Engineering |  | Change only after parity+security+CI evidence + explicit approval. |
+
+## 7) Signoff
 
 | Role | Name | Date | Decision | Notes |
 |---|---|---|---|---|

@@ -144,3 +144,11 @@ After every meaningful batch: update `CURRENT_STATE.md`, `CURRENT_STATE.md`, app
 
 
 
+
+## P6 Gate Decisions Needed (owner action)
+- Deep real parity: automated controlled baseline recorded 2026-11-26 (BrowserOS 6/6 smoke, Playwright 1/1 perf smoke) in changes/P6-browseros-real-browser-evidence.md; owner must run richer same-flow parity and record deviations/fixes.
+- Live takeover semantics: owner must observe BrowserOS UI takeover/resume/in-flight/snapshot-during-takeover/close and fill checklist in changes/P6-browseros-real-browser-evidence.md.
+- Formal signoff: owner/security/legal/privacy must review/sign changes/P6-browseros-security-signoff-draft.md (STRIDE, PII retention/redaction for BROWSER_ARTIFACT_DIR, credential handling, AGPL boundary, legal/privacy) with date/name.
+- Non-loopback: owner must pick "not used, keep guard" or verify TLS/auth/allowlist + no Helm vault secrets in BrowserOS runtime (Section 6 of signoff draft).
+- CI gate: owner must pick A required self-hosted / B optional env-gated + manual release evidence / C manual only (Section 6).
+- Dispatch approval: explicit written approval only after above evidence complete; default remains OFF.

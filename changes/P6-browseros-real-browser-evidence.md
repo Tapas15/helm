@@ -18,6 +18,30 @@
 - `pnpm -C backend/api typecheck`: **PASS**.
 - Includes dispatch-off/on, binary screenshot route mapping, adapter error mapping/no-secret assertions, takeover/edge/artifacts contracts.
 
+## 2026-11-26 Controlled Parity Baseline (automated, local, no external side effects)
+
+**Environment**: Windows local, BrowserOS MCP `127.0.0.1:9210` (pid 18188, browseros-cli 0.4.0), Playwright 1.65.1. Both tests used controlled local `127.0.0.1` HTML page; BrowserOS smoke also opened `https://example.com` for smoke navigation case.
+
+| Flow | BrowserOS MCP (ms) | Playwright (ms) | BrowserOS result | Playwright result | Parity note |
+|---|---:|---:|---|---|---|
+| capabilities | 12 | n/a (not exposed by perf smoke) | ok, tools present, missing=[] | n/a | BrowserOS-specific capability report; not a Playwright parity field |
+| create session | 91 | 2518 | ok, provider=browseros | ok, provider=playwright, status=ready | Shape compatible at contract level; timing differs (different runtime) |
+| navigate local page | 479 | 401 | ok | ok | Pass |
+| snapshot | 48 | 312 | ok, dom_snapshot artifact sha256/size/mime present | ok, dom_snapshot artifact sha256 present | Pass for artifact kind/sha256 presence |
+| fill #name | 53 | 616 | ok | ok | Pass |
+| click #btn | 205 | 392 | ok | ok | Pass |
+| takeover request | 1 | 50 | ok, control.owner=user | ok, control.owner=user | Pass |
+| takeover resume | 0 | 45 | ok, control.owner=agent | ok, control.owner=agent | Pass |
+| close | 35 | 718 | ok | ok | Pass |
+
+**Error/shape contracts (deterministic, same day)**: targeted browser suite 48/48 PASS + typecheck PASS. Covers selector-not-found structured non-retryable, timeout retryable `BROWSEROS_TIMEOUT`, TAKEOVER_ACTIVE retryable, snapshot/screenshot allowed during takeover with artifact parity, dispatch off/on routing, binary screenshot bytes/content-type/no-store and structured binary error no-secret leakage.
+
+**Deviations / gaps**:
+- Timing is not parity evidence (different runtimes). Use only as baseline.
+- Playwright perf smoke does not expose MCP capabilities endpoint; capability-report parity is BrowserOS-adapter-specific.
+- Real-browser takeover UI semantics and in-flight action interruption still require human observation (checklist below).
+- Deep artifact byte-for-byte parity not required; shape/hash/size/mime parity is the contract target.
+
 ## Manual Real-Browser Takeover Checklist (needs human observation)
 
 Use controlled local page or `https://example.com`. Record screen/video and API/event IDs.
@@ -34,7 +58,7 @@ Use controlled local page or `https://example.com`. Record screen/video and API/
 
 ## Gaps Remaining After This Evidence
 
-- [ ] Deep real-flow parity beyond controlled smoke (same scenarios on Playwright + BrowserOS, compare artifacts/errors/control).
+- [~] Automated controlled-flow parity baseline recorded 2026-11-26 (BrowserOS 6/6 smoke PASS, Playwright 1/1 perf smoke PASS; status/artifact/control shape compared). Remaining: deeper real-flow parity on richer scenarios and human-observed takeover UI.
 - [ ] Human-observed live takeover in BrowserOS UI.
 - [ ] Formal STRIDE/PII retention/legal/privacy signoff.
 - [ ] Non-loopback credential-handling deployment verification or explicit “not used” decision.
