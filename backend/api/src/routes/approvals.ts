@@ -4,23 +4,11 @@ import { HELM_ERROR_CODES, ResolveApprovalInput } from "@helm/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../types.js";
 import { emitFeedbackEvent } from "../lib/feedback.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-function redactValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redactValue);
-  if (!value || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
-    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
-    else out[k] = redactValue(v);
-  }
-  return out;
-}
-function safeApproval(a: typeof approvals.$inferSelect) { return { ...a, evidence: redactValue(a.evidence ?? {}) as Record<string, unknown> }; }
+function safeApproval(a: typeof approvals.$inferSelect) { return { ...a, evidence: redactSensitive(a.evidence ?? {}) as Record<string, unknown> }; }
 async function nextSequence(db: Database, taskId: string) { const rows = await db.select({ seq: taskEvents.sequence }).from(taskEvents).where(eq(taskEvents.taskId, taskId)).orderBy(desc(taskEvents.sequence)).limit(1); return Number(rows[0]?.seq ?? -1) + 1; }
 
 export function approvalRoutes(db: Database) {

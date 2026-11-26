@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { auditLog, evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
@@ -10,20 +11,16 @@ const KIND = new Set(["task_outcome", "approval_decision", "tool_failure", "user
 const SIGNAL = new Set(["positive", "negative", "neutral"]);
 const SEVERITY = new Set(["info", "warn", "error"]);
 
-const SENSITIVE_KEY = /token|secret|password|authorization|cookie|api[_-]?key|private[_-]?key|vault|session|credential/i;
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 6) return "[TRUNCATED]";
+  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}…[TRUNCATED]` : value;
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => redact(v, depth + 1));
   if (value && typeof value === "object") {
+    const redacted = redactSensitive(value) as Record<string, unknown>;
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 100)) {
-      if (SENSITIVE_KEY.test(k)) { out[k] = "[REDACTED]"; continue; }
-      if (k.toLowerCase().replace(/[^a-z]/g, "") === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) { out[k] = "[REDACTED_PATH]"; continue; }
-      out[k] = redact(v, depth + 1);
-    }
+    for (const [k, v] of Object.entries(redacted).slice(0, 100)) out[k] = redact(v, depth + 1);
     return out;
   }
-  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}…[TRUNCATED]` : value;
   return value;
 }
 function safeEvent(r: any) { return r ? { ...r, payload: redact(r.payload ?? {}), evidenceRefs: redact(r.evidenceRefs ?? []) } : r; }
