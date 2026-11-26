@@ -1977,3 +1977,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts --reporter=verbose PASS 5/5; pnpm -C backend/worker typecheck PASS.
 - **Commit**: e0f00af (	est(p2): cover streamChat resume dedupe dispatch prevention).
 - **Remaining**: Full replay/continuation semantics still partial - dedupe prevents duplicate dispatch for known completed actionHash; runtime does not yet perform step-level replay from checkpoint to skip arbitrary completed safe work and continue deterministically through complex resumed flows.
+## 2026-11-26 - P2 resume checkpoint prompt injection
+
+- **Runtime prompt/context**: uildSystemPrompt now injects compact resume checkpoint summary when untimeResumePlan is present (boundary, recent completed tool refs, completed side-effect actionHashes, pending approval hash, no-repeat instruction). Metadata-only; no full replay engine.
+- **Test**: Added runtime prompt regression asserting resume summary fields are present.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.evals.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 20/20; pnpm -C backend/worker typecheck PASS.
+- **Commit**: 75cfe92 (eat(p2): add resume checkpoint context to runtime prompt).
+- **Remaining**: Still partial for durable replay/resume execution - prompt/context reduces repeated work but does not guarantee step-level replay/skip across arbitrary model decisions; deterministic no-duplicate dispatch guardrails remain in place.
