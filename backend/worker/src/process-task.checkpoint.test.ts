@@ -7,6 +7,7 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
   const insertedApprovals: any[] = [];
   const insertedAudit: any[] = [];
   const feedbackRows: any[] = [];
+  const insertedReceipts: any[] = [];
   const task: any = { id: "tsk_1", userId: "u1", status: "queued", prompt: "buy a domain", kind: "assistant", state: {}, checkpoint: opts?.checkpoint ?? null, startedAt: new Date(), createdAt: new Date() };
   const approvalsRows = opts?.approvals ?? [];
   const receiptRows = opts?.receipts ?? [];
@@ -33,7 +34,7 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
   };
 
   const db: any = {
-    insertedEvents, insertedApprovals, insertedAudit, feedbackRows,
+    insertedEvents, insertedApprovals, insertedAudit, feedbackRows, insertedReceipts,
     select: () => ({ from: (table: unknown) => selectChain(table) }),
     insert: (table: unknown) => ({
       values: async (v: any) => {
@@ -41,6 +42,7 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
         if (table === approvals) { insertedApprovals.push(v); approvalsRows.push(v); }
         if (table === auditLog) insertedAudit.push(v);
         if (table === feedbackEvents) feedbackRows.push(v);
+        if (table === actionReceipts) { insertedReceipts.push(v); receiptRows.push(v); }
         return { onConflictDoNothing: async () => undefined, returning: async () => [v] };
       },
     }),
@@ -52,7 +54,7 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
 describe("processTask checkpoint resume/dedupe", () => {
   it("emits runtime.checkpoint.resumed with resumePlan and passes context", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.planning", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.planning", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 2 }] } };
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.planning", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.planning", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 2 }], completedActionHashes: [] } };
     let seenResumePlan: any = undefined;
     const { db, task } = makeDb({ checkpoint });
     const runtime = { run: async function* (input: any) { seenResumePlan = input?.context?.runtimeResumePlan; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
@@ -61,6 +63,23 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(resumed).toBeTruthy();
     expect(resumed.payload?.resumePlan?.lastSafeBoundary).toBe("runtime.planning");
     expect(seenResumePlan?.completedToolRefs?.[0]?.name).toBe("browser_snapshot");
+    expect(task.status).toBe("succeeded");
+  });
+
+  it("passes completedActionHashes in resumePlan for runtime dedupe guardrails", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 3, lastEventType: "runtime.tool.completed", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_click", eventSeq: 3, actionHash: "ah_done", idempotencyKey: "ik_done" }], completedActionHashes: ["ah_done"] } };
+    let seenResumePlan: any = undefined;
+    const { db, task } = makeDb({ checkpoint });
+    const runtime = { run: async function* (input: any) {
+      seenResumePlan = input?.context?.runtimeResumePlan;
+      yield { type: "runtime.tool.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "Tool browser_click blocked", payload: { name: "browser_click", result: JSON.stringify({ error: "Resume plan indicates actionHash ah_done already completed; refusing duplicate side effect" }), policy: "denied" } };
+      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } };
+    } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(seenResumePlan?.completedActionHashes).toContain("ah_done");
+    expect(db.insertedReceipts).toHaveLength(0);
+    expect(db.insertedApprovals).toHaveLength(0);
     expect(task.status).toBe("succeeded");
   });
 
