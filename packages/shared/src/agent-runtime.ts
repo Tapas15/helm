@@ -13,6 +13,7 @@ export const AgentRuntimeEventType = z.enum([
   "runtime.approval.resolved",
   "runtime.tool.started",
   "runtime.tool.completed",
+  "runtime.tool.deduped",
   "runtime.memory.loaded",
   "runtime.skill.loaded",
   "runtime.response.delta",

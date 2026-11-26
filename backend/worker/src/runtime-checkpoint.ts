@@ -34,7 +34,7 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     updatedAt: evt.ts,
     resumePlan: base.resumePlan ?? { version: 1, lastSafeBoundary: null, completedToolRefs: [] },
   };
-  if (["runtime.planning", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
+  if (["runtime.planning", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
     next.resumePlan = { ...next.resumePlan!, lastSafeBoundary: evt.type };
   }
   if (evt.type === "runtime.tool.completed") {

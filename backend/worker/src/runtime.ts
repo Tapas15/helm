@@ -212,8 +212,12 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
       args = (policy as any).args ?? args;
       if (!policy.ok) {
         const result = JSON.stringify({ error: policy.error });
+        const deduped = typeof policy.error === "string" && policy.error.includes("already completed; refusing duplicate side effect");
         yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
-        yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result, policy: "denied" } };
+        yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result, policy: deduped ? "deduped" : "denied", actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined } };
+        if (deduped) {
+          yield { type: "runtime.tool.deduped", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} deduped by resume plan`, payload: { name, actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined, reason: "resume_plan_completed_action_hash" } };
+        }
         messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
         continue;
       }
