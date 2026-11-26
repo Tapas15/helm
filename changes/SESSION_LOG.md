@@ -2087,3 +2087,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: `lookup_not_found` records lookup attempt, keeps uncertain, skipped, no provider lookup/audit; `lookup_error` keeps uncertain with failed accounting, no provider lookup/audit.
 - **Impact**: P5 79% -> 80%; overall 83.1% -> 83.2%.
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 temporal-worker uncertain-outcome no-blind-retry contracts
+
+- **Scope**: Hardened `backend/temporal-worker/src/activities.test.ts` (8/8) with explicit single-call/no-blind-retry assertions for uncertain 503/429/5xx guarded external writes.
+- **Evidence**: `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts` PASS 8/8; `pnpm -C backend/temporal-worker typecheck` PASS.
+- **Proves**: uncertain guarded writes return uncertain status with exactly one API call per action; no blind retry.
+- **Impact**: P5 remains 80%; overall 83.2% (contract depth added, no real-env closure).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.

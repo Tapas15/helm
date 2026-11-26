@@ -60,7 +60,7 @@ describe("temporal activities (P5 deterministic action-class contracts)", () => 
     expect(postCalls[0]!.body).toMatchObject({ approvalId: "apr_1", actionHash: "ah_1", idempotencyKey: "idem_1" });
   });
 
-  it("maps 503/429/5xx to uncertain for guarded external write actions (no throw)", async () => {
+  it("maps 503/429/5xx to uncertain for guarded external write actions (no throw, no blind retry)", async () => {
     const activities = createActivities();
     for (const [actionKind, path] of [
       ["gmail.send", "/v1/connectors/gmail/send"],
@@ -68,14 +68,29 @@ describe("temporal activities (P5 deterministic action-class contracts)", () => 
       ["calendar.update_event", "/v1/connectors/calendar/events/update"],
       ["calendar.delete_event", "/v1/connectors/calendar/events/delete"],
     ] as const) {
+      const before = postCalls.length;
       mockFetch(503, { error: { details: { receiptId: `rcpt_${actionKind}` } } });
       const out = await activities.executeApprovedAction({
         taskId: "tsk_1", userId: "usr_1", actionKind, actionHash: "ah", idempotencyKey: `idem_${actionKind}`, approvalId: "apr_1",
         payload: { accountId: "cac_1", to: ["a@b.com"], subject: "s", bodyText: "b", eventId: "evt_1" },
       } as any);
       expect(out.status).toBe("uncertain");
+      expect(out.receiptId).toBe(`rcpt_${actionKind}`);
       expect(postCalls.at(-1)?.path).toBe(`http://127.0.0.1:8787${path}`);
+      expect(postCalls.length - before).toBe(1);
     }
+  });
+
+  it("uncertain provider outcome does not trigger second write/lookup call (no blind retry)", async () => {
+    mockFetch(429, { error: { details: { receiptId: "rcpt_gmail_uncertain" } } });
+    const activities = createActivities();
+    const out = await activities.executeApprovedAction({
+      taskId: "tsk_1", userId: "usr_1", actionKind: "gmail.send", actionHash: "ah_1", idempotencyKey: "idem_1", approvalId: "apr_1",
+      payload: { accountId: "cac_1", to: ["a@b.com"], subject: "s", bodyText: "b" },
+    } as any);
+    expect(out).toMatchObject({ status: "uncertain", receiptId: "rcpt_gmail_uncertain" });
+    expect(postCalls).toHaveLength(1);
+    expect(postCalls[0]!.path).toContain("/v1/connectors/gmail/send");
   });
 
   it("throws for non-retryable/non-uncertain 4xx to let Temporal classify as terminal by type where applicable", async () => {
@@ -123,3 +138,4 @@ describe("temporal activities (P5 deterministic action-class contracts)", () => 
     expect(reconcileUncertainReceipts).not.toHaveBeenCalled();
   });
 });
+
