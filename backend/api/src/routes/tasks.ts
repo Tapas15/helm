@@ -58,8 +58,13 @@ function redactExportValue(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_EXPORT_KEYS.has(normalized)) out[k] = "[REDACTED]";
-    else out[k] = redactExportValue(v);
+    if (SENSITIVE_EXPORT_KEYS.has(normalized)) {
+      out[k] = "[REDACTED]";
+    } else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) {
+      out[k] = "[REDACTED_PATH]";
+    } else {
+      out[k] = redactExportValue(v);
+    }
   }
   return out;
 }

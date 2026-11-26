@@ -176,17 +176,23 @@ describe("task export/delete contracts (P8)", () => {
         messages: [{ id: "msg_1", taskId: "tsk_1", userId: "u1", role: "assistant", content: "ok", metadata: { apiKey: "sk-live-123", nested: { accessToken: "tok-abc" } }, createdAt: new Date() }],
         events: [{ id: "evt_1", taskId: "tsk_1", userId: "u1", type: "runtime.info", payload: { authorization: "Bearer abc", safe: "keep" }, createdAt: new Date() }],
         receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", kind: "browser", status: "succeeded", request: { password: "pw123" }, response: { sessionToken: "sess-secret" }, createdAt: new Date() }],
+        artifacts: [{ id: "art_1", taskId: "tsk_1", userId: "u1", kind: "screenshot", path: "C:\\Users\\Tapas\\secret\\shot.png", mime: "image/png", sha256: "abc", sizeBytes: 1, metadata: { path: "/home/tapas/secret.txt" }, createdAt: new Date() }],
       },
     });
     const res = await makeApp(db).request("/v1/tasks/tsk_1/export");
     expect(res.status).toBe(200);
-    const serialized = JSON.stringify(await res.json());
+    const body = await res.json() as any;
+    const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("sk-live-123");
     expect(serialized).not.toContain("tok-abc");
     expect(serialized).not.toContain("Bearer abc");
     expect(serialized).not.toContain("pw123");
     expect(serialized).not.toContain("sess-secret");
     expect(serialized).not.toContain("super-secret-test-key");
+    expect(serialized).not.toContain("C:\\\\Users\\\\Tapas\\\\secret\\\\shot.png");
+    expect(serialized).not.toContain("/home/tapas/secret.txt");
+    expect(body.artifacts[0].path).toBe("[REDACTED_PATH]");
+    expect(body.artifacts[0].metadata.path).toBe("[REDACTED_PATH]");
     expect(serialized).toContain("keep");
     expect(serialized).toContain("[REDACTED]");
   });
