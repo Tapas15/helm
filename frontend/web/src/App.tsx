@@ -86,7 +86,7 @@ export function App() {
   const messagesQ = useQuery({ queryKey: ["messages", selected, token, devUser], queryFn: () => api<{ messages: Msg[] }>(`/v1/tasks/${selected}/messages`), enabled: !!selected && meQ.isSuccess, refetchInterval: 4000 });
   const connectorsQ = useQuery({ queryKey: ["connectors", token, devUser], queryFn: () => api<{ connectors: Connector[] }>("/v1/connectors"), enabled: meQ.isSuccess });
   const connectorAccountsQ = useQuery({ queryKey: ["connectorAccounts", token, devUser], queryFn: () => api<{ accounts: ConnectorAccount[] }>("/v1/connectors/accounts"), enabled: meQ.isSuccess, refetchInterval: 10000 });
-  const { events, stale, lastSequence } = useTaskEventStream(meQ.isSuccess ? selected : null, token);
+  const { events, stale, connected, lastSequence } = useTaskEventStream(meQ.isSuccess ? selected : null, token);
   useEffect(() => { const t = window.setInterval(() => setPreviewTick((n) => n + 1), 2500); return () => window.clearInterval(t); }, []);
 
   useEffect(() => {
@@ -297,7 +297,7 @@ export function App() {
           })}
           {(connectorsQ.data?.connectors ?? []).length === 0 && <div className="muted">No connectors loaded.</div>}
         </div>
-        <div className="card"><h3 style={{ marginTop: 0 }}>Event timeline</h3><div className="row" style={{ marginBottom: 8 }}><span className="pill">{stale ? "stale" : "live"}</span><span className="muted">last seq: {lastSequence}</span></div>{events.length === 0 && <div className="muted">No events.</div>}{events.map((e) => (<div key={e.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">#{e.sequence}</span><strong>{e.type}</strong><span className="muted">{e.source}</span><span className="muted">{new Date(e.ts).toLocaleTimeString()}</span></div><pre>{JSON.stringify(e.payload, null, 2)}</pre></div>))}</div>
+        <div className="card"><h3 style={{ marginTop: 0 }}>Event timeline</h3><div className="row" style={{ marginBottom: 8 }}><span className="pill">{stale ? "stale" : connected ? "live" : "offline"}</span><span className="muted">last seq: {lastSequence}</span></div>{events.length === 0 && <div className="muted">No events.</div>}{events.map((e) => (<div key={e.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">#{e.sequence}</span><strong>{e.type}</strong><span className="muted">{e.source}</span><span className="muted">{new Date(e.ts).toLocaleTimeString()}</span></div><pre>{JSON.stringify(e.payload, null, 2)}</pre></div>))}</div>
       </main>
     </div>
   );

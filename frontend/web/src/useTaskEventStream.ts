@@ -7,11 +7,13 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
   const qc = useQueryClient();
   const lastSeq = useRef(-1);
   const [stale, setStale] = useState(false);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!taskId) { setStale(false); return; }
+    if (!taskId) { setStale(false); setConnected(false); return; }
     lastSeq.current = -1;
     setStale(false);
+    setConnected(false);
     qc.setQueryData<{ events: TaskEvent[] }>(["events", taskId], { events: [] });
     let disposed = false;
     let staleHandle = 0;
@@ -24,8 +26,8 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
       url.searchParams.set("after", String(lastSeq.current));
       if (token) url.searchParams.set("token", token);
       es = new EventSource(url.toString());
-      const touch = () => { setStale(false); window.clearTimeout(staleHandle); staleHandle = window.setTimeout(() => setStale(true), 5000); };
-      touch();
+      const touch = () => { setConnected(true); setStale(false); window.clearTimeout(staleHandle); staleHandle = window.setTimeout(() => setStale(true), 5000); };
+      es.onopen = touch;
       es.addEventListener("event", (msg) => {
         touch();
         const evt = JSON.parse((msg as MessageEvent).data) as TaskEvent;
@@ -41,6 +43,7 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
       });
       es.addEventListener("heartbeat", touch);
       es.onerror = () => {
+        setConnected(false);
         setStale(true);
         window.clearTimeout(staleHandle);
         es?.close();
@@ -49,9 +52,9 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
     };
 
     open();
-    return () => { disposed = true; window.clearTimeout(staleHandle); es?.close(); };
+    return () => { disposed = true; window.clearTimeout(staleHandle); es?.close(); setConnected(false); };
   }, [taskId, qc, token]);
 
   const data = qc.getQueryData<{ events: TaskEvent[] }>(["events", taskId ?? ""]);
-  return { events: data?.events ?? [], stale, lastSequence: lastSeq.current };
+  return { events: data?.events ?? [], stale, connected, lastSequence: lastSeq.current };
 }
