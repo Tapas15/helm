@@ -2180,3 +2180,7 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Harness note: dispatch-routing-scoped DB mock returns task rows; ownership/table-selection semantics remain covered by existing browser route tests (`browser.takeover*`, `browser.artifacts*`, etc.).
 - Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.dispatch.test.ts` PASS 2/2; `pnpm -C backend/api typecheck` PASS.
 - P6 still 66%: gate remains parity + security + CI evidence; default dispatch OFF.
+### 2026-11-26T10:05:00Z - P6 BrowserOS adapter edge/error contracts
+- Added `backend/api/src/lib/browser-adapter-edge.test.ts` (6/6 PASS): missing-session NOT_FOUND, unavailable MCP retryable classification via createSession, navigate timeout retryable, unsupported binary 404, TAKEOVER_ACTIVE blocks click retryably, snapshot/screenshot allowed during takeover with artifact parity.
+- Evidence: `pnpm -C backend/api exec vitest run src/lib/browser-adapter-edge.test.ts` PASS 6/6; targeted browser suite PASS 43/43; `pnpm -C backend/api typecheck` PASS.
+- P6 remains 66%: deterministic confidence improved; dispatch gate still blocked on deep real-browser parity, formal security/PII signoff, and BrowserOS CI gate. Default dispatch OFF.
