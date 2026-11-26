@@ -2010,3 +2010,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
 - **Commit**: 04cc09 (eat(p2): emit resume plan applied observability event).
 - **Remaining**: Durable full replay/resume execution still partial; current guarantees are deterministic dedupe/no-dispatch for known actionHashes+identical read-only args, pending-approval no-rerun, and resume observability.
+## 2026-11-26 - P2 narrowed resume semantics documented
+
+- **Docs**: Added explicit "Resume Semantics (Narrowed, Current)" section to changes/phase-2-hermes-runtime.md listing supported deterministic guarantees (checkpoint boundaries, resumed/resume_plan_applied events, pending-approval no-rerun, actionHash/receipt dedupe, side-effect actionHash dedupe, read-only argsKey dedupe, resume prompt hint) and unsupported claims (full step-level replay engine, crash-mid-tool-loop durable replay beyond guards, real-provider/browser/connector resume proof).
+- **Tracker**: CURRENT_STATE.md P2 description now references documented narrowed resume semantics.
+- **Commit**: 18d03e5 (docs(p2): clarify narrowed resume replay semantics).
+- **Impact**: P2 remains 90%; overall 81.9% (documentation clarity, no runtime capability change).
