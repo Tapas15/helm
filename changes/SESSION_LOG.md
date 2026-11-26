@@ -1991,3 +1991,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.evals.test.ts --reporter=verbose PASS 20/20; pnpm -C backend/worker typecheck PASS.
 - **Commit**: 33a9a7c (eat(p2): dedupe resumed read-only tool calls by argsKey).
 - **Remaining**: Still not full replay engine; deterministic dedupe covers known completed actionHashes and identical read-only tool args. Arbitrary step-level replay/skip across model decisions remains partial.
+## 2026-11-26 - P2 read-only resume dedupe no-dispatch eval
+
+- **Runtime eval**: Added deterministic streamChat eval proving duplicate rowser_snapshot argsKey in resumePlan emits untime.tool.deduped with reason esume_plan_completed_read_tool and does not dispatch /snapshot. Restored the side-effect actionHash dedupe eval alongside it.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
+- **Commit**: 81cd19 (	est(p2): cover read-only resume dedupe no-dispatch eval).
+- **Remaining**: Replay semantics still narrowed - deterministic dedupe for known completed actionHashes and identical read-only args; no full step-level replay/continuation engine.
