@@ -2003,3 +2003,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
 - **Commit**: da0fa2 (	est(p2): cover read-only argsKey resume dedupe at processTask boundary).
 - **Remaining**: Durable replay execution still partial; dedupe guardrails are deterministic for known actionHashes and identical read-only args, but no full step-level replay engine/continuation planner exists.
+## 2026-11-26 - P2 resume plan applied observability
+
+- **Observability**: Added untime.checkpoint.resume_plan_applied shared runtime event; worker emits it on non-terminal checkpoint resume with resumePlan counts (completedToolRefs, completedActionHashes, pendingApproval actionHash, lastSafeBoundary).
+- **Tests/docs**: processTask checkpoint test asserts applied event payload. Phase-2 doc now explicitly states narrowed semantics (not full step-level replay engine).
+- **Evidence**: pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
+- **Commit**: 04cc09 (eat(p2): emit resume plan applied observability event).
+- **Remaining**: Durable full replay/resume execution still partial; current guarantees are deterministic dedupe/no-dispatch for known actionHashes+identical read-only args, pending-approval no-rerun, and resume observability.
