@@ -2024,3 +2024,11 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS.
 - **Impact**: P5 68% -> 70%; overall 81.9% -> 82.1% (equal-weight). Deterministic contract coverage only; not real Temporal schedule/monitor/fault-injection E2E depth and not real-provider no-duplicate proof.
 - **Remaining P5 gap**: real-provider no-duplicate proof, broader real Temporal schedule/monitor/fault-injection depth, retry-policy/operator runbook depth; keep DB worker fallback/default until fully verified.
+## 2026-11-26 - P5 temporal-worker action-class policy contracts
+
+- **Workflow contracts**: Added `backend/temporal-worker/src/workflows.test.ts` (8/8). Proves activity retry config includes non-retryable error types (`PolicyDenied/ValidationError/ApprovalRejected/Forbidden/NotFound`), approval rejection/cancel do not execute activity, executed maps to succeeded, uncertain maps to failed `uncertain_external_outcome` (no blind retry in workflow), non-executed status mapping, thrown activity error capture, reconciliation workflow delegation.
+- **Activity contracts**: Added `backend/temporal-worker/src/activities.test.ts` (7/7). Proves gmail/calendar/browser guarded API routing with temporal internal headers/body; 503/429/5xx mapped to uncertain (no throw) across guarded external-write classes; 403/4xx terminal throws; unsupported actionKind rejected; reconciliation activity calls DB-canonical reconciliation and closes pool; reconciliation fault injection throws without lookup/retry path.
+- **Vitest config**: Added `backend/temporal-worker/vitest.config.ts` for node test discovery.
+- **Evidence**: `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts src/workflows.test.ts` PASS 15/15; `pnpm -C backend/temporal-worker typecheck` PASS.
+- **Impact**: P5 70% -> 72%; overall 82.1% -> 82.3% (equal-weight). Deterministic contract coverage only.
+- **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, retry-policy/operator runbook depth, production config disable-flag rollback proof.

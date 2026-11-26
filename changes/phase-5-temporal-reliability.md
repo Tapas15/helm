@@ -40,6 +40,10 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 - [ ] Disable-flag rollback proof in live/staging-like config.
 - [ ] Keep DB worker as default/fallback until Temporal path fully verified.
 
+### Added 2026-11-26 (local P5 temporal-worker action-class policy contracts, no real Temporal)
+- [x] P5-E workflow/activity deterministic contracts: `backend/temporal-worker/src/workflows.test.ts` (8/8) verifies non-retryable error type config, approval rejection/cancel no-exec, executed->succeeded, uncertain->failed `uncertain_external_outcome`, non-executed mapping, thrown error capture, reconciliation delegation.
+- [x] P5-E guarded activity class contracts: `backend/temporal-worker/src/activities.test.ts` (7/7) verifies gmail/calendar/browser guarded API routing headers/body, 503/429/5xx uncertain mapping (no throw), 4xx terminal throw, unsupported action rejection, reconciliation activity DB-canonical call+pool close, reconciliation fault injection throws without lookup.
+
 ### Added 2026-11-26 (local P5 contract hardening, no real Temporal/provider sandbox)
 - [x] P5 contract tests (stubbed/deterministic): `backend/api/src/routes/reconciliation.test.ts` covers status/counts/policy/schedule, user-scope run, scope=all dev guard, dry-run no-mutation, schedule ensure dev guard + success.
 - [x] P5 reconciliation service unit tests: `backend/api/src/lib/reconciliation.test.ts` proves lookup-not-found keeps uncertain (no blind retry), executed lookup writes audit/event/feedback, lookup fault injection does not auto-fail, lookup_not_found injection skips, unsupported kinds skipped, calendar delete reconciled only on absence proof.
@@ -47,8 +51,11 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 
 ## Evidence
 - P5-B/C/D: pnpm --filter @helm/shared typecheck PASS; pnpm --filter @helm/temporal-worker typecheck PASS; pnpm --filter @helm/api typecheck PASS.
+- 2026-11-26 (local, deterministic temporal-worker, no real Temporal): `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts src/workflows.test.ts` PASS 15/15; `pnpm -C backend/temporal-worker typecheck` PASS. Covers action-class non-retryable config, uncertain 503/429/5xx mapping, no-blind-retry workflow uncertain outcome, guarded API routing, reconciliation fault injection. Not real Temporal server schedule/monitor/fault-injection E2E.
+- 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS. Covers P5 reconciliation route contracts, reconciliation no-blind-retry/fault-injection unit behavior, and temporal stub schedule/workflow dedupe contracts. Not real Temporal schedule/monitor/fault-injection E2E and not real-provider no-duplicate proof.
 - 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS. Covers P5 reconciliation route contracts, reconciliation no-blind-retry/fault-injection unit behavior, and temporal stub schedule/workflow dedupe contracts. Not real Temporal schedule/monitor/fault-injection E2E and not real-provider no-duplicate proof.
 - 2026-11-24 (local): pnpm -C packages/shared test PASS (8 files, 28 tests) after centralizing Temporal external-write/non-retryable policy; pnpm -C backend/temporal-worker typecheck PASS.
 - Env-gated: 	emporal-routing-api PASS (1/1), 	emporal-e2e PASS (1/1), 	emporal-side-effect-e2e PASS (1/1), 	emporal-rollback-e2e PASS (1/1), econciliation-api PASS (10/10).
 - 2026-11-24: 8471aef, CI 45441229198 green.
 - 2026-11-24: HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1 pnpm -C tests/integration exec vitest run src/temporal-reconciliation-e2e.test.ts PASS (1/1, 39.9s) - Temporal reconciliation schedule tick reconciled uncertain receipt; lookup fault injection preserved no-blind-retry.
+
