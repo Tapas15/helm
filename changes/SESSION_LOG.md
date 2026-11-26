@@ -2108,3 +2108,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: schedule status/ensure payload shape stable across missing, active, disabled rollback; includes scheduleId/status/enabled/created/reason fields as applicable.
 - **Impact**: P5 remains 80%; overall 83.2% (contract depth added).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation run observability shape contracts
+
+- **Scope**: Added `backend/api/src/routes/reconciliation.run-shape.test.ts` (1/1), deterministic run-summary shape contract.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.run-shape.test.ts src/routes/reconciliation.run.test.ts` PASS 3/3; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: `POST /run` returns stable bounded summary on partial errors (`ok/scanned/reconciled/failed/skipped/errors[]`, bounded error strings); no `evidence/raw` top-level fields.
+- **Impact**: P5 remains 80%; overall 83.2% (observability/safety contract depth).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
