@@ -1941,3 +1941,11 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
 - [ ] Runtime eval depth under real providers/browser/connectors.
 - [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
+
+## 2026-11-26 - P2 replay guardrails + P3 browser rebind contracts
+
+- **P2 deterministic replay guardrails (test-backed)**: Extended ackend/worker/src/process-task.checkpoint.test.ts to assert untime.checkpoint.resumed carries esumePlan, runtime receives context.runtimeResumePlan, pending-approval checkpoint resumes to waiting_approval without re-running runtime, and executed-receipt checkpoint clears pending approval and continues runtime. Worker checkpoint/feedback suite PASS 11/11.
+- **P3 browser rebind contracts**: Added ackend/api/src/routes/browser.rebind.test.ts covering legacy-unbound rebind to owned task (event/audit/state), caller-not-owner 404, session-bound-to-different-task 409, task-already-has-active-session 409, and missing taskId validation 400. Browser rebind+takeover suite PASS 8/8.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose PASS 11/11; pnpm -C backend/api exec vitest run src/routes/browser.rebind.test.ts src/routes/browser.takeover.test.ts --reporter=verbose PASS 8/8; pnpm -C backend/worker typecheck PASS; pnpm -C backend/api typecheck PASS.
+- **Commit**: e87563 (	est(p2,p3): cover checkpoint resume plan and browser rebind contracts).
+- **Remaining**: P2 durable replay/resume execution still partial (guardrails covered; runtime step replay/side-effect-free continuation beyond boundaries pending). P3 live WS/takeover/browser smoke still blocked.

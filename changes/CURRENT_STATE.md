@@ -1,4 +1,4 @@
-# Current Project Status (keep updated every session)
+﻿# Current Project Status (keep updated every session)
 
 **Last updated:** 2026-11-26T03:56:00Z  
 **Overall:** 80.9% (equal-weight P0-P8) | **Remaining:** 19.1% | **Target:** 100%  
@@ -84,7 +84,7 @@
 - `ddd445d` P4: added `gmail.send` + `calendar.events` OAuth scopes to connector definitions (write-scope E2E unblock).
 - 2026-11-24: Real Google OAuth connect/test verified (Gmail `simplytaps3@gmail.com`, Calendar 1 calendar). Approval-gated Gmail send executed (`rcpt_7a0bc795...`, `gmailMessageId=1a20f3b6dad91d55`) and same-idempotency retry returned deduped same receipt/externalRef. Approval-gated Calendar create executed (`rcpt_da3b4961...`, `calendarEventId=jshv868h65pplmu3tjmbtu2eo0`) and same-idempotency retry deduped; calendar list shows single `Helm E2E Test` event. No auto-delete performed.
 - `8471aef` P5: Temporal reconciliation workflow/activity/schedule bootstrap, schedule status/ensure, `HELM_RECONCILIATION_FAULT_INJECT` no-blind-retry guards, env-gated e2e scaffold; CI `45441229198` green.
-- 2026-11-24: `HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1` `tests/integration/src/temporal-reconciliation-e2e.test.ts` PASS (1/1) — schedule tick reconciled uncertain receipt; lookup fault preserved no-blind-retry.
+- 2026-11-24: `HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1` `tests/integration/src/temporal-reconciliation-e2e.test.ts` PASS (1/1) â€” schedule tick reconciled uncertain receipt; lookup fault preserved no-blind-retry.
 - 2026-11-24: Drizzle alignment hardened (non-destructive): `packages/db/drizzle.config.ts` explicit migrations config; `scripts/align-drizzle-journal.mjs` + `packages/db` `db:migrate:align` seeds journal only when baseline tables present and journal row missing. Fresh temp DB `drizzle-kit migrate` applied successfully (17 tables; journal has 0000). Existing DB migrate/alignment idempotent. `0001_p7_tables_manual.sql` remains legacy/idempotent, not in drizzle journal; 0000 already contains P7 tables.
 - 2026-11-24 docs: added explicit "What we have done" sections to `phase-1`..`phase-8`.
 
@@ -97,6 +97,7 @@
 
 ## Update Rule
 After every meaningful batch: update `CURRENT_STATE.md`, `CURRENT_STATE.md`, append `SESSION_LOG.md`, update relevant `phase-*.md`, add `FIX_LOG.md` for non-trivial fixes, sync `README.md`/`ROADMAP.md` on progress changes. No user prompt needed.
+
 
 
 
