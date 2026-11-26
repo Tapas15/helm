@@ -9,6 +9,7 @@ import path from "node:path";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { lookupGmailSend } from "./gmail.js";
 import { lookupCalendarCreate, lookupCalendarEventById } from "./calendar.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
@@ -22,24 +23,7 @@ function isInside(root: string, candidate: string) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
-const SENSITIVE_KEYS = new Set([
-  "authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token",
-  "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey",
-  "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted",
-]);
-
-function redactEvidenceValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redactEvidenceValue);
-  if (!value || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
-    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
-    else out[k] = redactEvidenceValue(v);
-  }
-  return out;
-}
+function redactEvidenceValue(value: unknown): unknown { return redactSensitive(value); }
 
 function safeArtifact(r: typeof browserArtifacts.$inferSelect) {
   return { id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: redactEvidenceValue(r.metadata ?? {}) as Record<string, unknown>, createdAt: r.createdAt };
