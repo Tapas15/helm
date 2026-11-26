@@ -4,7 +4,7 @@ export type RuntimeResumePlan = {
   version: 1;
   lastSafeBoundary: string | null;
   pendingApproval?: { actionHash: string; actionKind?: string; approvalId?: string };
-  completedToolRefs: Array<{ name: string; eventSeq: number; actionHash?: string; idempotencyKey?: string }>;
+  completedToolRefs: Array<{ name: string; eventSeq: number; actionHash?: string; idempotencyKey?: string; argsKey?: string }>;
   completedActionHashes?: string[];
 };
 
@@ -43,7 +43,8 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     const args = payload?.args && typeof payload.args === "object" ? payload.args : {};
     const actionHash = typeof args.actionHash === "string" && args.actionHash ? String(args.actionHash) : undefined;
     const idempotencyKey = typeof args.idempotencyKey === "string" && args.idempotencyKey ? String(args.idempotencyKey) : undefined;
-    const refs = [...(next.resumePlan?.completedToolRefs ?? []), { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}) }].slice(-20);
+    const argsKey = typeof payload.argsKey === "string" && payload.argsKey ? String(payload.argsKey) : (name.startsWith("browser_") ? (() => { try { const a = { ...(args as any) }; delete a.approvalId; delete a.actionHash; delete a.idempotencyKey; const keys = Object.keys(a).sort(); const out: any = {}; for (const k of keys) out[k] = a[k]; return JSON.stringify(out).slice(0, 500); } catch { return undefined; } })() : undefined);
+    const refs = [...(next.resumePlan?.completedToolRefs ?? []), { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}), ...(argsKey ? { argsKey } : {}) }].slice(-20);
     const completedActionHashes = Array.from(new Set([...(next.resumePlan?.completedActionHashes ?? []), ...(actionHash ? [actionHash] : [])])).slice(-20);
     next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs, completedActionHashes };
   }

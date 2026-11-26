@@ -48,6 +48,18 @@ export function getRuntimeToolPolicy(name: string) {
   return RUNTIME_TOOL_REGISTRY.find(t => t.name === name) ?? null;
 }
 
+function stableArgsKey(args: any): string {
+  if (!args || typeof args !== "object") return "";
+  const keys = Object.keys(args).filter((k) => !["approvalId", "actionHash", "idempotencyKey"].includes(k)).sort();
+  const out: Record<string, unknown> = {};
+  for (const k of keys) {
+    const v = (args as any)[k];
+    if (v === undefined) continue;
+    out[k] = v;
+  }
+  try { return JSON.stringify(out).slice(0, 500); } catch { return ""; }
+}
+
 export function evaluateToolPolicy(name: string, args: any, ctx: Record<string, unknown>) {
   const tool = getRuntimeToolPolicy(name);
   if (!tool) return { ok: false as const, error: `unknown tool ${name}` };
@@ -61,6 +73,12 @@ export function evaluateToolPolicy(name: string, args: any, ctx: Record<string, 
   const actionHash = String(args.actionHash ?? "").trim();
   if (actionHash && completedActionHashes.includes(actionHash)) {
     return { ok: false as const, error: `Resume plan indicates actionHash ${actionHash} already completed; refusing duplicate side effect`, args, tool };
+  }
+  const argsKey = stableArgsKey(args);
+  if (!tool.requiresApproval && argsKey) {
+    const refs = Array.isArray(resumePlan?.completedToolRefs) ? resumePlan.completedToolRefs : [];
+    const seen = refs.some((r: any) => String(r?.name ?? "") === name && String(r?.argsKey ?? "") === argsKey);
+    if (seen) return { ok: false as const, error: `Resume plan indicates ${name} already completed for same args; refusing duplicate read`, args, tool, deduped: true as const, argsKey };
   }
   if (tool.requiresApproval) {
     const approvalId = String(args.approvalId ?? "").trim();
@@ -220,18 +238,20 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
       args = (policy as any).args ?? args;
       if (!policy.ok) {
         const result = JSON.stringify({ error: policy.error });
-        const deduped = typeof policy.error === "string" && policy.error.includes("already completed; refusing duplicate side effect");
+        const deduped = Boolean((policy as any).deduped) || (typeof policy.error === "string" && policy.error.includes("already completed; refusing duplicate side effect"));
+        const dedupeReason = (policy as any).deduped ? "resume_plan_completed_read_tool" : "resume_plan_completed_action_hash";
         yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
-        yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, result, policy: deduped ? "deduped" : "denied", actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined } };
+        yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, argsKey: (policy as any).argsKey, result, policy: deduped ? "deduped" : "denied", actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined } };
         if (deduped) {
-          yield { type: "runtime.tool.deduped", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} deduped by resume plan`, payload: { name, actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined, reason: "resume_plan_completed_action_hash" } };
+          yield { type: "runtime.tool.deduped", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} deduped by resume plan`, payload: { name, actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined, argsKey: (policy as any).argsKey, reason: dedupeReason } };
         }
         messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
         continue;
       }
       yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
       const result = await runTool(name, args);
-      yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} completed`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, result: result.slice(0, 2000) } };
+      const argsKey = stableArgsKey(args);
+      yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} completed`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, argsKey, result: result.slice(0, 2000) } };
       messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
     }
   }

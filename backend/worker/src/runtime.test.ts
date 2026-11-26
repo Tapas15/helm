@@ -55,9 +55,9 @@ describe("runtime helpers", () => {
     expect(evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a" }, {})).toMatchObject({ ok: false });
     expect(evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a", approvalId: "apr", actionHash: "ah", idempotencyKey: "ik" }, { approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah"] })).toMatchObject({ ok: true });
   });
-  it("blocks duplicate side-effect actionHash from resumePlan", () => {
-    const result = evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a", approvalId: "apr", actionHash: "ah_done", idempotencyKey: "ik2" }, { approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah_done"], runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [], completedActionHashes: ["ah_done"] } });
-    expect(result).toMatchObject({ ok: false });
-    expect(String((result as any).error)).toContain("already completed");
+  it("blocks duplicate read-only tool call from resumePlan by argsKey", () => {
+    const result = evaluateToolPolicy("browser_snapshot", { sessionId: "s1" }, { runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 1, argsKey: JSON.stringify({ sessionId: "s1" }) }], completedActionHashes: [] } });
+    expect(result).toMatchObject({ ok: false, deduped: true });
+    expect(String((result as any).error)).toContain("already completed for same args");
   });
 });
