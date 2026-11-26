@@ -72,6 +72,73 @@
       TEMPORAL_CORS_ORIGINS: http://localhost:5173
     ports: ["8233:8080"]
 
+  api:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    env_file: ["../.env"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/helm
+      REDIS_URL: redis://redis:6379
+      BROWSER_WORKER_URL: http://browser-worker:8790
+      HELM_ALLOW_TASK_DELETE: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports: ["8787:8787"]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  worker:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: infra/docker/worker.Dockerfile
+    env_file: ["../.env"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/helm
+      REDIS_URL: redis://redis:6379
+      BROWSER_WORKER_URL: http://browser-worker:8790
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  browser-worker:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: infra/docker/browser-worker.Dockerfile
+    env_file: ["../.env"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/helm
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports: ["8790:8790"]
+
+  web:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8787
+    depends_on:
+      api:
+        condition: service_healthy
+    ports: ["5173:5173"]
+
 volumes:
   helm_pg:
   helm_temporal_pg:

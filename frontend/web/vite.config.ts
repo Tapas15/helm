@@ -4,5 +4,12 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   css: { postcss: { plugins: [] } },
-  server: { port: 5173, proxy: { "/v1": "http://localhost:8787", "/health": "http://localhost:8787" } },
+  server: {
+    port: 5173,
+    host: true,
+    proxy: {
+      "/v1": process.env.VITE_API_PROXY_TARGET || "http://localhost:8787",
+      "/health": process.env.VITE_API_PROXY_TARGET || "http://localhost:8787",
+    },
+  },
 });
