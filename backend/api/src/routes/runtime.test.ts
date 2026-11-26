@@ -4,14 +4,16 @@ import { runtimeRoutes } from "./runtime.js";
 function mockDb() { return {} as any; }
 
 describe("runtime routes", () => {
-  it("GET /config returns default policy", async () => {
+  it("GET /config returns default policy and allowlist", async () => {
     const app = runtimeRoutes(mockDb());
     const res = await app.request("/config");
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.ok).toBe(true);
     expect(body.runtime.supportsModelOverride).toBe(true);
+    expect(Array.isArray(body.runtime.toolCapableAllowlist)).toBe(true);
     expect(body.runtime.defaultPolicy).toBeTruthy();
+    expect(typeof body.runtime.defaultPolicy.route).toBe("string");
   });
 
   it("POST /model-validate returns policy decision", async () => {
