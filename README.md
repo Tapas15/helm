@@ -12,8 +12,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-79.8%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-P7_Contracts_%7C_P3_Evidence-f2cc60?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-83.2%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-P5_Temporal_Contracts_%7C_P6_Security-f2cc60?style=for-the-badge)](ROADMAP.md)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-238636?style=for-the-badge)](ROADMAP.md)
 
 **[Explore the full visual roadmap â†’](ROADMAP.md)**
@@ -22,18 +22,18 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **79.8%** | Equal-weight P0-P8. Last watched CI green: [45614969597](https://github.com/Tapas15/helm/actions/runs/45614969597) (7bf214c); later commits pushed, CI not watched per directive. P7b memory contracts hardened (disabled/flag-disabled no-leak/no-mutation, dry-run-only consolidation/retention, fail-closed embedding seam, no default external calls). P3 browser screenshot/snapshot artifact persistence + ownership-checked artifact listing + takeover state contracts added. P7c/P7d activation/apply/auto-run remains explicitly blocked. |
+| **Overall** | **83.2%** | Equal-weight P0-P8. Last watched CI green: [45715144160](https://github.com/Tapas15/helm/actions/runs/45715144160) (`4a9b458`); local commits after it not CI-watched per directive. P5 gained deterministic Temporal/reconciliation contract hardening (routing fail-closed, rollback, no-blind-retry, stub dedupe/schedule, operator evidence semantics) but real Temporal/provider sandbox closure remains blocked. |
 | Phase 0 Foundation | 94% | Monorepo/CI/Docker/contracts stable; Drizzle alignment script cwd-independent/idempotent; local gates PASS; fresh-clone CI confirmation after push remains |
 | Phase 1 UI/Task Core | 92% | Chat/SSE/approvals/preview/takeover usable; SSE `Last-Event-ID` resume fallback + cursor validation covered; live UI smoke/fault-injection depth pending |
-| Phase 2 Agent Runtime | 73% | Local Ollama streaming, tool policy/approval gating, model override/config validation; interrupt/resume/checkpoint, evals, live real browser+connector E2E pending |
+| Phase 2 Agent Runtime | 90% | Local Ollama streaming/tool loop/policy; checkpoint/resumePlan narrowed semantics, approval/read-tool dedupe guards, deterministic evals. Remaining: full durable step-level replay, live browser+connector/model-provider E2E, live Hermes sidecar. |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; screenshot/snapshot artifact DB persistence + ownership-checked artifact listing + takeover request/resume state contracts; live WS/takeover smoke blocked in shell |
 | Phase 4 Connectors/Vault | 90% | Vault AES-GCM, Gmail/Calendar read+write, guarded receipts/reconcile UI; real OAuth connect/test/send/create E2E verified; refresh/revoke/uncertain-reconcile hardening pending |
-| Phase 5 Temporal/Reliability | 68% | ADR-002, DB-canonical reconciliation/scheduler/dry-run, Temporal schedule/fault-injection guards, env-gated reconciliation e2e PASS; real-provider no-duplicate and deeper Temporal operator/sandbox proof pending |
+| Phase 5 Temporal/Reliability | 80% | ADR-002, routing/fail-closed, DB-canonical reconciliation/scheduler/dry-run; deterministic contract hardening for routing rollback, no-blind-retry/repeated-run, fault-injection, stub dedupe/schedule, run-shape/scope/disabled/operator-evidence semantics. Remaining: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging rollback proof. |
 | Phase 6 BrowserOS Upgrade | 66% | Playwright default; external BrowserOS MCP adapter behind contract; dispatch OFF. Env-gated MCP smoke/parity evidence exists; deeper parity, formal STRIDE/threat-model/PII retention evidence, and dispatch gate pending |
 | Phase 7 Memory/Skills/Proactivity | 97% | P7a feedback/eval/proposal scaffold + redacted flag-gated emissions; P7b memory CRUD/export/audit/retrieval/consolidation+retention dry-runs, fail-closed embedding seam, contract hardening. Blocked: retention enforcement/delete, consolidation apply/merge, external embedding runtime wiring default off, worker-claim/browser-worker DB feedback contract decisions, P7c/P7d activation/apply/auto-run (explicit written approval required) |
-| Phase 8 Hardening/Release | 43% | Backup scripts+dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
+| Phase 8 Hardening/Release | 45% | Backup scripts hardened (SHA256/checksum/force guard), backup dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 
-> Detailed journey: **[ROADMAP.md](ROADMAP.md)** Â· Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)** Â· P7b contract: **[changes/p7b-memory-status-contract.md](changes/p7b-memory-status-contract.md)**
+> Detailed journey: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)** · P7b contract: **[changes/p7b-memory-status-contract.md](changes/p7b-memory-status-contract.md)**
 
 ### CI / Build Status
 

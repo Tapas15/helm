@@ -1,17 +1,17 @@
-Ôªø<div align="center">
+<div align="center">
 
 # Helm Roadmap
 
-**The journey of building a personal AI operating assistant ‚Äî from blueprint to trusted execution.**
+**The journey of building a personal AI operating assistant ó from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-74.0%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-83.2%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Focus](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Parity_%2B_Security-238636?style=for-the-badge)](#-present--what-were-building-now)
-[![Latest CI](https://img.shields.io/badge/CI-Latest_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45561356201)
+[![Latest CI](https://img.shields.io/badge/CI-Latest_Watched_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45715144160)
 
 <br/>
 
-[README](README.md) ¬∑ [Current State](changes/CURRENT_STATE.md) ¬∑ [Missing Items](changes/PLANNING_MISSING_ITEMS.md) ¬∑ [Gap Analysis](changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md) ¬∑ [Binding Audit](changes/BINDING_AUDIT_2026-11-23.md)
+[README](README.md) ∑ [Current State](changes/CURRENT_STATE.md) ∑ [Missing Items](changes/PLANNING_MISSING_ITEMS.md) ∑ [Gap Analysis](changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md) ∑ [Binding Audit](changes/BINDING_AUDIT_2026-11-23.md)
 
 </div>
 
@@ -25,7 +25,7 @@
 | | |
 |---|---|
 | **Mission** | Build Helm as an original personal AI operating assistant: OpenFUSE-style control surface + Helm-native runtime + deterministic browser execution + reliability/security. |
-| **Invariants** | Model proposes, policy decides ¬∑ UI is not intelligence ¬∑ Durable state ¬∑ Idempotent external effects + receipts ¬∑ No secrets in logs/events/prompts |
+| **Invariants** | Model proposes, policy decides ∑ UI is not intelligence ∑ Durable state ∑ Idempotent external effects + receipts ∑ No secrets in logs/events/prompts |
 | **Source of truth** | [`changes/CURRENT_STATE.md`](changes/CURRENT_STATE.md) is authoritative for status; this roadmap is the visual journey. |
 
 ---
@@ -36,15 +36,15 @@
 %%{init: {'theme':'base','themeVariables': { 'primaryColor':'#dbeafe','primaryTextColor':'#0f172a','primaryBorderColor':'#3b82f6','lineColor':'#64748b','secondaryColor':'#dcfce7','tertiaryColor':'#fef9c3'}}}%%
 timeline
     title Helm Development Journey
-    section Past ¬∑ Foundation Laid
+    section Past ∑ Foundation Laid
       P0 Foundation : Monorepo + contracts + Docker + DB/bootstrap
       P1 Task Core : Task lifecycle + SSE + approvals/evidence UI
-    section Present ¬∑ Prototype Becoming Real
+    section Present ∑ Prototype Becoming Real
       P1 Chat UX : Chat-first UI, streaming, follow-up, tool cards
       P2 Runtime : HelmNativeRuntime, Ollama tool-calling, guardrails pending
       P3 Browser : Playwright + CDP preview + takeover + guarded actions
       P4 Safety : Approval + actionHash + idempotency + receipts
-    section Future ¬∑ Trusted Personal Assistant
+    section Future ∑ Trusted Personal Assistant
       P4 Connectors : Vault, OAuth, Gmail/Calendar, reconciliation
       P5 Reliability : Temporal workflows, retries, schedules
       P6-P7 Capability : BrowserOS upgrade, memory/skills/proactivity
@@ -61,20 +61,20 @@ timeline
 
 ### Overall
 
-**`74.0%`** complete (Phases 0‚Äì8, equal weight)
+**`83.2%`** complete (Phases 0ñ8, equal weight)
 
 ```text
-[‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë] 74.0%
+[¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶] 83.2%
 ```
 
-**Usable prototype with active hardening.** P6 BrowserOS parity/security, real-provider/Temporal depth, live UI smoke, and P8 ops/legal signoff remain.
+**Usable prototype with active hardening.** P5 deterministic contract depth improved (routing fail-closed, rollback, no-blind-retry, reconciliation/operator semantics); real Temporal/provider sandbox closure, P6 parity/security, live UI smoke, and P8 ops/legal signoff remain.
 
 </td>
 <td width="50%" valign="top">
 
 ### Current Wave
 
-**P6 BrowserOS parity + security hardening**
+**P5 Temporal reliability contracts + P6 security/parity gate**
 
 - Keep Playwright default; BrowserOS external MCP adapter explicit opt-in
 - Expand env-gated parity evidence (artifact/error/takeover semantics)
@@ -87,19 +87,19 @@ timeline
 
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
-| **P0 Foundation / Repo** | 94% | Past / stabilizing | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë` |
-| **P1 UI / Task Core** | 92% | Present / polishing | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë` |
-| **P2 Agent Runtime** | 73% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë` |
-| **P3 Browser Execution** | 93% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë` |
-| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë` |
-| **P5 Temporal / Reliability** | 68% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë` |
-| **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë` |
-| **P7 Memory / Skills / Proactivity** | 48% | **Present** | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë` |
-| **P8 Hardening / Release** | 43% | Future / active prep | `‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñà‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë‚ñë` |
+| **P0 Foundation / Repo** | 94% | Past / stabilizing | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P1 UI / Task Core** | 92% | Present / polishing | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P2 Agent Runtime** | 90% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P3 Browser Execution** | 93% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P5 Temporal / Reliability** | 80% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P7 Memory / Skills / Proactivity** | 97% | **Present** | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
+| **P8 Hardening / Release** | 45% | Future / active prep | `¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶` |
 
 ---
 
-## Past ‚Äî What Has Been Built
+## Past ó What Has Been Built
 
 > The groundwork: contracts, durable task state, visible UI, and the first safe execution loop.
 
@@ -107,7 +107,7 @@ timeline
 <tr>
 <td width="33%" valign="top">
 
-### üß± P0 ‚Äî Foundation
+### ?? P0 ó Foundation
 **93%**
 
 - pnpm/turbo/TS monorepo
@@ -119,7 +119,7 @@ timeline
 </td>
 <td width="33%" valign="top">
 
-### üí¨ P1 ‚Äî UI / Task Core
+### ?? P1 ó UI / Task Core
 **91%**
 
 - Chat-first task UI
@@ -131,7 +131,7 @@ timeline
 </td>
 <td width="33%" valign="top">
 
-### üßæ Evidence Trail
+### ?? Evidence Trail
 **Active**
 
 - `changes/CURRENT_STATE.md`
@@ -156,7 +156,7 @@ timeline
 
 ---
 
-## Present ‚Äî What We're Building Now
+## Present ó What We're Building Now
 
 > The current push: make Helm feel like a real personal agent, not a demo shell.
 
@@ -179,8 +179,8 @@ flowchart LR
 <tr>
 <td width="33%" valign="top">
 
-### ü§ñ P2 ‚Äî Agent Runtime
-**56% ¬∑ Active**
+### ?? P2 ó Agent Runtime
+**56% ∑ Active**
 
 **Delivered**
 - HelmNativeRuntime
@@ -199,8 +199,8 @@ flowchart LR
 </td>
 <td width="33%" valign="top">
 
-### üåê P3 ‚Äî Browser Execution
-**93% ¬∑ Active**
+### ?? P3 ó Browser Execution
+**93% ∑ Active**
 
 **Delivered**
 - Playwright browser worker
@@ -221,8 +221,8 @@ flowchart LR
 </td>
 <td width="33%" valign="top">
 
-### üõ°Ô∏è P4 ‚Äî Approvals / Safety / Connectors
-**90% ¬∑ Active**
+### ??? P4 ó Approvals / Safety / Connectors
+**90% ∑ Active**
 
 **Delivered**
 - Approval resolve/requeue/cancel
@@ -252,16 +252,17 @@ flowchart LR
 
 ---
 
-## Future ‚Äî What We Will Achieve
+## Future ó What We Will Achieve
 
 > The destination: a trusted, durable, personal AI operator with real integrations and release-grade safety.
 
 ```mermaid
 flowchart TB
     NOW[Now: Prototype baseline] --> P4F[P4: Vault + Connectors]
-    P4F --> P5[P5: Temporal Reliability]
+    P4F --> P5[P5: Temporal Reliability contracts -> real-env proof]
     P5 --> P6[P6: BrowserOS Upgrade]
     P5 --> P7[P7: Memory + Skills + Proactivity]
+    P7 --> P8[P8: Hardening + Release]
     P6 --> P8[P8: Hardening + Release]
     P7 --> P8
     P8 --> GOAL[Goal: Trusted Personal AI Operating Assistant]
@@ -271,14 +272,14 @@ flowchart TB
 <tr>
 <td width="50%" valign="top">
 
-### üîå P4+ Connectors
+### ?? P4+ Connectors
 - Vault/credential broker
 - Connector registry + manifest schema
 - OAuth connect/refresh/revoke
 - Gmail/Calendar behind policy
 - Uncertain-outcome reconciliation
 
-### ‚è±Ô∏è P5 Temporal Reliability
+### ?? P5 Temporal Reliability
 - Durable workflows/signals/queries
 - Class-aware retries
 - Schedules/monitors
@@ -288,13 +289,13 @@ flowchart TB
 </td>
 <td width="50%" valign="top">
 
-### üß† P7 Memory / Skills / Proactivity
+### ?? P7 Memory / Skills / Proactivity
 - Memory provenance/CRUD/export
 - Skill registry/versioning/permissions
 - Opt-in monitors and proactive suggestions
 - Gated self-improvement implementation
 
-### üöÄ P8 Hardening / Release
+### ?? P8 Hardening / Release
 - Security suite: SSRF, prompt injection, redaction, authz
 - Chaos/recovery and duplicate-side-effect tests
 - Backup/export/retention/privacy
@@ -339,7 +340,7 @@ flowchart TB
 
 <div align="center">
 
-**Helm is being built to be useful, inspectable, and safe ‚Äî not just impressive.**
+**Helm is being built to be useful, inspectable, and safe ó not just impressive.**
 
 </div>
 
