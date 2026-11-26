@@ -3,20 +3,9 @@ import { streamSSE } from "hono/streaming";
 import { and, eq, sql } from "drizzle-orm";
 import { taskEvents, tasks, type Database } from "@helm/db";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
-  if (!value || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
-    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
-    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
-    else out[k] = redact(v);
-  }
-  return out;
-}
+function redact(value: unknown): unknown { return redactSensitive(value); }
 
 export function eventRoutes(db: Database) {
   const app = new Hono<AppEnv>();
