@@ -2016,3 +2016,11 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Tracker**: CURRENT_STATE.md P2 description now references documented narrowed resume semantics.
 - **Commit**: 18d03e5 (docs(p2): clarify narrowed resume replay semantics).
 - **Impact**: P2 remains 90%; overall 81.9% (documentation clarity, no runtime capability change).
+## 2026-11-26 - P5 deterministic reconciliation/temporal contract hardening
+
+- **P5 route contracts**: Added `backend/api/src/routes/reconciliation.test.ts` (7/7) covering status/counts/policy/temporal schedule shape, user-scope run, scope=all dev-only guard, dry-run no-mutation, and schedule/ensure dev-only guard + success path. No route behavior change; deterministic mocked DB/temporal/reconciliation service.
+- **P5 reconciliation service unit tests**: Added `backend/api/src/lib/reconciliation.test.ts` (6/6) proving DB-canonical lookup-first/no-blind-retry behavior: lookup not found keeps uncertain and records attempt only; executed lookup marks receipt executed with audit/task event/feedback; lookup fault injection records error and keeps uncertain; lookup_not_found injection skips; unsupported action kind skipped; calendar delete reconciled only when lookup proves absence.
+- **P5 temporal stub-mode contracts**: Added `backend/api/src/lib/temporal.test.ts` (6/6) for schedule disabled/flag gates, stub create-then-update idempotent schedule, schedule status missing/active, external workflow disabled routing, and idempotency-derived workflow dedupe with approval signal accumulation. No real Temporal server used.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS.
+- **Impact**: P5 68% -> 70%; overall 81.9% -> 82.1% (equal-weight). Deterministic contract coverage only; not real Temporal schedule/monitor/fault-injection E2E depth and not real-provider no-duplicate proof.
+- **Remaining P5 gap**: real-provider no-duplicate proof, broader real Temporal schedule/monitor/fault-injection depth, retry-policy/operator runbook depth; keep DB worker fallback/default until fully verified.

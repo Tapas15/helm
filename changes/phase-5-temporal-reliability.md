@@ -40,8 +40,14 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 - [ ] Disable-flag rollback proof in live/staging-like config.
 - [ ] Keep DB worker as default/fallback until Temporal path fully verified.
 
+### Added 2026-11-26 (local P5 contract hardening, no real Temporal/provider sandbox)
+- [x] P5 contract tests (stubbed/deterministic): `backend/api/src/routes/reconciliation.test.ts` covers status/counts/policy/schedule, user-scope run, scope=all dev guard, dry-run no-mutation, schedule ensure dev guard + success.
+- [x] P5 reconciliation service unit tests: `backend/api/src/lib/reconciliation.test.ts` proves lookup-not-found keeps uncertain (no blind retry), executed lookup writes audit/event/feedback, lookup fault injection does not auto-fail, lookup_not_found injection skips, unsupported kinds skipped, calendar delete reconciled only on absence proof.
+- [x] P5 temporal lib stub-mode contracts: `backend/api/src/lib/temporal.test.ts` covers schedule disable/flag gates, create-then-update idempotent schedule stub, schedule status missing/active, external workflow disabled routing, idempotency-derived workflow dedupe and approval signal accumulation.
+
 ## Evidence
 - P5-B/C/D: pnpm --filter @helm/shared typecheck PASS; pnpm --filter @helm/temporal-worker typecheck PASS; pnpm --filter @helm/api typecheck PASS.
+- 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS. Covers P5 reconciliation route contracts, reconciliation no-blind-retry/fault-injection unit behavior, and temporal stub schedule/workflow dedupe contracts. Not real Temporal schedule/monitor/fault-injection E2E and not real-provider no-duplicate proof.
 - 2026-11-24 (local): pnpm -C packages/shared test PASS (8 files, 28 tests) after centralizing Temporal external-write/non-retryable policy; pnpm -C backend/temporal-worker typecheck PASS.
 - Env-gated: 	emporal-routing-api PASS (1/1), 	emporal-e2e PASS (1/1), 	emporal-side-effect-e2e PASS (1/1), 	emporal-rollback-e2e PASS (1/1), econciliation-api PASS (10/10).
 - 2026-11-24: 8471aef, CI 45441229198 green.
