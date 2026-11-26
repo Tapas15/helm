@@ -2066,3 +2066,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS.
 - **Impact**: P5 77% -> 78%; overall 82.9% -> 83.0% (equal-weight P0-P8). Deterministic contract hardening only.
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation run route boundary contracts
+
+- **Scope**: Added `backend/api/src/routes/reconciliation.run.test.ts` (2/2). Deterministic route-boundary contracts; no provider writes/real Temporal.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.run.test.ts src/routes/reconciliation.schedule.test.ts src/lib/reconciliation.test.ts` PASS 13/13; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: repeated scheduled-style `POST /run` invocations pass stable scoped args to reconciliation service and return DB-canonical summaries; repeated `POST /dry-run` remains read-only (no mutator call).
+- **Impact**: P5 78% -> 79%; overall 83.0% -> 83.1% (equal-weight P0-P8).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
