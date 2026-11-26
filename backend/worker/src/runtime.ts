@@ -135,6 +135,14 @@ export function buildSystemPrompt(input: AgentRuntimeInput): string {
   const persona = String(ctx.persona ?? "You are Helm, a personal AI operator.");
   const facts = Array.isArray(ctx.memoryFacts) ? ctx.memoryFacts.slice(-8).map((f: any) => `- ${String(f)}`).join("\n") : "";
   const browser = ctx.activeBrowserSessionId ? `Active browser session: ${ctx.activeBrowserSessionId}.` : "No active browser session.";
+  const resumePlan = ctx.runtimeResumePlan && typeof ctx.runtimeResumePlan === "object" ? ctx.runtimeResumePlan as any : null;
+  const resume = resumePlan ? (() => {
+    const boundary = typeof resumePlan.lastSafeBoundary === "string" ? resumePlan.lastSafeBoundary : "unknown";
+    const refs = Array.isArray(resumePlan.completedToolRefs) ? resumePlan.completedToolRefs.slice(-8).map((r: any) => String(r?.name ?? "unknown")).filter(Boolean) : [];
+    const hashes = Array.isArray(resumePlan.completedActionHashes) ? resumePlan.completedActionHashes.slice(-8).map(String) : [];
+    const pending = resumePlan.pendingApproval?.actionHash ? String(resumePlan.pendingApproval.actionHash) : "";
+    return `Resume checkpoint: boundary=${boundary}. Completed tool refs: ${refs.length ? refs.join(", ") : "none"}. Completed side-effect actionHashes: ${hashes.length ? hashes.join(", ") : "none"}.${pending ? ` Pending approval actionHash: ${pending}.` : ""} Do not repeat completed side-effect actions; continue from the last safe boundary.`;
+  })() : "";
   const guardrails = [
     "Answer directly when no tool is required; do not use browser tools for normal questions.",
     "Only use browser tools when the user asks to browse/navigate/click/snapshot or an active browser session is relevant.",
@@ -143,7 +151,7 @@ export function buildSystemPrompt(input: AgentRuntimeInput): string {
     "For browser_click or any high-risk side effect, do not execute unless explicit approvalId, actionHash, and idempotencyKey are provided in context; otherwise explain that approval is required.",
     "Never claim an external action executed without a receipt.",
   ].join(" ");
-  return `${persona}\n${guardrails}\n${browser}${facts ? `\nRelevant memory:\n${facts}` : ""}`;
+  return `${persona}\n${guardrails}\n${browser}${facts ? `\nRelevant memory:\n${facts}` : ""}${resume ? `\n${resume}` : ""}`;
 }
 
 export function historyMessages(input: AgentRuntimeInput): ChatMsg[] {

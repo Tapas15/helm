@@ -23,11 +23,13 @@ describe("runtime helpers", () => {
     expect(shouldExposeBrowserTools({ ...baseInput, prompt: "open browser and navigate" })).toBe(true);
     expect(shouldExposeBrowserTools({ ...baseInput, context: { activeBrowserSessionId: "s1" } })).toBe(true);
   });
-  it("system prompt includes guardrails and memory/session context", () => {
-    const p = buildSystemPrompt({ ...baseInput, context: { activeBrowserSessionId: "s1", memoryFacts: ["likes tea"] } });
-    expect(p).toContain("Active browser session: s1");
-    expect(p).toContain("likes tea");
-    expect(p).toContain("Do not invent tool results");
+  it("system prompt includes resume checkpoint summary", () => {
+    const p = buildSystemPrompt({ ...baseInput, context: { activeBrowserSessionId: "s1", runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 1 }], completedActionHashes: ["ah1"] } } });
+    expect(p).toContain("Resume checkpoint");
+    expect(p).toContain("boundary=runtime.tool.completed");
+    expect(p).toContain("browser_snapshot");
+    expect(p).toContain("ah1");
+    expect(p).toContain("Do not repeat completed side-effect actions");
   });
   it("normalizes missing browser sessionId from active context", () => {
     expect(normalizeBrowserToolArgs({ url: "https://example.com" }, "s1")).toEqual({ ok: true, args: { url: "https://example.com", sessionId: "s1" } });
