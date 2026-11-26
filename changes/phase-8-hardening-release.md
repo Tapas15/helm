@@ -1,6 +1,6 @@
-﻿# Phase 8 - Hardening / Release
+# Phase 8 - Hardening / Release
 
-**Status:** `[~]` 43%  
+**Status:** `[~]` 46%  
 **Blueprint refs:** Phase 8, `12-Testing-Observability-and-Release.md`
 
 ## Goal
@@ -12,6 +12,7 @@ Production readiness: security, reliability, observability, backup/restore/expor
 - **Backup/restore**: Scripts `scripts/backup-db.ps1`, `scripts/restore-db.ps1` hardened (SHA256 checksum, restore `-Force`, scope warnings). Dry-run evidence in `changes/P8-backup-restore-dry-run.md` (backup `backups/helm-20261124-161337.dump`, restore to temp `helm_restore_test`, `pg_restore` exit 0, 17 tables verified, temp DB dropped, `helm` untouched).
 - **Data controls**: Task export endpoints capped by `HELM_TASK_EXPORT_MAX`; delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`, transactional delete + audit. Env-gated `task-export-delete-api` PASS (1/1).
 - **P8 docs/evidence**: Hardening/security/privacy/threat-model/PII/backup-runbook/release-evidence/dependency-audit docs refreshed 2026-11-26 with explicit blockers and safe next slices.
+- **Security scan workflow (draft, report-only)**: `.github/workflows/security-scan.yml` adds scheduled/manual dependency audit + CodeQL security-extended; `continue-on-error` / no gating; container/secrets scans pending security/ops decision.
 
 ## Checklist
 
@@ -27,7 +28,7 @@ Production readiness: security, reliability, observability, backup/restore/expor
 
 ### Remaining / Blocked
 - [ ] Full backup/restore drill including artifacts/vault-key scope, encrypted/retention/scheduled verification. **Blocked:** ops/manual evidence.
-- [ ] CI security scan triage/gating decisions (dependency audit report-only; no SAST/secrets/container gating). **Blocked:** product/security decision.
+- [ ] CI security scan triage/gating decisions (dependency audit report-only; CodeQL report-only workflow drafted 2026-11-26; no SAST/secrets/container gating). **Blocked:** product/security decision.
 - [ ] Formal STRIDE/threat-model execution/signoff and incident/key-rotation runbook. **Blocked:** manual security review.
 - [ ] PII retention/export/delete policy + implementation beyond task scaffold; artifact PII classification/redaction; privacy notice. **Blocked:** product/legal/privacy decision.
 - [ ] Compliance/provenance/Dubai submission signoff; third-party notices refresh on dep changes. **Blocked:** legal/submission decisions.

@@ -1,15 +1,16 @@
-﻿# P8 Dependency Audit Triage
+# P8 Dependency Audit Triage
 
 **Date:** 2026-11-26 (baseline refreshed; prior run 2026-11-24)  
 **Command:** `pnpm audit --audit-level=high`  
-**CI:** report-only (`continue-on-error: true`) in `.github/workflows/ci.yml`.
+**CI:** report-only in `.github/workflows/ci.yml` (`continue-on-error: true`). Scheduled/manual report-only scan workflow: `.github/workflows/security-scan.yml` (dependency audit + CodeQL security-extended; no gating).
 
 ## Policy
 - CI keeps report-only audit until high/critical runtime-path vulns are triaged/fixed or explicitly accepted by security/product decision.
 - No blind major bumps. Patch/minor dependency fixes go in a dedicated change with lint/typecheck/test/build evidence.
 - Re-run after dependency refresh and update this file with date, counts, affected paths, and disposition.
+- Container/secrets scanning (Trivy/Gitleaks) remains pending security/ops tool decision; add report-only before any gating.
 
-## Known Findings (2026-11-24 baseline)
+## Known Findings (2026-11-24 baseline; refresh command after lockfile change)
 | Package | Severity | Advisory | Path | Helm exposure | Action |
 |---|---|---|---|---|---|
 | `flatted <3.4.0` | High | GHSA-rf6f-7fwh-wjgh (unbounded recursion DoS in parse) | dev/tooling (`eslint>file-entry-cache>flat-cache>flatted`) | Dev/lint only, not runtime | Accept temporarily; bump eslint chain in scheduled deps update; keep report-only. |
@@ -21,4 +22,4 @@
 ## Gating Decision (pending)
 - [ ] Decide whether CI should fail on high/critical runtime-path vulnerabilities.
 - [ ] Decide remediation SLA/cadence for dev-only vs runtime-path findings.
-- [ ] Add SAST/secrets/container scan tooling and triage ownership.
+- [ ] Add SAST/secrets/container scan tooling and triage ownership (CodeQL report-only workflow drafted 2026-11-26; Trivy/Gitleaks pending decision).

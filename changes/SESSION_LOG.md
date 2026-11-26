@@ -2205,3 +2205,22 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Recorded comparison/deviations/gaps in `changes/P6-browseros-real-browser-evidence.md`; marked automated parity baseline partial complete; manual live takeover UI checklist still owner-required.
 - Updated `changes/P6-browseros-security-signoff-draft.md` with explicit deployment decisions (non-loopback, CI gate A/B/C, dispatch keep OFF) and signoff table.
 - Updated `changes/phase-6-browseros-upgrade.md` and `changes/CURRENT_STATE.md` with owner decision requirements. No runtime/default-dispatch changes. P6 remains 66%.
+## 2026-11-26T11:20:00Z - P8 easy hardening docs/workflow slice (local)
+
+**Agent:** Kilo (Glyph Cluster)  
+**Request:** "from p0 to p8 what you can sovle easy one ... i do not get it what it means ... ok go now"
+
+### Scope (self-doable, low risk, no runtime behavior change)
+- Drafted report-only security scan workflow: `.github/workflows/security-scan.yml` (scheduled/manual; dependency audit + CodeQL security-extended; `continue-on-error`; no gating; container/secrets scans pending security/ops decision).
+- Refreshed P8 docs: `changes/P8-dependency-audit-triage.md`, `changes/P8-backup-restore-dry-run.md` (safe dry-run checklist), `changes/P8-hardening-checklist.md`, `changes/phase-8-hardening-release.md`, `changes/CURRENT_STATE.md` (P8 45%->46%, overall 83.2%->83.3%).
+- No app/runtime code changed; no destructive backup/restore executed.
+
+### Evidence
+- Workflow YAML syntax sanity: `Get-Content .github/workflows/security-scan.yml` reviewed (GitHub Actions schema-level manual check; no local workflow runner).
+- File evidence: new workflow + doc diffs staged.
+- No tests/typecheck required (docs/workflow only); CI not watched.
+
+### Remaining P8 blockers (unchanged)
+- Full backup/restore drill incl. artifacts/vault-key scope, encrypted storage/retention/access/scheduled verification (ops/manual).
+- Scan gating/SAST/secrets/container decisions (security/ops).
+- Formal STRIDE/threat-model signoff, PII policy/impl/legal/privacy, compliance/provenance/Dubai signoff (manual/legal).

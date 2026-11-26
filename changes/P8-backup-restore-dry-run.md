@@ -1,7 +1,31 @@
-﻿# P8 Backup/Restore Dry Run
+# P8 Backup/Restore Dry Run
 
-**Date:** 2026-11-24  
+**Date:** 2026-11-24 (evidence), 2026-11-26 (checklist refresh)  
 **Mode:** Non-destructive dry-run. Backup created from `infra-postgres-1`; restore tested into temporary DB `helm_restore_test`; temp DB dropped. Production/dev DB `helm` was not overwritten.
+
+## Safe Dry-Run Checklist (operator)
+
+Preconditions:
+- [ ] Confirm target is scratch DB/container, never production DB without explicit approved maintenance window.
+- [ ] Stop API/worker/browser-worker writers or confirm isolated scratch restore target.
+- [ ] Ensure disk space for dump + checksum.
+- [ ] Confirm vault keys available separately (`HELM_VAULT_MASTER_KEY`/`ENCRYPTION_KEY`); dump does not include them.
+
+Backup:
+- [ ] Run `./scripts/backup-db.ps1 -OutDir backups -Container infra-postgres-1 -Db helm -User postgres`
+- [ ] Verify checksum file exists (`.sha256`) and `Get-FileHash -Algorithm SHA256 <dump>` matches.
+- [ ] Record dump name, size, SHA256, timestamp, operator.
+
+Restore to scratch DB only:
+- [ ] `docker exec infra-postgres-1 psql -U postgres -c "DROP DATABASE IF EXISTS helm_restore_test;"`
+- [ ] `docker exec infra-postgres-1 psql -U postgres -c "CREATE DATABASE helm_restore_test;"`
+- [ ] `pwsh -File scripts/restore-db.ps1 -DumpFile <dump> -Container infra-postgres-1 -Db helm_restore_test -User postgres -Force`
+- [ ] Verify table count / critical tables / recent rows as appropriate.
+- [ ] `docker exec infra-postgres-1 psql -U postgres -c "DROP DATABASE IF EXISTS helm_restore_test;"`
+
+Evidence to capture:
+- [ ] Command log, exit codes, dump SHA256, restored object counts, temp DB cleanup confirmation.
+- [ ] Scope statement: DB only; artifacts/state dirs and vault keys not included.
 
 ## Commands
 ```powershell
