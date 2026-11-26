@@ -1893,3 +1893,27 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
 - [ ] Runtime eval depth under real providers/browser/connectors.
 - [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
+## 2026-11-26 - P2 runtime checkpoint resumePlan scaffolding
+**Time:** 2026-11-26T03:50:00Z
+**Agent:** Kilo
+**Phase:** P2 Agent Runtime
+
+### Completed
+- [x] Extended `RuntimeCheckpoint` with bounded `resumePlan` (version, lastSafeBoundary, pendingApproval, completedToolRefs max 20).
+- [x] Worker persists resumePlan in checkpoint/state and passes `runtimeResumePlan` into runtime context on each run.
+- [x] Updated deterministic checkpoint tests for resumePlan fields.
+- [x] Updated docs: `changes/phase-2-hermes-runtime.md` (P2 79%->80%), `changes/CURRENT_STATE.md` (overall 80.7%->80.8%).
+
+### Evidence
+- `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts --reporter=verbose` PASS (4/4).
+- `pnpm -C backend/worker typecheck` PASS.
+- `pnpm -C backend/worker lint` PASS.
+- Commit: `ca1fe99` (`feat(p2): add runtime checkpoint resume plan scaffolding`).
+
+### Remaining / Blocked
+- [ ] Durable resume-from-checkpoint execution/replay semantics (actual runtime step replay using resumePlan; no duplicate side effects). **Partial.**
+- [ ] Live E2E runtime validation across real browser+connector flows. **Blocked:** real env/credentials/smoke.
+- [ ] Integration-driven behavior tweaks and production/model-provider behavior evidence. **Blocked:** real runs/providers.
+- [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
+- [ ] Runtime eval depth under real providers/browser/connectors.
+- [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
