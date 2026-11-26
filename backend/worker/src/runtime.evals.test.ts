@@ -42,40 +42,49 @@ describe("runtime deterministic eval harness", () => {
     process.env.HELM_MODEL = "llama3.2:latest";
     process.env.OLLAMA_BASE_URL = "http://127.0.0.1:11434";
     globalThis.fetch = async (input: any, init?: any) => {
-      const url = String(input);
-      calls.push(url);
+      const url = String(input); calls.push(url);
       if (url.includes("/chat/completions")) {
         const body = JSON.parse(String(init?.body ?? "{}"));
-        const msgs = body.messages ?? [];
-        const hasToolResult = msgs.some((m: any) => m?.role === "tool");
-        if (!hasToolResult) {
-          const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "browser_click", arguments: JSON.stringify({ sessionId: "s1", selector: "#buy", approvalId: "apr1", actionHash: "ah_done", idempotencyKey: "ik1" }) } }] } }] }) + '\n\n' + 'data: [DONE]\n\n';
-          return new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } });
-        }
-        const sse = 'data: ' + JSON.stringify({ choices: [{ delta: { content: "done" } }] }) + '\n\n' + 'data: [DONE]\n\n';
+        const hasToolResult = (body.messages ?? []).some((m: any) => m?.role === "tool");
+        const sse = hasToolResult
+          ? 'data: ' + JSON.stringify({ choices: [{ delta: { content: "done" } }] }) + '\n\n' + 'data: [DONE]\n\n'
+          : 'data: ' + JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "browser_click", arguments: JSON.stringify({ sessionId: "s1", selector: "#buy", approvalId: "apr1", actionHash: "ah_done", idempotencyKey: "ik1" }) } }] } }] }) + '\n\n' + 'data: [DONE]\n\n';
         return new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } });
       }
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
     };
     try {
-      const events = await collect(new HelmNativeRuntime(), {
-        ...base,
-        kind: "assistant",
-        prompt: "open browser and click buy",
-        context: {
-          activeBrowserSessionId: "s1",
-          approvedActionKinds: ["external.high_risk"],
-          approvedActionHashes: ["ah_done"],
-          runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_click", eventSeq: 1, actionHash: "ah_done", idempotencyKey: "ik_old" }], completedActionHashes: ["ah_done"] },
-          modelOverride: { provider: "ollama", model: "llama3.2:latest" },
-        },
-      } as any);
+      const events = await collect(new HelmNativeRuntime(), { ...base, kind: "assistant", prompt: "open browser and click buy", context: { activeBrowserSessionId: "s1", approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah_done"], runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_click", eventSeq: 1, actionHash: "ah_done", idempotencyKey: "ik_old" }], completedActionHashes: ["ah_done"] }, modelOverride: { provider: "ollama", model: "llama3.2:latest" } } } as any);
       expect(events.some((e) => e.type === "runtime.tool.deduped" && (e.payload as any)?.actionHash === "ah_done")).toBe(true);
       expect(calls.some((u) => u.includes("/v1/browser/sessions/s1/click"))).toBe(false);
       expect((events.at(-1)?.payload as any)?.status).toBe("succeeded");
-    } finally {
-      globalThis.fetch = originalFetch;
-      process.env = prev;
-    }
+    } finally { globalThis.fetch = originalFetch; process.env = prev; }
+  });
+
+  it("resume dedupe: duplicate read-only tool call emits runtime.tool.deduped and does not dispatch tool (streamChat path)", async () => {
+    const calls: string[] = [];
+    const originalFetch = globalThis.fetch;
+    const prev = { ...process.env };
+    process.env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST = "llama3.2:latest";
+    process.env.HELM_MODEL = "llama3.2:latest";
+    process.env.OLLAMA_BASE_URL = "http://127.0.0.1:11434";
+    globalThis.fetch = async (input: any, init?: any) => {
+      const url = String(input); calls.push(url);
+      if (url.includes("/chat/completions")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const hasToolResult = (body.messages ?? []).some((m: any) => m?.role === "tool");
+        const sse = hasToolResult
+          ? 'data: ' + JSON.stringify({ choices: [{ delta: { content: "done" } }] }) + '\n\n' + 'data: [DONE]\n\n'
+          : 'data: ' + JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "browser_snapshot", arguments: JSON.stringify({ sessionId: "s1" }) } }] } }] }) + '\n\n' + 'data: [DONE]\n\n';
+        return new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+    try {
+      const events = await collect(new HelmNativeRuntime(), { ...base, kind: "assistant", prompt: "open browser and snapshot page", context: { activeBrowserSessionId: "s1", runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 1, argsKey: JSON.stringify({ sessionId: "s1" }) }], completedActionHashes: [] }, modelOverride: { provider: "ollama", model: "llama3.2:latest" } } } as any);
+      expect(events.some((e) => e.type === "runtime.tool.deduped" && (e.payload as any)?.reason === "resume_plan_completed_read_tool")).toBe(true);
+      expect(calls.some((u) => u.includes("/v1/browser/sessions/s1/snapshot"))).toBe(false);
+      expect((events.at(-1)?.payload as any)?.status).toBe("succeeded");
+    } finally { globalThis.fetch = originalFetch; process.env = prev; }
   });
 });
