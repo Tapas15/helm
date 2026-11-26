@@ -22,9 +22,9 @@
 
 ## Reconciliation / Uncertain Outcomes
 - 5xx/429/503/network unknowns may produce `status=uncertain`; do **not** blindly retry.
-- Dry-run: `POST /v1/reconciliation/dry-run` (no mutation).
-- Run: `POST /v1/reconciliation/run` (user-scoped default; `scope=all` requires `HELM_ALLOW_DEV_AUTH=1`).
-- Auto scheduler (API process): `HELM_RECONCILIATION_ENABLED=1` + interval/olderThan/limit envs.
+- Dry-run: `POST /v1/reconciliation/dry-run` (no mutation, DB-canonical candidate listing). Available as explicit operator path; does not require auto scheduler.
+- Run: `POST /v1/reconciliation/run` (user-scoped default; `scope=all` requires `HELM_ALLOW_DEV_AUTH=1`). Explicit operator-invoked lookup-first path; does not blindly retry external writes.
+- Auto scheduler (API process): `HELM_RECONCILIATION_ENABLED=1` + interval/olderThan/limit envs. `enabled=false` means auto scheduler disabled; status still reports DB-canonical counts/policy and explicit operator dry-run/run remain available by contract.
 - Temporal schedule: `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ENABLED=1`; use `/v1/reconciliation/schedule/ensure` in dev/internal mode only.
 - Fault injection (test/dev only): `HELM_RECONCILIATION_FAULT_INJECT=lookup_error|lookup_not_found|activity_error`; must preserve no-blind-retry.
 
@@ -40,4 +40,5 @@ Collect before claiming readiness; this is **not** real-env closure proof.
 - Deterministic contracts (local): shared temporal config 9/9; API reconciliation/temporal contracts (repeated-run/fault-injection/run-shape/schedule-shape/scope-safety) PASS; temporal-worker workflows/activities 15/15 incl. single-call no-blind-retry uncertain assertions; API routing fail-closed/bypass/rollback 28/28 targeted.
 - Env-gated integration: `HELM_TEMPORAL_ROUTING_TEST=1`, `HELM_TEMPORAL_E2E=1`, `HELM_TEMPORAL_SIDE_EFFECT_E2E=1`, `HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1`, `HELM_RECONCILIATION_API_TEST=1`.
 - Blocked for closure: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging disable-flag rollback proof.
+
 

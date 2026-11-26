@@ -2136,3 +2136,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: `GET /status` reports `enabled=false` while retaining DB-canonical counts/policy when `HELM_RECONCILIATION_ENABLED=0`; explicit operator `POST /run` remains lookup-first scoped path.
 - **Impact**: P5 remains 80%; overall 83.2% (operator semantics clarity, no real-env closure).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation disabled dry-run/operator semantics
+
+- **Scope**: Hardened `backend/api/src/routes/reconciliation.test.ts` (12/12); clarified `changes/RUNBOOK-temporal.md` auto-scheduler disabled vs explicit operator dry-run/run availability.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 12/12; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: when `HELM_RECONCILIATION_ENABLED=0`, status reports disabled with DB-canonical counts/policy; explicit operator dry-run remains read-only candidate listing and run remains lookup-first scoped path (no blind retry).
+- **Impact**: P5 remains 80%; overall 83.2% (operator semantics clarity).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.

@@ -181,7 +181,18 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(body.ok).toBe(true);
     expect(reconciliation.reconcileUncertainReceipts).toHaveBeenCalledWith(expect.anything(), { limit: undefined, olderThanMs: 0, userId: "usr_1" });
   });
+
+  it("POST /dry-run remains read-only DB-canonical candidate listing when HELM_RECONCILIATION_ENABLED=0", async () => {
+    process.env.HELM_RECONCILIATION_ENABLED = "0";
+    const res = await makeApp(makeDb(), "usr_1").request("/v1/reconciliation/dry-run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ olderThanMs: 0, limit: 10 }) });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body).toMatchObject({ ok: true, dryRun: true, scanned: 1 });
+    expect(body.candidates).toHaveLength(1);
+    expect(reconciliation.reconcileUncertainReceipts).not.toHaveBeenCalled();
+  });
 });
+
 
 
 
