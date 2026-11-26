@@ -23,6 +23,15 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
     return c;
   };
 
+  const updateChain = (v: any) => {
+    const apply = () => { Object.assign(task, v); return [task]; };
+    const whereObj: any = {
+      returning: async () => apply(),
+      then: (resolve: any, reject: any) => Promise.resolve(apply()).then(resolve, reject),
+    };
+    return { where: () => whereObj };
+  };
+
   const db: any = {
     insertedEvents, insertedApprovals, insertedAudit, feedbackRows,
     select: () => ({ from: (table: unknown) => selectChain(table) }),
@@ -35,19 +44,24 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
         return { onConflictDoNothing: async () => undefined, returning: async () => [v] };
       },
     }),
-    update: () => ({ set: (v: any) => ({ where: async () => { Object.assign(task, v); return [task]; }, returning: async () => { Object.assign(task, v); return [task]; } }) }),
+    update: () => ({ set: (v: any) => updateChain(v) }),
   };
   return { db, task };
 }
 
 describe("processTask checkpoint resume/dedupe", () => {
-  it("emits runtime.checkpoint.resumed when non-terminal checkpoint exists", async () => {
+  it("emits runtime.checkpoint.resumed with resumePlan and passes context", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.planning", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running" };
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.planning", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.planning", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 2 }] } };
+    let seenResumePlan: any = undefined;
     const { db, task } = makeDb({ checkpoint });
-    const runtime = { run: async function* () { yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    const runtime = { run: async function* (input: any) { seenResumePlan = input?.context?.runtimeResumePlan; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
-    expect(db.insertedEvents.some((e: any) => e.type === "runtime.checkpoint.resumed")).toBe(true);
+    const resumed = db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resumed");
+    expect(resumed).toBeTruthy();
+    expect(resumed.payload?.resumePlan?.lastSafeBoundary).toBe("runtime.planning");
+    expect(seenResumePlan?.completedToolRefs?.[0]?.name).toBe("browser_snapshot");
+    expect(task.status).toBe("succeeded");
   });
 
   it("dedupes approval request when same actionHash already pending", async () => {
@@ -84,5 +98,6 @@ describe("processTask checkpoint resume/dedupe", () => {
     const runtime = { run: async function* () { ran = true; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
     expect(ran).toBe(true);
+    expect(task.status).toBe("succeeded");
   });
 });
