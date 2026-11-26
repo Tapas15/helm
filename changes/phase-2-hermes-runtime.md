@@ -1,6 +1,6 @@
 # Phase 2 - Agent Runtime (Helm-native, Hermes-like capabilities)
 
-**Status:** `[~]` 78%  
+**Status:** `[~]` 79%  
 **Blueprint refs:** Phase 2, `05-Hermes-Agent-Runtime.md`
 
 ## Goal
@@ -33,8 +33,8 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [x] Shared model routing policy (`runtime-policy.ts`): local-default/override/fallback routing, sensitivity warning for non-local provider, tool-capability allowlist decision, policy exposed via runtime config/validate and worker runtime events.
 - [x] Deterministic runtime eval harness: approval correctness, tool-policy reliability, interrupted->cancelled recovery semantics (`runtime.evals.test.ts`).
 - [x] Hermes sidecar adapter contract skeleton (fail-closed, no Hermes code copied) + contract test (`hermes-runtime-adapter.ts/.test.ts`).
-- [x] Runtime checkpoint scaffolding: worker derives/persists `runtimeCheckpoint` (task.checkpoint + `state.runtimeCheckpoint`) at safe boundaries (planning/tool-completed/approval/takeover/completed/failed/interrupted) for recovery scaffolding; deterministic checkpoint tests added.
-- [x] Worker tests: `backend/worker/src/runtime.test.ts`, `runtime.behavior.test.ts`, `runtime.evals.test.ts`, `hermes-runtime-adapter.test.ts`, `runtime-checkpoint.test.ts` PASS.
+- [x] Runtime checkpoint scaffolding + resume guard: worker derives/persists `runtimeCheckpoint` (task.checkpoint + `state.runtimeCheckpoint`) at safe boundaries; emits `runtime.checkpoint.resumed` for non-terminal checkpoints; dedupes approval proposals by existing actionHash/executed receipt before re-requesting.
+- [x] Worker tests: `backend/worker/src/runtime.test.ts`, `runtime.behavior.test.ts`, `runtime.evals.test.ts`, `hermes-runtime-adapter.test.ts`, `runtime-checkpoint.test.ts`, `process-task.checkpoint.test.ts`, `process-task.feedback.test.ts` PASS.
 - [x] Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
 
 ### Remaining / Blocked
@@ -42,15 +42,16 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [ ] Integration-driven behavior tweaks from real runs.
 - [ ] Production/model-provider behavior evidence.
 - [ ] Richer provider/model routing policy depth (cost-aware routing, persisted selection UX polish, enforced sensitive-egress policy gates). **Partially started:** shared policy decision + warnings wired.
-- [ ] Interrupt/resume/checkpoint semantics for long-running runs. **Partial:** checkpoint scaffolding persisted in task checkpoint/state; interrupted->cancelled eval covered; durable resume-from-checkpoint execution path not yet implemented.
+- [ ] Interrupt/resume/checkpoint semantics for long-running runs. **Partial:** checkpoint persisted, non-terminal resume event emitted, approval dedupe guard added; durable resume-from-checkpoint execution/replay semantics still not implemented.
 - [ ] Runtime evals depth: real tool-calling reliability, approval correctness/recovery under real providers/browser/connectors. **Partially started:** deterministic harness added.
 - [ ] Optional Hermes sidecar adapter live integration implementing same `AgentRuntime` contract against real Hermes runtime (no Hermes code copied). **Partially started:** fail-closed skeleton + contract test added.
 
 ## Evidence
+- `pnpm -C packages/shared build` PASS.
 - `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7).
 - `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts --reporter=verbose` PASS (11/11).
 - `pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts src/hermes-runtime-adapter.test.ts --reporter=verbose` PASS (5/5).
-- `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts --reporter=verbose` PASS (3/3).
+- `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose` PASS (8/8).
 - `pnpm -C backend/api exec vitest run src/routes/runtime.test.ts --reporter=verbose` PASS (3/3).
 - `pnpm -C packages/shared typecheck` PASS; `pnpm -C backend/worker typecheck` PASS; `pnpm -C backend/api typecheck` PASS.
 - `pnpm -C backend/worker lint` PASS; `pnpm -C backend/api lint` PASS (0 errors, 7 pre-existing warnings).
