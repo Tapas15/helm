@@ -34,7 +34,7 @@ export function reconciliationRoutes(db: Database) {
       counts: counts ?? { uncertain: 0, executed: 0, failed: 0 },
       recentUncertain: recent.map((r) => {
         const evidence = (r.evidence as Record<string, unknown> | null) ?? {};
-        return { id: r.id, actionKind: r.actionKind, createdAt: r.createdAt, lastReconcileAttemptAt: redactValue(evidence.lastReconcileAttemptAt, "lastReconcileAttemptAt"), lastReconcileReason: redactValue(evidence.lastReconcileReason, "lastReconcileReason") };
+        return { id: r.id, actionKind: r.actionKind, createdAt: r.createdAt, lastReconcileAttemptAt: redactValue(evidence.lastReconcileAttemptAt), lastReconcileReason: redactValue(evidence.lastReconcileReason) };
       }),
     });
   });

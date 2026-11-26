@@ -146,7 +146,7 @@ export function browserRoutes(db: Database) {
 
   app.get("/adapter/status", (c) => c.json({ ok: true, adapter: browserAdapter.kind, dispatchEnabled: browserAdapterEnabled }));
 
-  async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = maybeRedactJsonResponse(await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) })); const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType }); }
+  async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = maybeRedactJsonResponse(await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) })); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); }
   async function guardedAct(c: any, schema: any, action: string, path: string) {
     const body = await c.req.json().catch(() => ({}));
     const base = schema.safeParse(body);
