@@ -1984,3 +1984,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.evals.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 20/20; pnpm -C backend/worker typecheck PASS.
 - **Commit**: 75cfe92 (eat(p2): add resume checkpoint context to runtime prompt).
 - **Remaining**: Still partial for durable replay/resume execution - prompt/context reduces repeated work but does not guarantee step-level replay/skip across arbitrary model decisions; deterministic no-duplicate dispatch guardrails remain in place.
+## 2026-11-26 - P2 read-only resume dedupe by argsKey
+
+- **Checkpoint/runtime dedupe**: Added bounded rgsKey to completed tool refs. Runtime tool policy now denies duplicate read-only (non-approval) tool calls when same name+argsKey already exists in resumePlan; emits untime.tool.deduped with reason esume_plan_completed_read_tool and no dispatch. Side-effect actionHash dedupe unchanged.
+- **Tests**: Updated checkpoint/runtime tests for argsKey capture and read-only dedupe.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.evals.test.ts --reporter=verbose PASS 20/20; pnpm -C backend/worker typecheck PASS.
+- **Commit**: 33a9a7c (eat(p2): dedupe resumed read-only tool calls by argsKey).
+- **Remaining**: Still not full replay engine; deterministic dedupe covers known completed actionHashes and identical read-only tool args. Arbitrary step-level replay/skip across model decisions remains partial.
