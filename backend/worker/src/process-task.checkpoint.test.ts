@@ -62,6 +62,8 @@ describe("processTask checkpoint resume/dedupe", () => {
     const resumed = db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resumed");
     expect(resumed).toBeTruthy();
     expect(resumed.payload?.resumePlan?.lastSafeBoundary).toBe("runtime.planning");
+    const applied = db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resume_plan_applied");
+    expect(applied?.payload?.completedToolRefs).toBe(1);
     expect(seenResumePlan?.completedToolRefs?.[0]?.name).toBe("browser_snapshot");
     expect(task.status).toBe("succeeded");
   });

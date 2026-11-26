@@ -8,6 +8,7 @@ export const AgentRuntimeEventType = z.enum([
   "runtime.started",
   "runtime.planning",
   "runtime.checkpoint.resumed",
+  "runtime.checkpoint.resume_plan_applied",
   "runtime.tool.proposed",
   "runtime.approval.requested",
   "runtime.approval.resolved",

@@ -72,6 +72,18 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     };
     runtimeEvents.push(resumeEvt);
     await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
+    const plan = checkpoint.resumePlan;
+    if (plan) {
+      const appliedEvt: AgentRuntimeEvent = {
+        type: "runtime.checkpoint.resume_plan_applied",
+        ts: now().toISOString(),
+        trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
+        message: "Applied runtime resume plan guardrails",
+        payload: { lastSafeBoundary: plan.lastSafeBoundary ?? null, completedToolRefs: Array.isArray(plan.completedToolRefs) ? plan.completedToolRefs.length : 0, completedActionHashes: Array.isArray(plan.completedActionHashes) ? plan.completedActionHashes.length : 0, pendingApproval: plan.pendingApproval?.actionHash ?? null },
+      };
+      runtimeEvents.push(appliedEvt);
+      await insertEvent(db, task.id, task.userId, runId, appliedEvt.type, correlationId, task.id, { ...appliedEvt.payload, message: appliedEvt.message, ts: appliedEvt.ts, trace: appliedEvt.trace });
+    }
     await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resume persist failed"));
 
     const pending = checkpoint.resumePlan?.pendingApproval;
