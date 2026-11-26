@@ -1997,3 +1997,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
 - **Commit**: 81cd19 (	est(p2): cover read-only resume dedupe no-dispatch eval).
 - **Remaining**: Replay semantics still narrowed - deterministic dedupe for known completed actionHashes and identical read-only args; no full step-level replay/continuation engine.
+## 2026-11-26 - P2 read-only argsKey processTask dedupe regression
+
+- **processTask boundary**: Added checkpoint test where resumed runtime receives read-only rowser_snapshot argsKey in resumePlan, emits untime.tool.deduped read-tool reason, and task completes with no duplicate approval/receipt rows.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose PASS 6/6; pnpm -C backend/worker typecheck PASS.
+- **Commit**: da0fa2 (	est(p2): cover read-only argsKey resume dedupe at processTask boundary).
+- **Remaining**: Durable replay execution still partial; dedupe guardrails are deterministic for known actionHashes and identical read-only args, but no full step-level replay engine/continuation planner exists.
