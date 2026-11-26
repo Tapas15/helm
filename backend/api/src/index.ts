@@ -24,6 +24,7 @@ import { proactivityRoutes } from "./routes/proactivity.js";
 import { identityRoutes } from "./routes/identity.js";
 import { reconciliationRoutes } from "./routes/reconciliation.js";
 import { runtimeRoutes } from "./routes/runtime.js";
+import { testHelperRoutes } from "./routes/test-helpers.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { requestContextMiddleware } from "./middleware/requestContext.js";
 import { resolveAuth } from "./lib/auth.js";
@@ -61,6 +62,7 @@ app.route("/v1/approvals", approvalRoutes(db));
 app.route("/v1/browser", browserRoutes(db));
 app.route("/v1/artifacts", artifactRoutes(db));
 app.route("/v1/receipts", receiptRoutes(db));
+if (process.env.HELM_TEST_MODE === "1") app.route("/v1/test", testHelperRoutes(db));
 
 app.onError((err, c) => {
   const helmError = toHelmError(err, {

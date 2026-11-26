@@ -4,9 +4,9 @@
 
 **The journey of building a personal AI operating assistant � from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-87.1%25_(coding--only)-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-87.3%25_(coding--only)-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Coding_Active_%7C_Release_Gates_Pending-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates-238636?style=for-the-badge)](#-present--what-were-building-now)
+[![Focus](https://img.shields.io/badge/Current_Focus-P1_Near_Complete_%7C_P8_Manual_Gates-238636?style=for-the-badge)](#-present--what-were-building-now)
 
 <br/>
 
@@ -60,13 +60,13 @@ timeline
 
 ### Overall
 
-**`84.2%`** complete (Phases 0�8, equal weight)
+**`87.3%`** coding-only (P0-P8 equal weight, not release-readiness)
 
 ```text
-[????????????????????????] 84.2%
+[█████████████████░░░] 87.3%
 ```
 
-**Usable prototype with active hardening.** P0 foundation gate is complete (CI green with fresh-DB migrate smoke). P5 deterministic contract depth improved; real Temporal/provider sandbox closure, P6 parity/security, live UI smoke, and P8 ops/legal signoff remain.
+**Usable prototype with active hardening.** P1 action-matrix E2E and lease recovery proof are green (coding scope). P5 real Temporal/provider sandbox closure, P6 parity/security, P1 preview/takeover full E2E depth, and P8 ops/legal signoff remain.
 
 </td>
 <td width="50%" valign="top">
@@ -88,7 +88,7 @@ timeline
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
 | **P0 Foundation / Repo** | 100% | Complete | `████████████████████` 100% |
-| **P1 UI / Task Core** | 92% | Present / polishing | `██████████████████░░` 92% |
+| **P1 UI / Task Core** | 97% | Present / near complete | `███████████████████░` 97% |
 | **P2 Agent Runtime** | 90% | Present | `██████████████████░░` 90% |
 | **P3 Browser Execution** | 93% | Present | `███████████████████░` 93% |
 | **P4 Approvals / Vault / Connectors** | 90% | Present | `██████████████████░░` 90% |

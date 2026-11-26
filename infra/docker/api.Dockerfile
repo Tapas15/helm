@@ -11,4 +11,4 @@ COPY tests ./tests
 COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
 EXPOSE 8787
-CMD ["pnpm","--filter","@helm/api","dev"]
+CMD ["pnpm","--filter","@helm/api","exec","tsx","src/index.ts"]

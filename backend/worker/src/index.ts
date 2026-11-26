@@ -46,18 +46,42 @@ async function persistCheckpoint(db: WorkerDeps["db"], task: typeof tasks.$infer
   }).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId)));
 }
 
+export async function claimNextTask(db: WorkerDeps["db"], workerId: string, leaseMs: number, n = new Date()) {
+  const leaseUntil = new Date(n.getTime() + leaseMs);
+  const [candidate] = await db.select().from(tasks).where(and(eq(tasks.status, "queued"), or(isNull(tasks.leaseUntil), lte(tasks.leaseUntil, n)))).orderBy(tasks.createdAt).limit(1);
+  if (!candidate) return null;
+  const [claimed] = await db.update(tasks)
+    .set({ status: "running", leaseOwner: workerId, leaseUntil, startedAt: candidate.startedAt ?? n, updatedAt: n })
+    .where(and(eq(tasks.id, candidate.id), eq(tasks.status, "queued"), or(isNull(tasks.leaseOwner), eq(tasks.leaseOwner, workerId)), or(isNull(tasks.leaseUntil), lte(tasks.leaseUntil, n))))
+    .returning();
+  return claimed ?? null;
+}
+
 export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerDeps) {
   const { db, runtime, workerId, emitFeedback = emitWorkerFeedbackEvent, now = () => new Date() } = deps;
   const runId = uid("run");
   const correlationId = uid("corr");
   const trace = { taskId: task.id, runId, correlationId, userId: task.userId, agentId: workerId };
   const taskLog = log.child(trace);
+  const leaseMs = Math.max(Number(process.env.WORKER_LEASE_MS ?? 30000), 5_000);
+  const heartbeatMs = Math.max(Number(process.env.WORKER_HEARTBEAT_MS ?? Math.min(10_000, Math.floor(leaseMs / 3))), 1_000);
+  let leaseLost = false;
+  let checkpoint: RuntimeCheckpoint | null = (task.checkpoint as any)?.version === 1 ? (task.checkpoint as RuntimeCheckpoint) : null;
+  const heartbeat = setInterval(() => {
+    void db.update(tasks)
+      .set({ leaseOwner: workerId, leaseUntil: new Date(Date.now() + leaseMs), updatedAt: new Date() })
+      .where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId), eq(tasks.status, "running")))
+      .returning({ id: tasks.id })
+      .then((rows) => { if (!rows[0]) leaseLost = true; })
+      .catch((err) => taskLog.warn({ err, event: "worker.lease.heartbeat_failed" }, "lease heartbeat failed"));
+  }, heartbeatMs);
+  (heartbeat as any).unref?.();
+  try {
   await insertEvent(db, task.id, task.userId, runId, "task.running", correlationId, task.id, { workerId, ...trace });
   taskLog.info({ event: "task.running" }, "task running");
   const runtimeEvents: AgentRuntimeEvent[] = [];
   let deltaBuf = "";
   let lastDeltaFlush = 0;
-  let checkpoint: RuntimeCheckpoint | null = (task.checkpoint as any)?.version === 1 ? (task.checkpoint as RuntimeCheckpoint) : null;
   if (checkpoint && isTerminalCheckpoint(checkpoint) && task.status === "queued") {
     taskLog.info({ event: "runtime.checkpoint.terminal_ignored", checkpoint }, "ignoring stale terminal checkpoint on queued task");
     checkpoint = null;
@@ -107,7 +131,6 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       }
     }
   }
-  try {
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
     const approvedActionKinds = approvedRows.map((r) => r.actionKind);
     const approvedActionHashes = approvedRows.map((r) => r.actionHash);
@@ -235,6 +258,9 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       evidenceRefs: [{ type: "task_event", action: "task.failed", taskId: task.id }],
     });
     taskLog.error({ err, event: "task.failed" }, "task failed");
+  } finally {
+    clearInterval(heartbeat);
+    if (leaseLost) taskLog.warn({ event: "worker.lease.lost" }, "lease lost during processing");
   }
 }
 
@@ -248,12 +274,7 @@ if (shouldAutostart) {
   const runtime = new HelmNativeRuntime();
 
   async function claimNext() {
-    const n = new Date();
-    const leaseUntil = new Date(n.getTime() + LEASE_MS);
-    const [candidate] = await db.select().from(tasks).where(and(eq(tasks.status, "queued"), or(isNull(tasks.leaseUntil), lte(tasks.leaseUntil, n)))).orderBy(tasks.createdAt).limit(1);
-    if (!candidate) return null;
-    const [claimed] = await db.update(tasks).set({ status: "running", leaseOwner: workerId, leaseUntil, startedAt: candidate.startedAt ?? n, updatedAt: n }).where(and(eq(tasks.id, candidate.id), eq(tasks.status, "queued"), or(isNull(tasks.leaseOwner), eq(tasks.leaseOwner, workerId)))).returning();
-    return claimed ?? null;
+    return claimNextTask(db, workerId, LEASE_MS);
   }
 
   let running = true;

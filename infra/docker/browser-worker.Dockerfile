@@ -11,4 +11,4 @@ COPY tests ./tests
 COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
 EXPOSE 8790
-CMD ["pnpm","--filter","@helm/browser-worker","dev"]
+CMD ["pnpm","--filter","@helm/browser-worker","exec","tsx","src/index.ts"]

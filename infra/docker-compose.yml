@@ -83,6 +83,7 @@
       REDIS_URL: redis://redis:6379
       BROWSER_WORKER_URL: http://browser-worker:8790
       HELM_ALLOW_TASK_DELETE: "1"
+      HELM_TEST_MODE: "1"
     depends_on:
       postgres:
         condition: service_healthy

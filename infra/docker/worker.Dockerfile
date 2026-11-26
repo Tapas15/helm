@@ -10,4 +10,4 @@ COPY docs ./docs
 COPY tests ./tests
 COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
-CMD ["pnpm","--filter","@helm/worker","dev"]
+CMD ["pnpm","--filter","@helm/worker","exec","tsx","src/index.ts"]
