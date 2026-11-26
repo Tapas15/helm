@@ -1949,3 +1949,11 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose PASS 11/11; pnpm -C backend/api exec vitest run src/routes/browser.rebind.test.ts src/routes/browser.takeover.test.ts --reporter=verbose PASS 8/8; pnpm -C backend/worker typecheck PASS; pnpm -C backend/api typecheck PASS.
 - **Commit**: e87563 (	est(p2,p3): cover checkpoint resume plan and browser rebind contracts).
 - **Remaining**: P2 durable replay/resume execution still partial (guardrails covered; runtime step replay/side-effect-free continuation beyond boundaries pending). P3 live WS/takeover/browser smoke still blocked.
+## 2026-11-26 - P2 resumePlan actionHash dedupe metadata
+
+- **Checkpoint resumePlan**: RuntimeResumePlan now records completed tool refs with optional ctionHash/idempotencyKey and bounded completedActionHashes. deriveRuntimeCheckpoint captures these from untime.tool.completed payload args.
+- **Runtime guardrail**: evaluateToolPolicy blocks side-effect tool calls whose ctionHash is already present in untimeResumePlan.completedActionHashes, preventing duplicate dispatch on resumed runs. untime.tool.completed payload now includes minimal rgs.actionHash/idempotencyKey metadata for checkpoint derivation.
+- **Tests**: Updated untime-checkpoint.test.ts and untime.test.ts for actionHash capture/blocking. untime.behavior.test.ts still green.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.behavior.test.ts --reporter=verbose PASS 16/16; pnpm -C backend/worker typecheck PASS; pnpm -C backend/worker lint PASS.
+- **Commit**: 21bbefd (eat(p2): propagate completed action hashes in resume plan).
+- **Remaining**: P2 durable replay/resume execution still partial (policy guardrail added; runtime/worker still need explicit replay short-circuit/continuation semantics for already-completed side-effect steps across real resumed runs).
