@@ -161,7 +161,28 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(body.status).toMatchObject({ status: "active" });
     expect(temporal.maybeStartReconciliationSchedule).toHaveBeenCalledTimes(1);
   });
+
+  it("GET /status reports disabled when HELM_RECONCILIATION_ENABLED=0 but still returns DB-canonical counts", async () => {
+    process.env.HELM_RECONCILIATION_ENABLED = "0";
+    const res = await makeApp(makeDb()).request("/v1/reconciliation/status");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(body.enabled).toBe(false);
+    expect(body.counts).toEqual({ uncertain: 2, executed: 5, failed: 1 });
+    expect(body.policy).toContain("no-blind-retry");
+  });
+
+  it("POST /run remains explicit operator-invoked lookup-first path when HELM_RECONCILIATION_ENABLED=0", async () => {
+    process.env.HELM_RECONCILIATION_ENABLED = "0";
+    const res = await makeApp(makeDb(), "usr_1").request("/v1/reconciliation/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ olderThanMs: 0 }) });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(reconciliation.reconcileUncertainReceipts).toHaveBeenCalledWith(expect.anything(), { limit: undefined, olderThanMs: 0, userId: "usr_1" });
+  });
 });
+
 
 
 
