@@ -7,11 +7,25 @@ import { emitFeedbackEvent } from "../lib/feedback.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+function redactValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactValue);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
+    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
+    else out[k] = redactValue(v);
+  }
+  return out;
+}
+function safeApproval(a: typeof approvals.$inferSelect) { return { ...a, evidence: redactValue(a.evidence ?? {}) as Record<string, unknown> }; }
 async function nextSequence(db: Database, taskId: string) { const rows = await db.select({ seq: taskEvents.sequence }).from(taskEvents).where(eq(taskEvents.taskId, taskId)).orderBy(desc(taskEvents.sequence)).limit(1); return Number(rows[0]?.seq ?? -1) + 1; }
 
 export function approvalRoutes(db: Database) {
   const app = new Hono<AppEnv>();
-  app.get("/", async (c) => { const userId = c.get("userId"); const status = c.req.query("status"); const taskId = c.req.query("taskId"); const filters = [eq(approvals.userId, userId)]; if (status) filters.push(eq(approvals.status, status)); if (taskId) filters.push(eq(approvals.taskId, taskId)); const rows = await db.select().from(approvals).where(and(...filters)).orderBy(desc(approvals.requestedAt)).limit(100); return c.json({ approvals: rows }); });
+  app.get("/", async (c) => { const userId = c.get("userId"); const status = c.req.query("status"); const taskId = c.req.query("taskId"); const filters = [eq(approvals.userId, userId)]; if (status) filters.push(eq(approvals.status, status)); if (taskId) filters.push(eq(approvals.taskId, taskId)); const rows = await db.select().from(approvals).where(and(...filters)).orderBy(desc(approvals.requestedAt)).limit(100); return c.json({ approvals: rows.map(safeApproval) }); });
   app.post("/:id/resolve", async (c) => {
     const userId = c.get("userId"); const requestId = c.get("requestId"); const correlationId = c.get("correlationId"); const id = c.req.param("id");
     const body = await c.req.json().catch(() => null); const parsed = ResolveApprovalInput.safeParse(body);
@@ -21,14 +35,14 @@ export function approvalRoutes(db: Database) {
     if (parsed.data.actionHash && parsed.data.actionHash !== approval.actionHash) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "actionHash does not match approval", false), 403);
     const desired = parsed.data.decision === "approve" ? "approved" : "rejected";
     if (approval.status !== "pending") {
-      if (approval.status === desired) return c.json({ approval, deduped: true });
+      if (approval.status === desired) return c.json({ approval: safeApproval(approval), deduped: true });
       return c.json(err(HELM_ERROR_CODES.INVALID_TRANSITION, `Approval already ${approval.status}`, false, { status: approval.status }), 409);
     }
     const ts = new Date();
     const [updated] = await db.update(approvals).set({ status: desired, decisionReason: parsed.data.reason ?? null, resolvedAt: ts }).where(and(eq(approvals.id, id), eq(approvals.status, "pending"))).returning();
     if (!updated) {
       const [current] = await db.select().from(approvals).where(and(eq(approvals.id, id), eq(approvals.userId, userId))).limit(1);
-      if (current?.status === desired) return c.json({ approval: current, deduped: true });
+      if (current?.status === desired) return c.json({ approval: safeApproval(current), deduped: true });
       return c.json(err(HELM_ERROR_CODES.CONFLICT, "Approval state changed; retry", true, { status: current?.status }), 409);
     }
     if (desired === "approved") {
@@ -49,7 +63,7 @@ export function approvalRoutes(db: Database) {
       payload: { approvalId: approval.id, actionKind: approval.actionKind, decision: desired, actionHash: approval.actionHash },
       evidenceRefs: [{ type: "audit", action: `approval.${desired}`, approvalId: approval.id }],
     });
-    return c.json({ approval: updated });
+    return c.json({ approval: safeApproval(updated) });
   });
   return app;
 }
