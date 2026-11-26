@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
 import { auditLog, evalCases, feedbackEvents, selfImprovementProposals, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
@@ -13,7 +13,7 @@ const SEVERITY = new Set(["info", "warn", "error"]);
 
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 6) return "[TRUNCATED]";
-  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}…[TRUNCATED]` : value;
+  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}�[TRUNCATED]` : value;
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => redact(v, depth + 1));
   if (value && typeof value === "object") {
     const redacted = redactSensitive(value) as Record<string, unknown>;
@@ -67,7 +67,7 @@ export function feedbackRoutes(db: Database) {
       evidenceRefs: Array.isArray(body?.evidenceRefs) ? body.evidenceRefs.slice(0, 50) : [],
       redacted: true,
     }).returning();
-    return c.json({ ok: true, event: safeEvent(row) }, 201);
+    return c.json(redact({ ok: true, event: safeEvent(row) }), 201);
   });
 
   app.get("/events", async (c) => {
@@ -76,7 +76,7 @@ export function feedbackRoutes(db: Database) {
     const taskId = c.req.query("taskId");
     const where = taskId ? and(eq(feedbackEvents.userId, userId), eq(feedbackEvents.taskId, taskId)) : eq(feedbackEvents.userId, userId);
     const rows = await db.select().from(feedbackEvents).where(where).orderBy(desc(feedbackEvents.createdAt)).limit(100);
-    return c.json({ ok: true, events: rows.map(safeEvent) });
+    return c.json(redact({ ok: true, events: rows.map(safeEvent) }));
   });
 
   app.post("/eval-cases/from-event/:id", async (c) => {
@@ -98,14 +98,14 @@ export function feedbackRoutes(db: Database) {
       metadata: { generatedFrom: "feedback_event", feedbackKind: fb.kind, signal: fb.signal, redacted: true },
       createdAt: now, updatedAt: now,
     }).returning();
-    return c.json({ ok: true, evalCase: safeEvalCase(row) }, 201);
+    return c.json(redact({ ok: true, evalCase: safeEvalCase(row) }), 201);
   });
 
   app.get("/eval-cases", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(evalCases).where(eq(evalCases.userId, userId)).orderBy(desc(evalCases.updatedAt)).limit(100);
-    return c.json({ ok: true, evalCases: rows.map(safeEvalCase) });
+    return c.json(redact({ ok: true, evalCases: rows.map(safeEvalCase) }));
   });
 
   app.post("/proposals/draft", async (c) => {
@@ -153,7 +153,7 @@ export function feedbackRoutes(db: Database) {
       createdAt: now, updatedAt: now,
     }).returning();
     await writeFeedbackAudit(db, { userId, action: "proposal.draft.created", resourceId: row?.id ?? null, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus: "pending", evalGateStatus: "not_run", sourceFeedbackId, sourceEvalCaseId } });
-    return c.json({ ok: true, proposal: safeProposal(row), note: "Draft-only. No apply/activation path exists." }, 201);
+    return c.json(redact({ ok: true, proposal: safeProposal(row), note: "Draft-only. No apply/activation path exists." }), 201);
   });
 
   app.get("/proposals", async (c) => {
@@ -161,7 +161,7 @@ export function feedbackRoutes(db: Database) {
     if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(selfImprovementProposals).where(eq(selfImprovementProposals.userId, userId)).orderBy(desc(selfImprovementProposals.updatedAt)).limit(100);
-    return c.json({ ok: true, proposals: rows.map(safeProposal) });
+    return c.json(redact({ ok: true, proposals: rows.map(safeProposal) }));
   });
 
   app.get("/proposals/:id", async (c) => {
@@ -171,7 +171,7 @@ export function feedbackRoutes(db: Database) {
     const id = c.req.param("id");
     const [row] = await db.select().from(selfImprovementProposals).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Proposal not found"), 404);
-    return c.json({ ok: true, proposal: safeProposal(row) });
+    return c.json(redact({ ok: true, proposal: safeProposal(row) }));
   });
 
   app.patch("/proposals/:id", async (c) => {
@@ -207,7 +207,7 @@ export function feedbackRoutes(db: Database) {
     if (Array.isArray(body?.evidenceRefs)) patch.evidenceRefs = redact(body.evidenceRefs.slice(0, 50)) as unknown[];
     const [row] = await db.update(selfImprovementProposals).set(patch).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).returning();
     await writeFeedbackAudit(db, { userId, action: "proposal.draft.updated", resourceId: row?.id ?? id, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus, evalGateStatus, fields: Object.keys(patch).filter((k) => k !== "updatedAt") } });
-    return c.json({ ok: true, proposal: safeProposal(row), note: "Draft-only. Activation remains blocked; review/eval metadata does not activate proposals." });
+    return c.json(redact({ ok: true, proposal: safeProposal(row), note: "Draft-only. Activation remains blocked; review/eval metadata does not activate proposals." }));
   });
   return app;
 }

@@ -38,7 +38,7 @@ export function identityRoutes(db: Database) {
   app.get("/", async (c) => {
     const userId = c.get("userId");
     const rows = await db.select().from(identities).where(eq(identities.userId, userId)).orderBy(desc(identities.createdAt)).limit(100);
-    return c.json({ ok: true, identities: rows.map(safeIdentity) });
+    return c.json(redactIdentityValue({ ok: true, identities: rows.map(safeIdentity) }));
   });
   app.post("/", async (c) => {
     const userId = c.get("userId");
@@ -50,7 +50,7 @@ export function identityRoutes(db: Database) {
     const now = new Date();
         const [row] = await db.insert(identities).values({ id: uid("idn"), userId, class: "helm-owned", label, email, provider: "helm", scopes: [], status: "active", metadata: { createdBy: "api" }, createdAt: now, updatedAt: now }).returning();
     if (row) await db.insert(identityPolicies).values({ id: uid("idp"), userId, identityId: row.id, allowedDomains: [], allowedRecipients: [], allowExternalWrites: false, requireApproval: true, createdAt: now, updatedAt: now }).onConflictDoNothing();
-    return c.json({ ok: true, identity: safeIdentity(row) }, 201);
+    return c.json(redactIdentityValue({ ok: true, identity: safeIdentity(row) }), 201);
   });
   app.get("/:id/policy", async (c) => {
     const userId = c.get("userId");
@@ -98,7 +98,7 @@ export function identityRoutes(db: Database) {
     if (!account) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
     const metadata = { ...(account.metadata as Record<string, unknown> ?? {}), identityId };
     const [updated] = await db.update(connectorAccounts).set({ metadata, updatedAt: new Date() }).where(and(eq(connectorAccounts.id, accountId), eq(connectorAccounts.userId, userId))).returning();
-    return c.json({ ok: true, account: safeConnectorAccount(updated) });
+    return c.json(redactIdentityValue({ ok: true, account: safeConnectorAccount(updated) }));
   });
   return app;
 }

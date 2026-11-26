@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { connectorAccounts, oauthStates, auditLog, type Database } from "@helm/db";
 import { HELM_ERROR_CODES, OAuthStartInput } from "@helm/shared";
@@ -98,7 +98,7 @@ export function connectorRoutes(db: Database) {
     });
     const url = buildGoogleAuthUrl({ clientId, redirectUri, state, codeChallenge: pkce.challenge, scopes });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: now, actorType: "user", actorId: userId, action: "connector.oauth.start", resourceType: "connector", resourceId: connector.id, decision: "allow", reason: "user_requested", metadata: { scopes, redirectUri } });
-    return c.json({ ok: true, connectorId: connector.id, authUrl: url, stateId: id, expiresAt: new Date(now.getTime() + 10 * 60_000).toISOString() });
+    return c.json(redactConnectorValue({ ok: true, connectorId: connector.id, authUrl: url, stateId: id, expiresAt: new Date(now.getTime() + 10 * 60_000).toISOString() }));
   });
 
   app.get("/google/callback", async (c) => {
@@ -156,7 +156,7 @@ export function connectorRoutes(db: Database) {
     await db.update(connectorAccounts).set({ status: "revoked", updatedAt: new Date() }).where(eq(connectorAccounts.id, id));
     if (row.secretRefId) await vault.revokeSecret({ ownerUserId: userId, secretId: row.secretRefId, reason: "user_revoke" });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: { providerRevoked: revokeOk } });
-    return c.json({ ok: true, accountId: id, status: "revoked", providerRevoked: revokeOk });
+    return c.json(redactConnectorValue({ ok: true, accountId: id, status: "revoked", providerRevoked: revokeOk }));
   });
 
   return app;
