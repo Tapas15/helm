@@ -1,7 +1,7 @@
 # Current Project Status (keep updated every session)
 
-**Last updated:** 2026-11-26T08:49:00Z  
-**Overall:** 83.3% (equal-weight P0-P8) | **Remaining:** 16.7% | **Target:** 100%  
+**Last updated:** 2026-11-26T11:44:00Z  
+**Overall:** 83.4% (equal-weight P0-P8) | **Remaining:** 16.6% | **Target:** 100%  
 **CI:** [Latest watched green run 45715144160](https://github.com/Tapas15/helm/actions/runs/45715144160) (`4a9b458`, `main`)
 **Repo:** https://github.com/Tapas15/helm (`main`)
 
@@ -9,7 +9,7 @@
 
 | Phase | Current | Remaining | Done | Needed | Blocker |
 |---|---:|---:|---|---|---|
-| P0 Foundation | 94% | 6% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle fresh-temp-DB migrate verified; alignment script cwd-independent and idempotent from repo root/`packages/db`; backend tsconfig `dist/src` include workaround removed (api/worker/browser-worker include `src` only) with lint/typecheck/build/test PASS | Push local commit, confirm CI/fresh-clone after push | No destructive reset without approval |
+| P0 Foundation | 95% | 5% | Monorepo/CI/Docker/contracts/DB baseline; Drizzle align script cwd-independent+idempotent; backend tsconfig workarounds removed (api/worker/browser-worker; temporal-worker cleaned 2026-11-26); root tsconfig includes temporal-worker; tracked generated package src JS/d.ts/maps removed + gitignored; CI has Postgres service + fresh-DB `db:migrate` smoke step; lint/typecheck/build PASS, full test PASS except env-gated skips + known browser-worker correlation-echo flake (passes with 15s timeout rerun) | Push commits and confirm CI/fresh-clone green with new DB migrate smoke; clean remaining generated artifact policy in dist if desired | Push/CI confirmation external; no destructive reset without approval |
 | P1 UI/Task Core | 92% | 8% | Chat/SSE/approvals/preview/takeover/idempotency regressions; SSE route now honors `Last-Event-ID` fallback (after omitted) and validates cursor; env-gated SSE integration expanded with Last-Event-ID resume + malformed-cursor fallback coverage | Live UI smoke (create/approve/reject/retry/pause/resume/cancel/preview), AG-UI WS decision, fault-injection depth under real services | Browser automation surface for full UI E2E |
 | P2 Agent Runtime | 90% | 10% | Ollama streaming, tool loop/policy, model override/config validation, worker tests; shared routing policy + runtime policy warnings wired; deterministic eval harness + Hermes sidecar fail-closed contract skeleton/tests; runtime checkpoint scaffolding with resume/resume-plan-applied events, approval dedupe guard, bounded resumePlan/actionHash+read-tool argsKey dedupe metadata, `runtime.tool.deduped` resume-safe events, resume no-rerun guard for unresolved pending approvals, resumePlan prompt/context injection, processTask regressions proving completedActionHash/read-only argsKey resumePlan propagation/no duplicate approval-receipt rows, streamChat runtime evals proving duplicate actionHash/read-only dedupe emit events without dispatch, and documented narrowed resume semantics | Live real browser+connector E2E, integration tweaks, model/provider evidence, routing/cost/sensitive-egress enforcement depth, durable checkpoint resume/replay execution, real-provider eval depth, live Hermes adapter integration | Real env for end-to-end validation |
 | P3 Browser Execution | 93% | 7% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions, recovery; API WS proxy now forwards client takeover input upstream (2026-11-25) | Live WS/takeover smoke, richer remote controls, recovery depth | Browser automation for live smoke |
@@ -27,6 +27,7 @@
 - No CopilotKit/`@ag-ui/*`. No Hermes/BrowserOS/OpenFUSE/NanoClaw/nanoMuse/Composio code copied.
 
 ## Latest Completed
+- 2026-11-26: P0 tooling/CI closeout slice (local, no destructive DB reset): removed `backend/temporal-worker/tsconfig.json` `../../packages/*/src/**/*.ts` workaround (include `src` only); added `backend/temporal-worker` to root `tsconfig.json` references; untracked 53 generated package src JS/d.ts/map artifacts (`packages/db`, `packages/shared`, `packages/observability`) and added `.gitignore` guard for `packages/*/src/**/*.{js,js.map,d.ts,d.ts.map}`; added CI Postgres service + `DATABASE_URL` + `pnpm --filter @helm/db db:migrate` fresh-DB smoke step before tests in `.github/workflows/ci.yml`. Fixed temporal-worker lint/type errors exposed by real linting (`any`/`Function` typing in schedule helper/test). Evidence: `pnpm lint` PASS (warnings only), `pnpm typecheck` PASS, `pnpm build` PASS, `pnpm test` had one browser-worker `correlation-echo` timeout flake at 5s then PASS 3/3 with 15s timeout rerun; full suite otherwise green with expected env-gated skips. No destructive DB reset.
 - 2026-11-26: P5 reconciliation disabled dry-run/operator semantics (local, deterministic): hardened `backend/api/src/routes/reconciliation.test.ts` (12/12) and clarified `changes/RUNBOOK-temporal.md`. Evidence: `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 12/12; `pnpm -C backend/api typecheck` PASS. Proves auto-scheduler disabled does not remove explicit operator dry-run/run lookup-first paths; dry-run remains read-only DB-canonical. CI not watched per directive.
 - 2026-11-26: P5 operator evidence-bundle contracts (local, deterministic): added runbook evidence-bundle checklist and hardened reconciliation status no-secret contract. Evidence: `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 9/9; `pnpm -C backend/api typecheck` PASS. CI not watched per directive.
 - 2026-11-26: P5 shared temporal action-class taxonomy contracts (local, deterministic): `packages/shared/src/temporal.test.ts` PASS 9/9. Proves reconciliation/internal schedule actions are non-external-write in external-write mode.
@@ -106,7 +107,7 @@
 ## Active Blockers
 - P6: deeper BrowserOS-vs-Playwright parity (artifact/error semantics, takeover under real browser control), security/compliance review for external adapter isolation, and performance baseline remain; env-gated smoke 5/5 PASS locally. Default dispatch remains explicit/off until parity+security gate passes.
 - Real Temporal server + provider sandbox for deep P5 proof.
-- P0: push local commit, confirm CI/fresh-clone/Drizzle alignment evidence after push. No destructive reset without approval. (Stale "tsconfig dist/src cleanup deferred" removed; cleanup done 2026-11-25.)
+- P0: push local commits and confirm CI/fresh-clone green including new Postgres service + DB migrate smoke step. No destructive reset without approval.
 - P8 ops/legal: full backup/restore drill, scan gating, threat model, PII, compliance/provenance/Dubai signoff.
 - Self-improvement activation: explicit user approval required.
 

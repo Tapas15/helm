@@ -7,7 +7,7 @@ const { state, captured } = vi.hoisted(() => {
     cancelled: false,
   };
   const captured = {
-    handlers: new Map<string, Function>(),
+    handlers: new Map<string, (...args: unknown[]) => unknown>(),
     activityOptions: null as any,
     executeApprovedAction: vi.fn(),
     reconcileUncertainReceiptsActivity: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("@temporalio/workflow", () => ({
       reconcileUncertainReceiptsActivity: captured.reconcileUncertainReceiptsActivity,
     };
   },
-  setHandler: (def: any, fn: Function) => {
+  setHandler: (def: any, fn: (...args: unknown[]) => unknown) => {
     captured.handlers.set(def.__signal ?? def.__query, fn);
   },
   condition: async (pred: () => boolean) => {

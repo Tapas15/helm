@@ -26,7 +26,7 @@ async function ensureReconciliationSchedule(client: any, cfg: ReturnType<typeof 
     await handle.update((prev: any) => ({
       ...prev,
       spec,
-      action: { ...prev.action, ...action },
+      action: { ...(prev.action as Record<string, unknown> | undefined), ...action },
     }));
     log.info({ scheduleId, intervalMs, olderThanMs, limit }, "temporal reconciliation schedule updated");
   } catch {

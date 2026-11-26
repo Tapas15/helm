@@ -1,6 +1,6 @@
 # Phase 0 - Foundation
 
-**Status:** `[~]` 91% (dev baseline complete; migration-history/CI-hardening gaps remain)  
+**Status:** `[~]` 95% (dev baseline + CI fresh-DB migrate smoke added; push/CI confirmation remains)  
 **Blueprint refs:** `MASTER-TECHNICAL-BLUEPRINT.md` Phase 0, `13-Repo-Structure-and-Stack.md`
 
 ## Goal
@@ -9,9 +9,9 @@ Repo, contracts, local dev, CI baseline. `docker compose up` starts core service
 ## Checklist
 
 ### Completed
-- [x] Monorepo/workspace scaffolded: pnpm + turbo + TS, `frontend/web`, `backend/api`, `backend/worker`, `backend/browser-worker`, `packages/shared`, `packages/db`, `infra/docker`.
+- [x] Monorepo/workspace scaffolded: pnpm + turbo + TS, `frontend/web`, `backend/api`, `backend/worker`, `backend/browser-worker`, `backend/temporal-worker`, `packages/shared`, `packages/db`, `infra/docker`.
 - [x] Shared contracts in `packages/shared` (Zod): task/status/kind/input/control, event envelope, API error, ids/helpers.
-- [x] Drizzle schema/client in `packages/db`: users, sessions, tasks, task_events, audit_log, approvals, action_receipts, browser artifacts, connector/vault/P7 tables (P7 baseline applied manually).
+- [x] Drizzle schema/client in `packages/db`: users, sessions, tasks, task_events, audit_log, approvals, action_receipts, browser artifacts, connector/vault/P7 tables.
 - [x] API skeleton: Hono, CORS, request-id, redacted Pino logger, health, task routes, auth skeleton/bootstrap.
 - [x] Worker skeleton: DB lease claim CAS, task running/completed events, runtime wiring.
 - [x] Browser-worker skeleton/service and web shell present.
@@ -20,15 +20,22 @@ Repo, contracts, local dev, CI baseline. `docker compose up` starts core service
 - [x] CI workflow: `.github/workflows/ci.yml` (ubuntu-latest, concurrency cancel-in-progress, 20m timeout, Install/Lint/Typecheck/Build/Test, report-only dep audit).
 - [x] CI build-order fix landed: `e6f79d4` (Build before Test; shared tests import `./temporal.js`).
 - [x] Remote CI evidence: GitHub Actions `45438392752` green; `45441229198` green (2026-11-24).
+- [x] Drizzle alignment script cwd-independent and idempotent from repo root/`packages/db`.
+- [x] Backend tsconfig `dist/src` include workaround removed (api/worker/browser-worker include `src` only) with lint/typecheck/build/test PASS (2026-11-25).
+- [x] `backend/temporal-worker/tsconfig.json` workaround removed (`include:["src"]`); root `tsconfig.json` includes `backend/temporal-worker` reference (2026-11-26).
+- [x] Tracked generated package src JS/d.ts/map artifacts removed from `packages/db`, `packages/shared`, `packages/observability`; `.gitignore` guards `packages/*/src/**/*.{js,js.map,d.ts,d.ts.map}` (2026-11-26).
+- [x] CI fresh-DB migrate smoke: Postgres 16 service + `DATABASE_URL` + `pnpm --filter @helm/db db:migrate` before tests (2026-11-26, local workflow change; CI confirmation pending push).
 
 ### Remaining / Blocked
-- [ ] **Blocked/tooling:** CI-safe non-interactive Drizzle migration-history alignment for manual P7 baseline (`packages/db/drizzle/0001_p7_tables_manual.sql`). `drizzle-kit push --force` requires TTY; `db:migrate`/CLI path failed in prior attempts; no destructive reset without explicit user approval.
-- [ ] Replace ESLint-depth placeholder lint (`tsc --noEmit`) with real ESLint rules where useful.
-- [ ] Clean tsconfig dist/src path/workaround debt.
+- [ ] Push local commits and confirm remote CI/fresh-clone green with DB migrate smoke step (external confirmation).
+- [ ] Replace ESLint-depth placeholder lint (`tsc --noEmit`) with real ESLint rules where useful (non-blocking quality).
 - [ ] Address GitHub Actions Node 20 action deprecation annotations (non-blocking).
+- [ ] Legacy/idempotent `0001_p7_tables_manual.sql` remains outside drizzle journal by design (0000 contains P7 tables); no destructive reset without explicit user approval.
 
 ## Evidence
 - 2026-11-22: `pnpm db:push --force` PASS; `pnpm lint/typecheck/test/build` PASS; smoke create task -> `queued/running/succeeded`, events replayed.
 - 2026-11-24: CI run `45438392752` PASS (after `e6f79d4`).
 - 2026-11-24: CI run `45441229198` PASS (after `8471aef`).
+- 2026-11-25: tsconfig dist/src cleanup (api/worker/browser-worker); lint/typecheck/build/test PASS.
+- 2026-11-26: temporal-worker tsconfig/root ref cleanup; generated package src artifacts untracked+gitignored; CI Postgres+migrate smoke added. Local: lint PASS (warnings only), typecheck PASS (9/9), build PASS (8/8). Full test: browser-worker correlation-echo timed out once at 5s, rerun with 15s PASS 3/3; remaining suites green with expected env-gated skips. No destructive DB reset.
 - Fix refs: `changes/FIX_LOG.md`.

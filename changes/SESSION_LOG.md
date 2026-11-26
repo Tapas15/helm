@@ -2224,3 +2224,18 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Full backup/restore drill incl. artifacts/vault-key scope, encrypted storage/retention/access/scheduled verification (ops/manual).
 - Scan gating/SAST/secrets/container decisions (security/ops).
 - Formal STRIDE/threat-model signoff, PII policy/impl/legal/privacy, compliance/provenance/Dubai signoff (manual/legal).
+## 2026-11-26 - P0 tooling/CI closeout slice (local, no destructive DB reset)
+- **Scope:** close self-doable P0 gaps: temporal-worker tsconfig workaround, root tsconfig temporal-worker ref, tracked generated package src artifacts, CI DB/fresh-clone migrate smoke.
+- **Changes:**
+  - `backend/temporal-worker/tsconfig.json`: removed `../../packages/*/src/**/*.ts` include workaround; now `include:["src"]`.
+  - `tsconfig.json`: added `backend/temporal-worker` reference.
+  - Untracked 53 generated package src artifacts (`packages/db/src`, `packages/shared/src`, `packages/observability/src` JS/d.ts/map files) via `git rm --cached`; added `.gitignore` guard `packages/*/src/**/*.{js,js.map,d.ts,d.ts.map}`.
+  - `.github/workflows/ci.yml`: added Postgres 16 service, `DATABASE_URL`, and `DB migrate smoke (fresh Postgres)` step (`pnpm --filter @helm/db db:migrate`) before tests.
+  - `backend/temporal-worker/src/index.ts`, `backend/temporal-worker/src/workflows.test.ts`: fixed lint/type issues exposed by real linting (typed schedule client/update/create, replaced `Function` with explicit fn types).
+- **Evidence:**
+  - `pnpm lint` PASS (warnings only, pre-existing warnings unchanged).
+  - `pnpm typecheck` PASS (9/9 tasks).
+  - `pnpm build` PASS (8/8 tasks).
+  - `pnpm test` full run: browser-worker `correlation-echo.test.ts` timed out once at default 5s; rerun `pnpm -C backend/browser-worker exec vitest run --passWithNoTests --testTimeout=15000` PASS 3/3. Other packages green; env-gated integration/browser-smoke tests skipped as expected.
+- **Not changed:** no destructive DB reset; no runtime behavior changes; no secrets; `changes/memory_implementation.md` and `backups/` left untouched.
+- **Remaining P0 gap:** push commits and confirm remote CI/fresh-clone green (external confirmation). `db:migrate` smoke now in CI; fresh-clone CI proof still required after push.

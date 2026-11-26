@@ -13,6 +13,22 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: helm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d helm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/helm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,6 +55,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: DB migrate smoke (fresh Postgres)
+        run: pnpm --filter @helm/db db:migrate
 
       - name: Test
         run: pnpm test
