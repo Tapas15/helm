@@ -2094,3 +2094,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: uncertain guarded writes return uncertain status with exactly one API call per action; no blind retry.
 - **Impact**: P5 remains 80%; overall 83.2% (contract depth added, no real-env closure).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation scope-safety contracts
+
+- **Scope**: Added dry-run user-scope no-escalation contract to `backend/api/src/routes/reconciliation.test.ts` (8/8).
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: `POST /dry-run` remains user-scoped even when `scope=all` is supplied in dev mode; existing `POST /run` scope-all dev guard/allow behavior unchanged.
+- **Impact**: P5 remains 80%; overall 83.2% (contract depth/safety hardening, no real-env closure).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.

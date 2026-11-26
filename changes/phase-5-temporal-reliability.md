@@ -40,6 +40,9 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 - [ ] Disable-flag rollback proof in live/staging-like config.
 - [ ] Keep DB worker as default/fallback until Temporal path fully verified.
 
+### Added 2026-11-26 (local P5 reconciliation scope-safety contracts)
+- [x] `backend/api/src/routes/reconciliation.test.ts` (+1, 8/8): `POST /dry-run` remains user-scoped even when `scope=all` is supplied in dev mode (no dev-all dry-run escalation); existing `POST /run` scope-all dev guard/allow contracts retained.
+
 ### Added 2026-11-26 (local P5 temporal-worker uncertain-outcome no-blind-retry contracts)
 - [x] `backend/temporal-worker/src/activities.test.ts` hardened (8/8): guarded external write 503/429/5xx mapped to uncertain with exactly one API call per action (no blind retry); explicit uncertain gmail.send case asserts single call and no lookup/retry.
 
@@ -79,6 +82,18 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 
 ## Evidence
 - P5-B/C/D: pnpm --filter @helm/shared typecheck PASS; pnpm --filter @helm/temporal-worker typecheck PASS; pnpm --filter @helm/api typecheck PASS.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS. Covers reconciliation run scope-all dev guard, dry-run user-scope no-escalation contract, and existing route contracts.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts` PASS 8/8; `pnpm -C backend/temporal-worker typecheck` PASS. Covers uncertain 503/429/5xx guarded-write mapping with single-call no-blind-retry assertions.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/routes/reconciliation.fault-injection.test.ts src/routes/reconciliation.run.test.ts src/routes/reconciliation.schedule.test.ts` PASS 7/7; `pnpm -C backend/api typecheck` PASS. Covers route->service fault-injection lookup_not_found/lookup_error no-blind-retry behavior and run/schedule route boundaries.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/lib/temporal.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS. Covers stub external workflow idempotent dedupe by idempotency-derived workflow id across gmail/calendar/browser action kinds; no duplicate workflow starts.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/routes/reconciliation.run.test.ts src/routes/reconciliation.schedule.test.ts src/lib/reconciliation.test.ts` PASS 13/13; `pnpm -C backend/api typecheck` PASS. Covers reconciliation run/dry-run route boundary idempotent repeated invocations and no-blind-retry/DB-canonical service contracts.
+- 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS. Covers repeated-run no-blind-retry/lookup-first and DB-canonical no-op after successful reconciliation.
+- 2026-11-26 (local, deterministic stub-backed, no real Temporal): `pnpm -C backend/api exec vitest run src/routes/reconciliation.schedule.test.ts src/routes/reconciliation.test.ts` PASS 10/10; `pnpm -C backend/api typecheck` PASS. Covers schedule missing->active transitions, ensure idempotency, dev-auth guard, rollback temporal_disabled status.
+- 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/lib/temporal.test.ts` PASS 28/28; `pnpm -C backend/api typecheck` PASS. Covers disable-flag rollback direct-path behavior (no routed metadata, no temporal_started audit) and temporal schedule status disabled after flag-off.
+- 2026-11-26 (local, deterministic): `pnpm -C packages/shared exec vitest run src/temporal.test.ts` PASS 8/8. Covers fail-closed invalid mode, default external-write-on-enable, explicit all mode, schedule defaults, action-class/non-retryable mapping.
+- 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/routes/gmail.feedback.test.ts src/routes/calendar.feedback.test.ts src/routes/browser.feedback.test.ts` PASS 37/37; `pnpm -C backend/api typecheck` PASS. Covers P5 fail-closed routing/202 stub routing/bypass-header re-entry prevention for gmail/calendar/browser external writes, with feedback regressions green.
+- 2026-11-26 (local, deterministic temporal-worker, no real Temporal): `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts src/workflows.test.ts` PASS 15/15; `pnpm -C backend/temporal-worker typecheck` PASS. Covers action-class non-retryable config, uncertain 503/429/5xx mapping, no-blind-retry workflow uncertain outcome, guarded API routing, reconciliation fault injection. Not real Temporal server schedule/monitor/fault-injection E2E.
+- 2026-11-26 (local, deterministic, no real Temporal/provider sandbox): `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts src/lib/temporal.test.ts src/routes/reconciliation.test.ts src/routes/runtime.test.ts` PASS 22/22; `pnpm -C backend/api typecheck` PASS. Covers P5 reconciliation route contracts, reconciliation no-blind-retry/fault-injection unit behavior, and temporal stub schedule/workflow dedupe contracts. Not real Temporal schedule/monitor/fault-injection E2E and not real-provider no-duplicate proof.
 - 2026-11-26 (local, deterministic): `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts` PASS 8/8; `pnpm -C backend/temporal-worker typecheck` PASS. Covers uncertain 503/429/5xx guarded-write mapping with single-call no-blind-retry assertions.
 - 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/routes/reconciliation.fault-injection.test.ts src/routes/reconciliation.run.test.ts src/routes/reconciliation.schedule.test.ts` PASS 7/7; `pnpm -C backend/api typecheck` PASS. Covers route->service fault-injection lookup_not_found/lookup_error no-blind-retry behavior and run/schedule route boundaries.
 - 2026-11-26 (local, deterministic): `pnpm -C backend/api exec vitest run src/lib/temporal.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS. Covers stub external workflow idempotent dedupe by idempotency-derived workflow id across gmail/calendar/browser action kinds; no duplicate workflow starts.
@@ -149,6 +164,7 @@ Durable execution for real tasks: Temporal workflows/signals/queries, idempotent
 - Env-gated: 	emporal-routing-api PASS (1/1), 	emporal-e2e PASS (1/1), 	emporal-side-effect-e2e PASS (1/1), 	emporal-rollback-e2e PASS (1/1), econciliation-api PASS (10/10).
 - 2026-11-24: 8471aef, CI 45441229198 green.
 - 2026-11-24: HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1 pnpm -C tests/integration exec vitest run src/temporal-reconciliation-e2e.test.ts PASS (1/1, 39.9s) - Temporal reconciliation schedule tick reconciled uncertain receipt; lookup fault injection preserved no-blind-retry.
+
 
 
 

@@ -109,6 +109,15 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(reconciliation.reconcileUncertainReceipts).not.toHaveBeenCalled();
   });
 
+  it("POST /dry-run remains user-scoped even if scope=all is supplied (no dev-all dry-run escalation)", async () => {
+    process.env.HELM_ALLOW_DEV_AUTH = "1";
+    const res = await makeApp(makeDb(), "usr_1").request("/v1/reconciliation/dry-run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "all", olderThanMs: 0, limit: 10 }) });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body).toMatchObject({ ok: true, dryRun: true });
+    expect(reconciliation.reconcileUncertainReceipts).not.toHaveBeenCalled();
+  });
+
   it("POST /schedule/ensure rejects when not in dev/internal mode", async () => {
     const res = await makeApp(makeDb()).request("/v1/reconciliation/schedule/ensure", { method: "POST" });
     expect(res.status).toBe(403);
@@ -130,6 +139,7 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(temporal.maybeStartReconciliationSchedule).toHaveBeenCalledTimes(1);
   });
 });
+
 
 
 
