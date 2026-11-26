@@ -5,6 +5,7 @@ import type { AgentRuntimeEvent } from "@helm/shared";
 import { logger as log } from "./lib/logger.js";
 import { emitWorkerFeedbackEvent } from "./feedback.js";
 import { HelmNativeRuntime } from "./runtime.js";
+import { deriveRuntimeCheckpoint, isTerminalCheckpoint, type RuntimeCheckpoint } from "./runtime-checkpoint.js";
 
 export type WorkerDeps = {
   db: ReturnType<typeof createDb>["db"];
@@ -37,6 +38,14 @@ async function recordBrowserArtifacts(db: WorkerDeps["db"], task: typeof tasks.$
   }
 }
 
+async function persistCheckpoint(db: WorkerDeps["db"], task: typeof tasks.$inferSelect, runId: string, cp: RuntimeCheckpoint) {
+  await db.update(tasks).set({
+    checkpoint: cp as any,
+    state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(cp)}::jsonb)`,
+    updatedAt: new Date(),
+  }).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId)));
+}
+
 export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerDeps) {
   const { db, runtime, workerId, emitFeedback = emitWorkerFeedbackEvent, now = () => new Date() } = deps;
   const runId = uid("run");
@@ -48,6 +57,11 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
   const runtimeEvents: AgentRuntimeEvent[] = [];
   let deltaBuf = "";
   let lastDeltaFlush = 0;
+  let checkpoint: RuntimeCheckpoint | null = (task.checkpoint as any)?.version === 1 ? (task.checkpoint as RuntimeCheckpoint) : null;
+  if (checkpoint && isTerminalCheckpoint(checkpoint) && task.status === "queued") {
+    taskLog.info({ event: "runtime.checkpoint.terminal_ignored", checkpoint }, "ignoring stale terminal checkpoint on queued task");
+    checkpoint = null;
+  }
   try {
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
     const approvedActionKinds = approvedRows.map((r) => r.actionKind);
@@ -67,11 +81,13 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     for await (const evt of runtime.run({
       taskId: task.id, runId, userId: task.userId, prompt: task.prompt, kind: task.kind,
       model: typeof (task.state as any)?.modelOverride?.model === "string" ? String((task.state as any).modelOverride.model) : undefined,
-      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
+      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, runtimeCheckpoint: checkpoint, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
       thread,
       trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
     })) {
       runtimeEvents.push(evt);
+      const seq = await nextSequence(db, task.id);
+      checkpoint = deriveRuntimeCheckpoint(checkpoint, evt, seq);
       const sessionId = (evt.payload as any)?.sessionId ?? evt.trace?.sessionId;
       if (sessionId) await db.update(tasks).set({ state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{activeBrowserSessionId}', ${JSON.stringify(String(sessionId))}::jsonb)`, updatedAt: now() }).where(eq(tasks.id, task.id));
       if (evt.type === "runtime.response.delta") {
@@ -85,10 +101,14 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       }
       if (deltaBuf) { await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
       await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
+      if (["runtime.planning", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
+        await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
+      }
     }
     if (deltaBuf) await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: now().toISOString(), trace });
     await recordBrowserArtifacts(db, task, runId, runtimeEvents);
     const result = HelmNativeRuntime.toResult(runtimeEvents);
+    if (checkpoint) await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
     const approvalProposal = [...runtimeEvents].reverse().find((e) => e.type === "runtime.tool.proposed" && e.payload?.approvalRequired === true);
     if (result.status === "waiting_approval" && approvalProposal) {
       const actionHash = String(approvalProposal.payload.actionHash ?? uid("ah"));
@@ -100,12 +120,12 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         await db.insert(auditLog).values({ id: uid("aud"), userId: task.userId, ts: now(), actorType: "agent", actorId: "helm-native", taskId: task.id, action: "approval.requested", resourceType: "approval", resourceId: approval?.id ?? null, decision: "require_approval", reason: summary, metadata: { actionHash, actionKind, runId, correlationId } });
         await insertEvent(db, task.id, task.userId, runId, "runtime.approval.requested", correlationId, approval?.id ?? task.id, { approvalId: approval?.id, actionHash, actionKind, summary, ...trace });
       }
-      await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+      await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
       taskLog.info({ event: "approval.requested", approvalId: approval?.id }, "task waiting approval");
       return;
     }
     if (result.status === "waiting_input") {
-      await db.update(tasks).set({ status: "waiting_input", leaseOwner: null, leaseUntil: null, updatedAt: now(), result: { status: "waiting_input", output: result.output } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+      await db.update(tasks).set({ status: "waiting_input", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_input", output: result.output } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
       taskLog.info({ event: "task.waiting_input" }, "task waiting input/takeover");
       return;
     }
@@ -129,6 +149,8 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     const [updated] = await db.update(tasks).set({
       status: result.status === "cancelled" ? "cancelled" : result.status === "failed" ? "failed" : "succeeded",
       leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt,
+      checkpoint: checkpoint as any,
+      state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`,
       result: { ...result, runtime: "helm-native", events: runtimeEvents.length },
       errorCode: result.error?.code ?? null, errorMessage: result.error?.message ?? null,
     }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId))).returning();
@@ -147,8 +169,12 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const doneAt = now();
+    if (checkpoint) {
+      checkpoint = { ...checkpoint, statusHint: "failed", updatedAt: doneAt.toISOString() };
+      await persistCheckpoint(db, task, runId, checkpoint).catch(() => undefined);
+    }
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: `Error: ${message}`, metadata: { runId, correlationId, status: "failed" }, createdAt: doneAt }).catch(() => undefined);
-    await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+    await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
     await insertEvent(db, task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
     await emitFeedback(db, {
       userId: task.userId, taskId: task.id, runId, kind: "tool_failure",
