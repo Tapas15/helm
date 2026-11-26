@@ -39,8 +39,8 @@ Visible task system with realtime updates. User creates task from chat and sees 
 - [x] Task export/delete controls: `GET /v1/tasks/:id/export`, `POST /v1/tasks/export` capped by `HELM_TASK_EXPORT_MAX` (default 200, hard max 500), `POST /v1/tasks/:id/delete` gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`; env-gated integration `task-export-delete-api` PASS (1/1).
 
 ### Remaining / Blocked
-- [ ] SSE reconnect cursor-resume E2E proof in live UI/E2E surface (env-gated API tests cover cursor/Last-Event-ID; browser-level reconnect proof still pending). **Blocked:** no browser automation surface in shell.
-- [ ] Live UI E2E smoke evidence for create/approve/reject/retry/pause/resume/cancel/preview/export/delete flows. **Blocked:** no browser automation surface in shell.
+- [~] SSE reconnect cursor-resume E2E proof: Playwright scaffold added (`tests/e2e/src/sse-reconnect.spec.ts`, `d485d21`); needs runnable stack + `HELM_E2E=1` execution evidence.
+- [~] Live UI E2E smoke evidence for create/approve/reject/retry/pause/resume/cancel/preview/export/delete flows: Playwright smoke scaffold added (`tests/e2e/src/ui-smoke.spec.ts`); full-state coverage needs deterministic fixtures + runnable stack execution evidence.
 - [ ] DB lease worker heartbeat/recovery/fault-injection depth beyond current coverage (operational/runtime proof).
 - [x] Decide/record WS `/v1/ws` AG-UI reducer need: deferred for MVP; SSE + browser WS cover current flows.
 - [x] Artifact storage abstraction/retention polish decision: local dev dir/current artifact path for MVP; MinIO/retention abstraction deferred to P8/ops hardening.
