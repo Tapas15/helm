@@ -8,9 +8,11 @@ import { DbCredentialBroker } from "../lib/vault.js";
 import { getValidGoogleAccessToken } from "./connector-accounts.js";
 import { enforceIdentityPolicyForConnectorAccount } from "../lib/identity-policy.js";
 import { emitFeedbackEvent } from "../lib/feedback.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const safeJson = <T>(v: T): T => redactSensitive(v) as T;
 
 export async function lookupCalendarCreate(db: Database, vault: DbCredentialBroker, userId: string, receipt: { idempotencyKey: string; evidence: unknown }) {
   const evidence = (receipt.evidence ?? {}) as Record<string, unknown>;
@@ -84,7 +86,7 @@ export function calendarRoutes(db: Database) {
     const json = await res.json().catch(() => null);
     if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar read failed", res.status >= 500), res.status as any);
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "calendar.read", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "read_first", metadata: { maxResults, timeMin } });
-    return c.json({ ok: true, events: json?.items ?? [], nextPageToken: json?.nextPageToken ?? null });
+    return c.json(safeJson({ ok: true, events: json?.items ?? [], nextPageToken: json?.nextPageToken ?? null }));
   });
 
   app.post("/events/create", async (c) => {

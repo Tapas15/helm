@@ -1,12 +1,14 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { connectorAccounts, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
 import type { AppEnv } from "../types.js";
 import { DbCredentialBroker } from "../lib/vault.js";
 import { isGoogleTokenExpired, refreshGoogleAccessToken, type GoogleToken } from "../lib/oauth.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const safeJson = <T>(v: T): T => redactSensitive(v) as T;
 
 export async function getValidGoogleAccessToken(vault: DbCredentialBroker, userId: string, accountId: string): Promise<{ token: string | null; reason?: string }> {
   const raw = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${accountId}` });
@@ -56,7 +58,7 @@ export function connectorAccountRoutes(db: Database) {
         tokenExpired = isGoogleTokenExpired(token);
       } catch {}
     }
-    return c.json({ ok: true, account: { id: account.id, connectorId: account.connectorId, status: account.status, scopes: account.scopes, hasRefreshToken, expiresAt, tokenExpired, scope, updatedAt: account.updatedAt } });
+    return c.json(safeJson({ ok: true, account: { id: account.id, connectorId: account.connectorId, status: account.status, scopes: account.scopes, hasRefreshToken, expiresAt, tokenExpired, scope, updatedAt: account.updatedAt } }));
   });
 
   app.post("/:id/test", async (c) => {
@@ -71,13 +73,13 @@ export function connectorAccountRoutes(db: Database) {
       const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", { headers: { authorization: `Bearer ${token}` } });
       const json = await res.json().catch(() => null);
       if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail test failed", res.status >= 500), res.status as any);
-      return c.json({ ok: true, connectorId: account.connectorId, profile: { emailAddress: json?.emailAddress ?? null, messagesTotal: json?.messagesTotal ?? null } });
+      return c.json(safeJson({ ok: true, connectorId: account.connectorId, profile: { emailAddress: json?.emailAddress ?? null, messagesTotal: json?.messagesTotal ?? null } }));
     }
     if (account.connectorId === "google-calendar") {
       const res = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1", { headers: { authorization: `Bearer ${token}` } });
       const json = await res.json().catch(() => null);
       if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar test failed", res.status >= 500), res.status as any);
-      return c.json({ ok: true, connectorId: account.connectorId, profile: { calendars: Array.isArray(json?.items) ? json.items.length : 0 } });
+      return c.json(safeJson({ ok: true, connectorId: account.connectorId, profile: { calendars: Array.isArray(json?.items) ? json.items.length : 0 } }));
     }
     return c.json({ ok: true, connectorId: account.connectorId, message: "No test implemented for connector" });
   });

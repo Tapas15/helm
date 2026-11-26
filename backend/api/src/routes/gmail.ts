@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, connectorAccounts, type Database } from "@helm/db";
 import { GmailSendInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
@@ -8,9 +8,11 @@ import { DbCredentialBroker } from "../lib/vault.js";
 import { getValidGoogleAccessToken } from "./connector-accounts.js";
 import { enforceIdentityPolicyForConnectorAccount } from "../lib/identity-policy.js";
 import { emitFeedbackEvent } from "../lib/feedback.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const safeJson = <T>(v: T): T => redactSensitive(v) as T;
 
 export async function lookupGmailSend(db: Database, vault: DbCredentialBroker, userId: string, receipt: { idempotencyKey: string; evidence: unknown }) {
   const evidence = (receipt.evidence ?? {}) as Record<string, unknown>;
@@ -72,7 +74,7 @@ export function gmailRoutes(db: Database) {
     const json = await res.json().catch(() => null);
     if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail read failed", res.status >= 500), res.status as any);
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "gmail.read", resourceType: "connector_account", resourceId: accountId, decision: "allow", reason: "read_first", metadata: { q, maxResults } });
-    return c.json({ ok: true, messages: json?.messages ?? [], nextPageToken: json?.nextPageToken ?? null });
+    return c.json(safeJson({ ok: true, messages: json?.messages ?? [], nextPageToken: json?.nextPageToken ?? null }));
   });
 
   app.post("/send", async (c) => {
