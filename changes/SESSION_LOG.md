@@ -1963,3 +1963,11 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose PASS 12/12; pnpm -C backend/worker typecheck PASS.
 - **Commit**: 30ddc94 (	est(p2): cover resumePlan completed actionHash guardrail propagation).
 - **Remaining**: P2 still needs explicit replay/continuation semantics beyond denial for already-completed side-effect steps in real resumed runtime flows (deterministic no-duplicate dispatch proven at policy/process boundary; not full replay engine).
+## 2026-11-26 - P2 runtime.tool.deduped resume-safe boundary
+
+- **Shared/runtime**: Added untime.tool.deduped event type in packages/shared/src/agent-runtime.ts; runtime emits deduped event when tool policy blocks a duplicate side-effect ctionHash from resumePlan. Tool-completed denial payload marked policy:"deduped" with actionHash/idempotencyKey metadata.
+- **Checkpoint**: deriveRuntimeCheckpoint treats untime.tool.deduped as safe boundary.
+- **Tests**: Added checkpoint boundary test for untime.tool.deduped. Existing runtime/processTask checkpoint suites remain green.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.behavior.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 21/21; pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose PASS 10/10; pnpm -C backend/worker typecheck PASS.
+- **Commits**: 615c8d (eat(p2): emit runtime.tool.deduped for resumePlan duplicate side effects), 136567 (	est(p2): cover runtime.tool.deduped checkpoint boundary).
+- **Remaining**: Full durable replay execution still partial - runtime does not yet replay/skip arbitrary completed side-effect steps by resuming model/tool loop at checkpoint boundary; dedupe boundary prevents duplicate dispatch for matching actionHash but not full step-level replay.
