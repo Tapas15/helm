@@ -2032,3 +2032,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: `pnpm -C backend/temporal-worker exec vitest run src/activities.test.ts src/workflows.test.ts` PASS 15/15; `pnpm -C backend/temporal-worker typecheck` PASS.
 - **Impact**: P5 70% -> 72%; overall 82.1% -> 82.3% (equal-weight). Deterministic contract coverage only.
 - **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, retry-policy/operator runbook depth, production config disable-flag rollback proof.
+## 2026-11-26 - P5 API Temporal routing fail-closed contracts
+
+- **Route contracts**: Added deterministic Temporal routing tests for guarded external writes: `backend/api/src/routes/gmail.temporal-routing.test.ts` (4/4), `calendar.temporal-routing.test.ts` (10/10, create/update/delete), `browser.temporal-routing.test.ts` (4/4).
+- **Proved invariants**: Temporal enabled + stub route returns 202 with workflow metadata and audit `*.temporal_started`, no direct provider/browser-worker side-effect call; routing/start failure returns 503 `DEPENDENCY_ERROR` fail-closed; internal temporal-activity bypass header prevents re-entry loop; Temporal disabled uses direct path.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/gmail.temporal-routing.test.ts src/routes/calendar.temporal-routing.test.ts src/routes/browser.temporal-routing.test.ts src/routes/gmail.feedback.test.ts src/routes/calendar.feedback.test.ts src/routes/browser.feedback.test.ts` PASS 37/37; `pnpm -C backend/api typecheck` PASS.
+- **Impact**: P5 72% -> 74%; overall 82.3% -> 82.6% (equal-weight). Deterministic contract coverage only.
+- **Remaining P5 gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, retry-policy/operator runbook depth, production/staging disable-flag rollback proof.
