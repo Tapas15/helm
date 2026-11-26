@@ -89,7 +89,7 @@ export function gmailRoutes(db: Database) {
     if (approval.actionHash !== input.actionHash) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "actionHash mismatch"), 403);
     const [existing] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (existing) {
-      if (existing.status === "executed") return c.json({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef });
+      if (existing.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef }));
       if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Send already executing", true), 409);
       if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior send outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
     }
@@ -109,7 +109,7 @@ export function gmailRoutes(db: Database) {
         });
         if (started.started) {
           await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "gmail.send.temporal_started", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
-          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+          return c.json(safeJson({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }), 202);
         }
       } catch (e) {
         return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
