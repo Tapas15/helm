@@ -8,6 +8,26 @@ import { buildGoogleAuthUrl, buildPkce, randomBase64Url, sha256Base64Url } from 
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+const redactConnectorValue = (value: unknown, keyHint = ""): unknown => {
+  const lower = keyHint.toLowerCase();
+  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
+  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
+  if (Array.isArray(value)) return value.map((v) => redactConnectorValue(v));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactConnectorValue(v, k)]));
+  return value;
+};
+const safeConnectorAccount = (row: any, extra?: Record<string, unknown>) => ({
+  id: row.id,
+  userId: row.userId,
+  connectorId: row.connectorId,
+  status: row.status,
+  scopes: Array.isArray(row.scopes) ? row.scopes : [],
+  metadata: redactConnectorValue(row.metadata ?? {}),
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+  ...(extra ?? {}),
+});
 
 const CONNECTORS = [
   { id: "google-gmail", kind: "oauth", displayName: "Gmail (Google)", capabilities: ["gmail.read", "gmail.send"], scopes: ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"], enabled: true },
@@ -59,7 +79,7 @@ export function connectorRoutes(db: Database) {
           }
         } catch {}
       }
-      return { ...row, hasRefreshToken, expiresAt, tokenExpired };
+      return safeConnectorAccount(row, { hasRefreshToken, expiresAt, tokenExpired });
     }));
     return c.json({ accounts });
   });

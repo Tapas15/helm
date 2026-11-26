@@ -6,6 +6,16 @@ import type { AppEnv } from "../types.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false) => ({ error: { code, message, retryable } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+const redactValue = (value: unknown, keyHint = ""): unknown => {
+  const lower = keyHint.toLowerCase();
+  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
+  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
+  if (Array.isArray(value)) return value.map((v) => redactValue(v));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactValue(v, k)]));
+  return value;
+};
+const safeSkill = (row: any) => row ? ({ ...row, config: redactValue(row.config ?? {}) }) : row;
 
 export function skillsRoutes(db: Database) {
   const app = new Hono<AppEnv>();
@@ -15,7 +25,7 @@ export function skillsRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Skills disabled (HELM_SKILLS_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(skills).where(eq(skills.userId, userId)).orderBy(desc(skills.updatedAt)).limit(100);
-    return c.json({ ok: true, skills: rows });
+    return c.json({ ok: true, skills: rows.map(safeSkill) });
   });
   app.post("/", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Skills disabled (HELM_SKILLS_ENABLED!=1)"), 403);
@@ -25,7 +35,7 @@ export function skillsRoutes(db: Database) {
     if (!name) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "name required"), 400);
     const now = new Date();
     const [row] = await db.insert(skills).values({ id: uid("skl"), userId, name, description: typeof body?.description === "string" ? body.description.slice(0, 1000) : null, enabled: body?.enabled !== false, source: "local", config: typeof body?.config === "object" && body.config ? body.config : {}, createdAt: now, updatedAt: now }).returning();
-    return c.json({ ok: true, skill: row }, 201);
+    return c.json({ ok: true, skill: safeSkill(row) }, 201);
   });
   app.patch("/:id", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Skills disabled (HELM_SKILLS_ENABLED!=1)"), 403);
@@ -39,7 +49,7 @@ export function skillsRoutes(db: Database) {
     if (typeof body?.config === "object" && body.config) patch.config = body.config;
     const [row] = await db.update(skills).set(patch).where(and(eq(skills.id, id), eq(skills.userId, userId))).returning();
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Skill not found"), 404);
-    return c.json({ ok: true, skill: row });
+    return c.json({ ok: true, skill: safeSkill(row) });
   });
   return app;
 }

@@ -6,6 +6,21 @@ import type { AppEnv } from "../types.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+const redactIdentityValue = (value: unknown, keyHint = ""): unknown => {
+  const lower = keyHint.toLowerCase();
+  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
+  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
+  if (Array.isArray(value)) return value.map((v) => redactIdentityValue(v));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactIdentityValue(v, k)]));
+  return value;
+};
+const safeConnectorAccount = (row: any) => ({
+  id: row.id, userId: row.userId, connectorId: row.connectorId, status: row.status,
+  scopes: Array.isArray(row.scopes) ? row.scopes : [],
+  metadata: redactIdentityValue(row.metadata ?? {}),
+  createdAt: row.createdAt, updatedAt: row.updatedAt,
+});
 
 export function identityRoutes(db: Database) {
   const app = new Hono<AppEnv>();
@@ -83,7 +98,7 @@ export function identityRoutes(db: Database) {
     if (!account) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
     const metadata = { ...(account.metadata as Record<string, unknown> ?? {}), identityId };
     const [updated] = await db.update(connectorAccounts).set({ metadata, updatedAt: new Date() }).where(and(eq(connectorAccounts.id, accountId), eq(connectorAccounts.userId, userId))).returning();
-    return c.json({ ok: true, account: updated });
+    return c.json({ ok: true, account: safeConnectorAccount(updated) });
   });
   return app;
 }

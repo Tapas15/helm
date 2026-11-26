@@ -6,6 +6,16 @@ import type { AppEnv } from "../types.js";
 
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false) => ({ error: { code, message, retryable } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+const redactValue = (value: unknown, keyHint = ""): unknown => {
+  const lower = keyHint.toLowerCase();
+  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
+  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
+  if (Array.isArray(value)) return value.map((v) => redactValue(v));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactValue(v, k)]));
+  return value;
+};
+const safeRule = (row: any) => row ? ({ ...row, triggerConfig: redactValue(row.triggerConfig ?? {}), actionConfig: redactValue(row.actionConfig ?? {}) }) : row;
 
 async function writeProactivityAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; metadata?: Record<string, unknown> }) {
   try {
@@ -30,7 +40,7 @@ export function proactivityRoutes(db: Database) {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Proactivity disabled (HELM_PROACTIVITY_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(proactivityRules).where(eq(proactivityRules.userId, userId)).orderBy(desc(proactivityRules.updatedAt)).limit(100);
-    return c.json({ ok: true, rules: rows });
+    return c.json({ ok: true, rules: rows.map(safeRule) });
   });
 
   app.post("/rules", async (c) => {
@@ -43,7 +53,7 @@ export function proactivityRoutes(db: Database) {
     if (actionKind !== "draft") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Only draft proactivity actions are allowed in this slice; autonomous/external execution requires explicit approval and activation"), 403);
     const now = new Date();
     const [row] = await db.insert(proactivityRules).values({ id: uid("prv"), userId, name, enabled: body?.enabled === true, triggerKind: typeof body?.triggerKind === "string" ? body.triggerKind.slice(0, 50) : "cron", triggerConfig: typeof body?.triggerConfig === "object" && body.triggerConfig ? body.triggerConfig : {}, actionKind: "draft", actionConfig: typeof body?.actionConfig === "object" && body.actionConfig ? body.actionConfig : {}, requireApproval: body?.requireApproval !== false, createdAt: now, updatedAt: now }).returning();
-    return c.json({ ok: true, rule: row }, 201);
+    return c.json({ ok: true, rule: safeRule(row) }, 201);
   });
 
   app.patch("/rules/:id", async (c) => {
@@ -65,7 +75,7 @@ export function proactivityRoutes(db: Database) {
     if (typeof body?.requireApproval === "boolean") patch.requireApproval = body.requireApproval;
     const [row] = await db.update(proactivityRules).set(patch).where(and(eq(proactivityRules.id, id), eq(proactivityRules.userId, userId))).returning();
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Rule not found"), 404);
-    return c.json({ ok: true, rule: row });
+    return c.json({ ok: true, rule: safeRule(row) });
   });
 
   app.get("/dry-run", async (c) => {
