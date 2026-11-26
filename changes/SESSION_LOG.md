@@ -2122,3 +2122,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: `reconciliation.run`, `reconciliation.schedule.ensure`, `temporal.schedule.reconciliation` not treated as external-write side effects.
 - **Impact**: P5 remains 80%; overall 83.2% (taxonomy contract depth).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 operator evidence-bundle contracts
+
+- **Scope**: Added deterministic operator evidence-bundle checklist in `changes/RUNBOOK-temporal.md`; hardened `backend/api/src/routes/reconciliation.test.ts` (9/9) to assert status operator evidence fields and no secret leakage.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.test.ts` PASS 9/9; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: reconciliation status includes operator-evidence fields; response does not leak internal/temporal secret env values. Runbook documents no-secrets/no-PII capture.
+- **Impact**: P5 remains 80%; overall 83.2% (operator readiness contract depth, no real-env closure).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.

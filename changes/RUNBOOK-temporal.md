@@ -28,7 +28,16 @@
 - Temporal schedule: `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ENABLED=1`; use `/v1/reconciliation/schedule/ensure` in dev/internal mode only.
 - Fault injection (test/dev only): `HELM_RECONCILIATION_FAULT_INJECT=lookup_error|lookup_not_found|activity_error`; must preserve no-blind-retry.
 
+## Operator Evidence Bundle (deterministic, no secrets)
+Collect before claiming readiness; this is **not** real-env closure proof.
+- `GET /v1/reconciliation/status`: capture `ok`, `enabled`, `intervalMs`, `olderThanMs`, `limit`, `policy`, `counts`, `temporalSchedule` (`enabled/scheduleId/status/reason/nextActionTimes` as present). Do not capture tokens, secrets, raw payloads, or PII.
+- `POST /v1/reconciliation/dry-run`: capture `ok,dryRun,scanned,candidates[].{id,actionKind,idempotencyKey,createdAt,externalRef}` only; no mutation expected.
+- `POST /v1/reconciliation/run` (scoped): capture bounded summary `ok,scanned,reconciled,failed,skipped,errors[]` (error strings bounded by service).
+- Schedule ensure (dev/internal only): capture `ok,scheduleId,created,status`.
+- Required env/flags to report (values redacted where sensitive): `HELM_TEMPORAL_ENABLED`, `HELM_TEMPORAL_MODE`, `HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ENABLED`, `HELM_RECONCILIATION_ENABLED`, `HELM_ALLOW_DEV_AUTH`, `HELM_TEMPORAL_TEST_MODE` (if set). Never report `HELM_INTERNAL_TOKEN`, `HELM_TEMPORAL_ACTIVITY_SECRET`, DB URLs, provider tokens.
+
 ## Evidence / Verification
-- Deterministic contracts (local): shared temporal config 8/8; API reconciliation/temporal stub 22/22; temporal-worker workflows/activities 15/15; API routing fail-closed/bypass 37/37.
+- Deterministic contracts (local): shared temporal config 9/9; API reconciliation/temporal contracts (repeated-run/fault-injection/run-shape/schedule-shape/scope-safety) PASS; temporal-worker workflows/activities 15/15 incl. single-call no-blind-retry uncertain assertions; API routing fail-closed/bypass/rollback 28/28 targeted.
 - Env-gated integration: `HELM_TEMPORAL_ROUTING_TEST=1`, `HELM_TEMPORAL_E2E=1`, `HELM_TEMPORAL_SIDE_EFFECT_E2E=1`, `HELM_TEMPORAL_RECONCILIATION_E2E_TEST=1`, `HELM_RECONCILIATION_API_TEST=1`.
-- Blocked for closure: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging disable-flag rollback proof, operator runbook depth.
+- Blocked for closure: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging disable-flag rollback proof.
+

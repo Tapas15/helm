@@ -77,6 +77,29 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(temporal.getTemporalReconciliationScheduleStatus).toHaveBeenCalledTimes(1);
   });
 
+  it("GET /status exposes operator evidence fields without leaking secrets", async () => {
+    process.env.HELM_INTERNAL_TOKEN = "secret-token";
+    process.env.HELM_TEMPORAL_ACTIVITY_SECRET = "secret-activity";
+    const res = await makeApp(makeDb()).request("/v1/reconciliation/status");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body).toEqual(expect.objectContaining({
+      ok: true,
+      enabled: expect.any(Boolean),
+      intervalMs: expect.any(Number),
+      olderThanMs: expect.any(Number),
+      limit: expect.any(Number),
+      policy: expect.any(String),
+      temporalSchedule: expect.any(Object),
+      counts: expect.objectContaining({ uncertain: expect.any(Number), executed: expect.any(Number), failed: expect.any(Number) }),
+    }));
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("secret-token");
+    expect(text).not.toContain("secret-activity");
+    expect(text.toLowerCase()).not.toContain("helm_internal_token");
+    expect(text.toLowerCase()).not.toContain("helm_temporal_activity_secret");
+  });
+
   it("POST /run defaults to user scope and calls reconciliation service", async () => {
     const res = await makeApp(makeDb(), "usr_1").request("/v1/reconciliation/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 7, olderThanMs: 0 }) });
     expect(res.status).toBe(200);
@@ -139,6 +162,7 @@ describe("reconciliation routes (P5 contracts)", () => {
     expect(temporal.maybeStartReconciliationSchedule).toHaveBeenCalledTimes(1);
   });
 });
+
 
 
 
