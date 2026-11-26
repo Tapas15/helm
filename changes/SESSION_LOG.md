@@ -1,3 +1,34 @@
+
+## 2026-11-26T09:30:00Z - P6 BrowserOS deterministic parity contracts + local smoke rerun
+
+**Agent:** Kilo (Glyph Cluster)  
+**Request:** "P6 BrowserOS Upgrade 66% 34% ... can you do that by your own in env ... now docker is up check next step ... can you do it next step"
+
+### Environment checks
+- Docker up: 29.9.3 linux; running container omniroute:base (healthy, 20128-20129). No Helm compose stack running.
+- BrowserOS runtime present: rowseros-cli 0.4.0; MCP listening 127.0.0.1:9210 (pid 18188 observed via Get-NetTCPConnection).
+- Git: main...origin/main at 36d3916 before this slice; dirty M changes/memory_implementation.md, ?? backups/ (excluded).
+
+### Commands run + results
+- pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts src/routes/browser.takeover.test.ts src/routes/browser.takeover.edge.test.ts src/routes/browser.artifacts-list.test.ts - **PASS 28/28**.
+- Env-gated smoke: $env:HELM_BROWSEROS_MCP_SMOKE='1'; ='http://127.0.0.1:9210/mcp'; ='https://example.com'; ='45000'; pnpm -C backend/api exec vitest run src/routes/browseros-mcp-smoke.test.ts - **PASS 6/6** (218.94s). Baseline log: {"capabilities":19,"create":183,"navigate":680,"snapshot":64,"fill":67,"click":221,"takeover_request":0,"takeover_resume":0,"close":48} (controlled local page, baseline-only).
+- Added deterministic parity contract: ackend/api/src/lib/browser-adapter-parity.test.ts (4/4) - click/fill selector-not-found structured non-retryable, MCP timeout retryable BROWSEROS_TIMEOUT, takeover request/resume + stream-status parity shapes.
+- Attempted route-level dispatch-off contract (rowser.dispatch-contract.test.ts) with module-reset/db mock; blocked by ownership-mock shape causing 403 legacy-unbound-session-hard-block in harness (not product bug). Removed unstable test; recorded gap in P6 docs. Existing route ownership semantics already covered by browser route tests.
+- pnpm -C backend/api exec vitest run src/lib/browser-adapter.test.ts src/lib/browser-adapter-parity.test.ts src/routes/browser.takeover.test.ts src/routes/browser.takeover.edge.test.ts src/routes/browser.artifacts.test.ts src/routes/browser.artifacts-list.test.ts - **PASS 35/35**.
+- pnpm -C backend/api typecheck - **PASS**.
+
+### Files changed (this slice)
+- ackend/api/src/lib/browser-adapter-parity.test.ts - new deterministic BrowserOS MCP adapter parity/error contract tests.
+- changes/phase-6-browseros-upgrade.md - status/evidence/remaining gaps updated (dispatch-off route mock gap noted).
+- changes/CURRENT_STATE.md - P6 row updated with 2026-11-26 deterministic evidence and smoke rerun baseline.
+- changes/SESSION_LOG.md - this entry.
+
+### Remaining gaps / blockers (P6)
+- Route-level dispatch-off contract still needs a clean DB mock pattern; product dispatch-off behavior not disproven, but test harness gap remains.
+- Deeper BrowserOS-vs-Playwright artifact/error parity and real-browser takeover semantics under live control.
+- Formal STRIDE/threat-model/PII retention/redaction/legal/privacy signoff; credential-handling verification for real non-loopback deployment (if used).
+- BrowserOS-specific CI gate (runtime/service/flake policy decision needed).
+- Default dispatch remains OFF until parity+security+CI evidence complete.
 ## 2026-11-25T03:20:00Z - Session: P6 BrowserOS selector hardening + docs/changelog sync
 
 **Agent:** Kilo (Glyph Cluster)  
