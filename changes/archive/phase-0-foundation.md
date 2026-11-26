@@ -1,6 +1,6 @@
 # Phase 0 - Foundation
 
-**Status:** `[~]` 95% (dev baseline + CI fresh-DB migrate smoke added; push/CI confirmation remains)  
+**Status:** `[x]` 100% (foundation gate satisfied; non-blocking debt recorded)  
 **Blueprint refs:** `MASTER-TECHNICAL-BLUEPRINT.md` Phase 0, `13-Repo-Structure-and-Stack.md`
 
 ## Goal
@@ -24,13 +24,14 @@ Repo, contracts, local dev, CI baseline. `docker compose up` starts core service
 - [x] Backend tsconfig `dist/src` include workaround removed (api/worker/browser-worker include `src` only) with lint/typecheck/build/test PASS (2026-11-25).
 - [x] `backend/temporal-worker/tsconfig.json` workaround removed (`include:["src"]`); root `tsconfig.json` includes `backend/temporal-worker` reference (2026-11-26).
 - [x] Tracked generated package src JS/d.ts/map artifacts removed from `packages/db`, `packages/shared`, `packages/observability`; `.gitignore` guards `packages/*/src/**/*.{js,js.map,d.ts,d.ts.map}` (2026-11-26).
-- [x] CI fresh-DB migrate smoke: Postgres 16 service + `DATABASE_URL` + `pnpm --filter @helm/db db:migrate` before tests (2026-11-26, local workflow change; CI confirmation pending push).
+- [x] CI fresh-DB migrate smoke: Postgres 16 service + `DATABASE_URL` + `pnpm --filter @helm/db db:migrate` before tests (2026-11-26).
+- [x] Remote CI/fresh-clone gate green with DB migrate smoke: [45812802322](https://github.com/Tapas15/helm/actions/runs/45812802322) (`f06c50a`, 2026-11-26) PASS including DB migrate smoke.
+- [x] ESLint is real (not placeholder): `eslint.config.mjs` + `eslint` lint scripts across packages.
 
-### Remaining / Blocked
-- [ ] Push local commits and confirm remote CI/fresh-clone green with DB migrate smoke step (external confirmation).
-- [ ] Replace ESLint-depth placeholder lint (`tsc --noEmit`) with real ESLint rules where useful (non-blocking quality).
-- [ ] Address GitHub Actions Node 20 action deprecation annotations (non-blocking).
-- [ ] Legacy/idempotent `0001_p7_tables_manual.sql` remains outside drizzle journal by design (0000 contains P7 tables); no destructive reset without explicit user approval.
+### Accepted non-blocking debt (not P0 gate blockers)
+- [ ] GitHub Actions Node 20 action deprecation annotations; action-major bumps require compatibility verification before changing workflow pins.
+- [ ] Optional ESLint rule tightening (quality hardening).
+- [ ] Legacy/idempotent `0001_p7_tables_manual.sql` remains outside drizzle journal by design (`0000` contains P7 tables); no destructive reset without explicit user approval.
 
 ## Evidence
 - 2026-11-22: `pnpm db:push --force` PASS; `pnpm lint/typecheck/test/build` PASS; smoke create task -> `queued/running/succeeded`, events replayed.
@@ -38,4 +39,5 @@ Repo, contracts, local dev, CI baseline. `docker compose up` starts core service
 - 2026-11-24: CI run `45441229198` PASS (after `8471aef`).
 - 2026-11-25: tsconfig dist/src cleanup (api/worker/browser-worker); lint/typecheck/build/test PASS.
 - 2026-11-26: temporal-worker tsconfig/root ref cleanup; generated package src artifacts untracked+gitignored; CI Postgres+migrate smoke added. Local: lint PASS (warnings only), typecheck PASS (9/9), build PASS (8/8). Full test: browser-worker correlation-echo timed out once at 5s, rerun with 15s PASS 3/3; remaining suites green with expected env-gated skips. No destructive DB reset.
+- 2026-11-26: Remote CI [45812802322](https://github.com/Tapas15/helm/actions/runs/45812802322) (`f06c50a`) PASS including DB migrate smoke (fresh Postgres), lint, typecheck, build, test, dependency audit report.
 - Fix refs: `changes/FIX_LOG.md`.
