@@ -112,13 +112,13 @@ export function browserRoutes(db: Database) {
   });
   app.get("/sessions/:id", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}`);
     const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   app.get("/sessions/:id/artifacts", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 50) || 50, 1), 100);
     const rows = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.userId, c.get("userId")), eq(browserArtifacts.sessionId, c.req.param("id")))).orderBy(desc(browserArtifacts.createdAt)).limit(limit);
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.artifacts.list", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "list", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), count: rows.length, limit } }).catch(() => undefined);
@@ -126,7 +126,7 @@ export function browserRoutes(db: Database) {
   });
   app.get("/sessions/:id/screenshot.png", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const path = `/v1/sessions/${c.req.param("id")}/screenshot.png`;
     if (browserAdapterEnabled) {
       const r = await browserAdapter.requestBinary(path);
@@ -138,7 +138,7 @@ export function browserRoutes(db: Database) {
   });
   app.get("/sessions/:id/stream/status", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/stream/status`);
     if (r.status < 400) await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.stream.status", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "observe", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
@@ -153,9 +153,9 @@ export function browserRoutes(db: Database) {
     const guard = BrowserActionGuard.safeParse(body);
     if (!base.success || !guard.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input; approvalId/actionHash/idempotencyKey required", false, { action: base.error?.flatten(), guard: guard.error?.flatten() }), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const auth = await requireApprovedAction(db, c.get("userId"), guard.data);
-    if (!auth.ok) return c.json(auth.body as any, auth.status as any);
+    if (!auth.ok) return c.json(redactBrowserValue(auth.body) as any, auth.status as any);
     const approval = auth.approval;
     if (owned.task.id !== approval.taskId) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Approval task does not match browser session task", false), 403);
     if (!auth.receipt) {
@@ -192,7 +192,7 @@ export function browserRoutes(db: Database) {
     const parsed = BrowserNavigateInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const url = String(parsed.data.url);
     const allowed = /^https?:\/\/(localhost|127\.0\.0\.1|example\.com|www\.example\.com)(\/|$)/i.test(url);
     if (!allowed) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Navigation to non-allowlisted domain requires approvalId/actionHash/idempotencyKey", false, { url }), 403);
@@ -204,7 +204,7 @@ export function browserRoutes(db: Database) {
   app.post("/sessions/:id/fill", (c) => guardedAct(c, BrowserFillInput, "fill", `/v1/sessions/${c.req.param("id")}/fill`));
   app.post("/sessions/:id/screenshot", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const body = await c.req.json().catch(() => ({}));
     const parsed = BrowserScreenshotInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid screenshot input", false, parsed.error.flatten()), 400);
@@ -219,7 +219,7 @@ export function browserRoutes(db: Database) {
   });
   app.post("/sessions/:id/snapshot", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/snapshot`, { method: "POST", body: "{}" });
     const json = (() => { try { return JSON.parse(r.text || "{}"); } catch { return null as any; } })();
     const artifact = json?.data?.artifact;
@@ -235,7 +235,7 @@ export function browserRoutes(db: Database) {
     const parsed = BrowserTakeoverInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid takeover input", false, parsed.error.flatten()), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/request`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
@@ -256,7 +256,7 @@ export function browserRoutes(db: Database) {
     const parsed = BrowserResumeInput.safeParse(body);
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid resume input", false, parsed.error.flatten()), 400);
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/takeover/resume`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status < 400 && json?.ok) {
@@ -279,7 +279,7 @@ export function browserRoutes(db: Database) {
     if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid external action input", false, parsed.error.flatten()), 400);
     const input = parsed.data;
     const auth = await requireApprovedAction(db, userId, input);
-    if (!auth.ok) return c.json(auth.body as any, auth.status as any);
+    if (!auth.ok) return c.json(redactBrowserValue(auth.body) as any, auth.status as any);
     const approval = auth.approval;
     // Optional identity policy enforcement: only when HELM_IDENTITY_ENFORCEMENT=1 and session metadata binds identityId.
     if (process.env.HELM_IDENTITY_ENFORCEMENT === "1") {
@@ -363,7 +363,7 @@ export function browserRoutes(db: Database) {
 
   app.post("/sessions/:id/close", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
-    if (!owned.ok) return c.json(owned.body as any, owned.status as any);
+    if (!owned.ok) return c.json(redactBrowserValue(owned.body) as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/close`, { method: "POST", body: "{}" });
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.close", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "closed" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
