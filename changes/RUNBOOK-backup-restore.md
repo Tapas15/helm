@@ -1,24 +1,49 @@
-﻿# Backup/Restore Runbook (P8 thin slice)
+﻿# P8 Backup/Restore Runbook
 
 ## Scope
-- Postgres (Helm DB), browser artifacts dir, vault master key/env, Temporal dev state (optional).
+- **Included by scripts:** Postgres dump (`pg_dump -Fc`) for Helm DB.
+- **Not included by scripts:** browser artifact/state directories, object store contents, vault master key/env, Temporal dev state, Docker volumes outside Postgres dump. These must be handled explicitly.
+
+## Safety Preconditions
+- Do not restore over a live DB without explicit operator intent. Stop API/worker/browser-worker first.
+- `scripts/restore-db.ps1` is destructive (`pg_restore --clean --if-exists`) and requires `-Force`.
+- Verify dump checksum before restore when available.
+- Never store real secrets in repo; retain `HELM_VAULT_MASTER_KEY`/`ENCRYPTION_KEY` securely.
 
 ## Backup
-1. `docker exec infra-postgres-1 pg_dump -U postgres -d helm -Fc -f /tmp/helm.dump`
-2. `docker cp infra-postgres-1:/tmp/helm.dump ./backups/helm-$(date +%F).dump`
-3. Copy browser artifacts: `BROWSER_ARTIFACT_DIR` (default worker artifacts dir) and `BROWSER_STATE_DIR`.
-4. Securely record `HELM_VAULT_MASTER_KEY`/`ENCRYPTION_KEY`; encrypted vault secrets cannot be restored without it.
+```powershell
+pwsh -File scripts/backup-db.ps1 -OutDir backups -Container infra-postgres-1 -Db helm -User postgres
+```
+Outputs:
+- `backups/helm-<timestamp>.dump`
+- `backups/helm-<timestamp>.dump.sha256`
 
-## Restore
-1. Stop API/worker/browser-worker.
-2. `docker exec -i infra-postgres-1 pg_restore -U postgres -d helm --clean --if-exists < backups/helm.dump`
-3. Restore artifact/state dirs to same paths.
-4. Restore env secrets; start services; verify `/health`, task list, receipts/artifacts.
+Also back up (separately, secure storage):
+- Browser artifacts/state dirs (`BROWSER_ARTIFACT_DIR`, `BROWSER_STATE_DIR` / worker artifact config).
+- Vault key material: `HELM_VAULT_MASTER_KEY`, `ENCRYPTION_KEY`, `SESSION_SECRET`, connector secrets as applicable. **Encrypted vault rows cannot be restored without keys.**
+- `.env`/deployment secret store references (not values in git).
 
-## Verification
-- Task/event/approval/receipt rows present.
-- Artifact download resolves.
-- Vault-backed connector account status returns token metadata (no secret plaintext).
+## Restore (destructive, requires -Force)
+```powershell
+# Stop services first (API/worker/browser-worker)
+pwsh -File scripts/restore-db.ps1 -DumpFile backups/helm-YYYYMMDD-HHMMSS.dump -Container infra-postgres-1 -Db helm -User postgres -Force
+```
+Optional:
+- `-ChecksumFile backups/helm-....dump.sha256`
+- `-SkipChecksum` only when checksum is unavailable and operator accepts risk.
 
-## Gaps
-- No automated scheduled backup; no restore drill evidence yet; no encrypted backup envelope.
+After DB restore:
+1. Restore artifact/state dirs to configured paths.
+2. Restore env/secret keys in secure env store.
+3. Start services.
+4. Verify: `/health`, task list, task export, receipts/artifacts resolve, connector status metadata (no secret plaintext).
+
+## Dry-Run / Drill Evidence
+- Non-destructive dry-run evidence: `changes/P8-backup-restore-dry-run.md`.
+- Drill runbook template: `changes/RUNBOOK-backup-restore-drill.md`.
+
+## Known Gaps (P8 remaining)
+- [ ] Full drill including artifact dir + vault key scope in staging-like env (ops/manual evidence).
+- [ ] Encrypted backup storage, retention policy, access controls.
+- [ ] Scheduled backup + restore verification automation.
+- [ ] Object-store/artifact backup when artifact storage moves beyond local dir.
