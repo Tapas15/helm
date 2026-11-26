@@ -1917,3 +1917,27 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
 - [ ] Runtime eval depth under real providers/browser/connectors.
 - [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
+## 2026-11-26 - P2 checkpoint resume replay guard
+**Time:** 2026-11-26T03:56:00Z
+**Agent:** Kilo
+**Phase:** P2 Agent Runtime
+
+### Completed
+- [x] Added resume replay guard: when non-terminal checkpoint has pending approval and approval is still pending, worker sets task to `waiting_approval` and returns without rerunning runtime.
+- [x] If pending approval checkpoint already has executed receipt, worker clears pendingApproval from resumePlan and continues runtime safely (no re-proposal).
+- [x] Added deterministic processTask tests for both resume paths.
+- [x] Updated docs: `changes/phase-2-hermes-runtime.md` (P2 80%->81%), `changes/CURRENT_STATE.md` (overall 80.8%->80.9%).
+
+### Evidence
+- `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS (4/4).
+- `pnpm -C backend/worker typecheck` PASS.
+- `pnpm -C backend/worker lint` PASS.
+- Commit: `2627384` (`feat(p2): guard checkpoint resume against duplicate approval replay`).
+
+### Remaining / Blocked
+- [ ] Durable resume-from-checkpoint execution/replay semantics (step-level replay using resumePlan; no duplicate side effects). **Partial.**
+- [ ] Live E2E runtime validation across real browser+connector flows. **Blocked:** real env/credentials/smoke.
+- [ ] Integration-driven behavior tweaks and production/model-provider behavior evidence. **Blocked:** real runs/providers.
+- [ ] Richer routing depth (cost-aware, persisted selection UX polish, enforced sensitive-egress policy gate).
+- [ ] Runtime eval depth under real providers/browser/connectors.
+- [ ] Live Hermes sidecar integration against real Hermes runtime. **Blocked:** Hermes runtime/env.
