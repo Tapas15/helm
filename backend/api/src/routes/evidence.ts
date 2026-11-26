@@ -12,6 +12,16 @@ import { lookupCalendarCreate, lookupCalendarEventById } from "./calendar.js";
 
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
 
+function artifactRoots() {
+  const roots = [process.env.BROWSER_ARTIFACT_DIR, process.env.HELM_ARTIFACT_DIR, path.resolve(process.cwd(), ".data", "browser-artifacts")].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return [...new Set(roots.map((r) => path.resolve(r)))];
+}
+
+function isInside(root: string, candidate: string) {
+  const rel = path.relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 export function artifactRoutes(db: Database) {
   const app = new Hono<AppEnv>();
   app.get("/", async (c) => {
@@ -27,6 +37,8 @@ export function artifactRoutes(db: Database) {
     const [row] = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.id, id), eq(browserArtifacts.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Artifact not found"), 404);
     const resolved = path.resolve(row.path);
+    const allowed = artifactRoots().some((root) => isInside(root, resolved));
+    if (!allowed) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Artifact path is outside allowed artifact roots", false), 403);
     if (!existsSync(resolved)) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Artifact file missing"), 404);
     c.header("content-type", row.mime || "application/octet-stream");
     c.header("content-disposition", `inline; filename="${path.basename(resolved)}"`);

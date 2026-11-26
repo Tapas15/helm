@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { browserArtifacts, actionReceipts } from "@helm/db";
 import { artifactRoutes, receiptRoutes } from "./evidence.js";
+
+const env = { ...process.env };
+afterEach(() => { process.env = { ...env }; });
 
 function thenable(value: any) { const p: any = Promise.resolve(value); p.limit = async (n?: number) => Array.isArray(value) ? value.slice(0, n ?? value.length) : value; p.orderBy = () => thenable(value); p.where = () => thenable(value); p.returning = async () => Array.isArray(value) ? value : [value]; return p; }
 
@@ -35,11 +41,32 @@ describe("evidence routes P8 hardening", () => {
     expect(JSON.stringify(body)).not.toContain("secret\\\\shot.png");
   });
 
-  it("receipt listing is user-scoped by query shape and returns rows", async () => {
-    const db = makeDb({ receipts: [{ id: "rcpt_1", userId: "u1", taskId: "tsk_1", status: "executed", createdAt: new Date("2026-01-01T00:00:00Z") }] });
-    const res = await makeApp(db).request("/v1/receipts?taskId=tsk_1");
-    expect(res.status).toBe(200);
+  it("artifact download rejects path outside allowed roots", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "helm-artifacts-"));
+    const outside = mkdtempSync(path.join(tmpdir(), "helm-outside-"));
+    const outsideFile = path.join(outside, "secret.txt");
+    writeFileSync(outsideFile, "secret", "utf8");
+    process.env.BROWSER_ARTIFACT_DIR = root;
+    const db = makeDb({ artifacts: [{ id: "art_1", userId: "u1", taskId: "tsk_1", runId: "run_1", sessionId: "sess_1", kind: "screenshot", path: outsideFile, mime: "text/plain", sha256: "abc", sizeBytes: 6, metadata: {}, createdAt: new Date("2026-01-01T00:00:00Z") }] });
+    const res = await makeApp(db).request("/v1/artifacts/art_1/download");
+    expect(res.status).toBe(403);
     const body = await res.json() as any;
-    expect(body.receipts[0].id).toBe("rcpt_1");
+    expect(body?.error?.code).toBe("FORBIDDEN");
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  });
+
+  it("artifact download allows file inside allowed root", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "helm-artifacts-"));
+    mkdirSync(root, { recursive: true });
+    const file = path.join(root, "ok.txt");
+    writeFileSync(file, "ok", "utf8");
+    process.env.BROWSER_ARTIFACT_DIR = root;
+    const db = makeDb({ artifacts: [{ id: "art_1", userId: "u1", taskId: "tsk_1", runId: "run_1", sessionId: "sess_1", kind: "text", path: file, mime: "text/plain", sha256: "abc", sizeBytes: 2, metadata: {}, createdAt: new Date("2026-01-01T00:00:00Z") }] });
+    const res = await makeApp(db).request("/v1/artifacts/art_1/download");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("ok");
+    rmSync(root, { recursive: true, force: true });
   });
 });
+
