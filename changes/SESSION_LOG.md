@@ -2174,3 +2174,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: when `HELM_RECONCILIATION_ENABLED=0`, status reports disabled with DB-canonical counts/policy; explicit operator dry-run remains read-only candidate listing and run remains lookup-first scoped path (no blind retry).
 - **Impact**: P5 remains 80%; overall 83.2% (operator semantics clarity).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+
+### 2026-11-26T09:48:00Z - P6 dispatch-off route contract fixed
+- Added `backend/api/src/routes/browser.dispatch.test.ts` (2/2 PASS): `HELM_BROWSER_ADAPTER_DISPATCH=0` proxies through browser-worker fetch and reports `dispatchEnabled=false`; `HELM_BROWSER_ADAPTER_DISPATCH=1` routes through adapter path with no browser-worker fetch.
+- Harness note: dispatch-routing-scoped DB mock returns task rows; ownership/table-selection semantics remain covered by existing browser route tests (`browser.takeover*`, `browser.artifacts*`, etc.).
+- Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.dispatch.test.ts` PASS 2/2; `pnpm -C backend/api typecheck` PASS.
+- P6 still 66%: gate remains parity + security + CI evidence; default dispatch OFF.
