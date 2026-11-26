@@ -2196,3 +2196,7 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Added `backend/api/src/routes/browser.binary-dispatch-off.test.ts` (1/1 PASS): `HELM_BROWSER_ADAPTER_DISPATCH=0` proxies `/screenshot.png` through browser-worker with auth header, returns bytes/content-type/no-store, and makes no BrowserOS MCP URL fetch.
 - Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.binary-dispatch-off.test.ts` PASS 1/1; targeted browser suite PASS 48/48; `pnpm -C backend/api typecheck` PASS.
 - P6 remains 66%: deterministic confidence improved; gate blockers unchanged (deep real-browser parity, real takeover semantics, formal security/PII signoff, non-loopback credential verification, BrowserOS CI gate). Default dispatch OFF.
+### 2026-11-26T10:55:00Z - P6 signoff/evidence draft package
+- Added draft docs: `changes/P6-browseros-security-signoff-draft.md` (STRIDE, PII/artifact retention-redaction, credential/non-loopback, CI gate options A/B/C, signoff table) and `changes/P6-browseros-real-browser-evidence.md` (automated smoke/contract evidence + manual real-browser takeover checklist).
+- Updated `changes/phase-6-browseros-upgrade.md` and `changes/CURRENT_STATE.md` to reference drafts; status remains unapproved/draft.
+- No code/runtime/default-dispatch changes. P6 remains 66%; blockers unchanged (deep real parity, live takeover semantics, formal signoff, CI gate decision, dispatch OFF).

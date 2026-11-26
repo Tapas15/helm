@@ -56,7 +56,7 @@ Improve browser execution with optional external BrowserOS adapter behind Helm `
 - CI: latest run recorded in `changes/CURRENT_STATE.md` after push.
 - Commits: pushed on `main` (see git log / CURRENT_STATE).
 
-## Security / Compliance Review (2026-11-25, code-audit baseline + human interim signoff)
+## Security / Compliance Review (2026-11-25, code-audit baseline + human interim signoff)`r`n`r`n**Draft signoff package (2026-11-26):** `changes/P6-browseros-security-signoff-draft.md` (STRIDE, PII retention/redaction, CI gate options, signoff table). **Draft evidence capture:** `changes/P6-browseros-real-browser-evidence.md` (automated smoke/contract evidence + manual takeover checklist). Both drafts are unapproved; formal signoff still required.
 
 **Status:** human interim signoff recorded (2026-11-25, user: "yes"); full security signoff still pending formal P8 evidence.
 
