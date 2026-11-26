@@ -31,4 +31,10 @@ describe("runtime checkpoint", () => {
     expect(cp.resumePlan?.completedToolRefs).toEqual([{ name: "browser_click", eventSeq: 5, actionHash: "ah1", idempotencyKey: "ik1" }]);
     expect(cp.resumePlan?.completedActionHashes).toEqual(["ah1"]);
   });
+
+  it("treats runtime.tool.deduped as safe boundary", () => {
+    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.deduped", ts, trace, payload: { name: "browser_click", actionHash: "ah1", reason: "resume_plan_completed_action_hash" } } as any, 6);
+    expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.tool.deduped");
+    expect(isTerminalCheckpoint(cp)).toBe(false);
+  });
 });
