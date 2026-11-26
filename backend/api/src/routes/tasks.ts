@@ -278,7 +278,7 @@ export function taskRoutes(db: Database) {
     const [task] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId))).limit(1);
     if (!task) return c.json(errorBody(HELM_ERROR_CODES.NOT_FOUND, "Task not found", false), 404);
     const rows = await db.select().from(taskMessages).where(and(eq(taskMessages.taskId, id), eq(taskMessages.userId, userId))).orderBy(taskMessages.createdAt);
-    return c.json({ messages: rows });
+    return c.json({ messages: redactExportValue(rows) });
   });
 
   app.post("/:id/messages", async (c) => {

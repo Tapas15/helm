@@ -4,6 +4,20 @@ import { and, eq, sql } from "drizzle-orm";
 import { taskEvents, tasks, type Database } from "@helm/db";
 import type { AppEnv } from "../types.js";
 
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
+    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
+    else out[k] = redact(v);
+  }
+  return out;
+}
+
 export function eventRoutes(db: Database) {
   const app = new Hono<AppEnv>();
 
@@ -30,7 +44,7 @@ export function eventRoutes(db: Database) {
           .orderBy(taskEvents.sequence).limit(100);
         for (const evt of rows) {
           cursor = Math.max(cursor, Number(evt.sequence));
-          await stream.writeSSE({ event: "event", data: JSON.stringify(evt), id: String(evt.sequence) });
+          await stream.writeSSE({ event: "event", data: JSON.stringify({ ...evt, payload: redact(evt.payload ?? {}) }), id: String(evt.sequence) });
         }
         await stream.writeSSE({ event: "heartbeat", data: JSON.stringify({ ts: new Date().toISOString(), taskId, after: cursor }) });
         await stream.sleep(1500);
