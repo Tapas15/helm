@@ -19,7 +19,7 @@ export function artifactRoutes(db: Database) {
     const taskId = c.req.query("taskId");
     const where = taskId ? and(eq(browserArtifacts.userId, userId), eq(browserArtifacts.taskId, taskId)) : eq(browserArtifacts.userId, userId);
     const rows = await db.select().from(browserArtifacts).where(where).orderBy(desc(browserArtifacts.createdAt)).limit(100);
-    return c.json({ artifacts: rows });
+    return c.json({ artifacts: rows.map((r) => ({ id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt })) });
   });
   app.get("/:id/download", async (c) => {
     const userId = c.get("userId");
