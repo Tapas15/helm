@@ -27,13 +27,7 @@ export function identityRoutes(db: Database) {
   app.get("/status", async (c) => {
     const userId = c.get("userId");
     const rows = await db.select().from(identities).where(eq(identities.userId, userId)).orderBy(desc(identities.createdAt)).limit(20);
-    return c.json({
-      ok: true,
-      defaultIdentityClass: "helm-owned",
-      personalCredentialSharing: false,
-      identities: rows.map(safeIdentity),
-      delegated: { supported: false, note: "User-delegated bridge requires explicit approval and narrow scopes; not enabled by default." },
-    });
+    return c.json(redactIdentityValue({ ok: true, defaultIdentityClass: "helm-owned", personalCredentialSharing: false, identities: rows.map(safeIdentity), delegated: { supported: false, note: "User-delegated bridge requires explicit approval and narrow scopes; not enabled by default." } }));
   });
   app.get("/", async (c) => {
     const userId = c.get("userId");

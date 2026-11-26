@@ -74,7 +74,7 @@ export function connectorRoutes(db: Database) {
       }
       return safeConnectorAccount(row, { hasRefreshToken, expiresAt, tokenExpired });
     }));
-    return c.json({ accounts });
+    return c.json(redactConnectorValue({ accounts }));
   });
 
   app.post("/oauth/start", async (c) => {

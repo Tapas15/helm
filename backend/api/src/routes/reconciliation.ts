@@ -23,20 +23,7 @@ export function reconciliationRoutes(db: Database) {
     }).from(actionReceipts).where(eq(actionReceipts.userId, userId));
     const recent = await db.select().from(actionReceipts).where(and(eq(actionReceipts.userId, userId), eq(actionReceipts.status, "uncertain"))).orderBy(desc(actionReceipts.createdAt)).limit(10);
     const temporalSchedule = await getTemporalReconciliationScheduleStatus().catch((e) => ({ enabled: false, scheduleId: process.env.HELM_TEMPORAL_RECONCILIATION_SCHEDULE_ID ?? "helm-reconciliation-schedule", status: "error", reason: e instanceof Error ? e.message.slice(0, 200) : String(e) }));
-    return c.json({
-      ok: true,
-      enabled: enabled(),
-      intervalMs: Number(process.env.HELM_RECONCILIATION_INTERVAL_MS ?? 60_000),
-      olderThanMs: Number(process.env.HELM_RECONCILIATION_OLDER_THAN_MS ?? 60_000),
-      limit: Number(process.env.HELM_RECONCILIATION_LIMIT ?? 20),
-      policy: "no-blind-retry; lookup-before-fail; uncertain receipts only; DB-canonical",
-      temporalSchedule: redactValue(temporalSchedule),
-      counts: counts ?? { uncertain: 0, executed: 0, failed: 0 },
-      recentUncertain: recent.map((r) => {
-        const evidence = (r.evidence as Record<string, unknown> | null) ?? {};
-        return { id: r.id, actionKind: r.actionKind, createdAt: r.createdAt, lastReconcileAttemptAt: redactValue(evidence.lastReconcileAttemptAt), lastReconcileReason: redactValue(evidence.lastReconcileReason) };
-      }),
-    });
+    return c.json(redactValue({ ok: true, enabled: enabled(), intervalMs: Number(process.env.HELM_RECONCILIATION_INTERVAL_MS ?? 60_000), olderThanMs: Number(process.env.HELM_RECONCILIATION_OLDER_THAN_MS ?? 60_000), limit: Number(process.env.HELM_RECONCILIATION_LIMIT ?? 20), policy: "no-blind-retry; lookup-before-fail; uncertain receipts only; DB-canonical", temporalSchedule, counts: counts ?? { uncertain: 0, executed: 0, failed: 0 }, recentUncertain: recent.map((r) => { const evidence = (r.evidence as Record<string, unknown> | null) ?? {}; return { id: r.id, actionKind: r.actionKind, createdAt: r.createdAt, lastReconcileAttemptAt: evidence.lastReconcileAttemptAt, lastReconcileReason: evidence.lastReconcileReason }; }) }));
   });
 
   app.post("/schedule/ensure", async (c) => {

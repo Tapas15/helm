@@ -1,4 +1,4 @@
-﻿import { Hono } from "hono";
+import { Hono } from "hono";
 import { and, desc, eq } from "drizzle-orm";
 import { actionReceipts, browserArtifacts, type Database } from "@helm/db";
 import { HELM_ERROR_CODES } from "@helm/shared";
