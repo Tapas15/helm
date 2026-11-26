@@ -39,8 +39,8 @@ Visible task system with realtime updates. User creates task from chat and sees 
 - [x] Task export/delete controls: `GET /v1/tasks/:id/export`, `POST /v1/tasks/export` capped by `HELM_TASK_EXPORT_MAX` (default 200, hard max 500), `POST /v1/tasks/:id/delete` gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`; env-gated integration `task-export-delete-api` PASS (1/1).
 
 ### Remaining / Blocked
-- [~] SSE reconnect cursor-resume E2E proof: Playwright scaffold added (`tests/e2e/src/sse-reconnect.spec.ts`, `d485d21`); needs runnable stack + `HELM_E2E=1` execution evidence.
-- [~] Live UI E2E smoke evidence for create/approve/reject/retry/pause/resume/cancel/preview/export/delete flows: Playwright smoke scaffold added (`tests/e2e/src/ui-smoke.spec.ts`); full-state coverage needs deterministic fixtures + runnable stack execution evidence.
+- [x] SSE reconnect cursor-resume E2E proof: Playwright E2E executed against running Docker stack with `HELM_E2E=1` PASS (`sse-reconnect.spec.ts`). Proof covers stale/offline transition, live recovery, and monotonic/no-duplicate sequence rendering after reconnect/follow-up.
+- [~] Live UI E2E smoke evidence: Playwright smoke executed PASS for create/export/delete, approval panel stability, and task-control validity (`ui-smoke.spec.ts`). Full approve/reject/retry/pause/resume/cancel/preview/takeover state-matrix proof still needs deterministic fixtures/seeded states.
 - [ ] DB lease worker heartbeat/recovery/fault-injection depth beyond current coverage (operational/runtime proof).
 - [x] Decide/record WS `/v1/ws` AG-UI reducer need: deferred for MVP; SSE + browser WS cover current flows.
 - [x] Artifact storage abstraction/retention polish decision: local dev dir/current artifact path for MVP; MinIO/retention abstraction deferred to P8/ops hardening.
