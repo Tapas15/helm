@@ -10,18 +10,25 @@ const KIND = new Set(["task_outcome", "approval_decision", "tool_failure", "user
 const SIGNAL = new Set(["positive", "negative", "neutral"]);
 const SEVERITY = new Set(["info", "warn", "error"]);
 
-const SENSITIVE_KEY = /token|secret|password|authorization|cookie|api[_-]?key|private[_-]?key|vault/i;
+const SENSITIVE_KEY = /token|secret|password|authorization|cookie|api[_-]?key|private[_-]?key|vault|session|credential/i;
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 6) return "[TRUNCATED]";
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => redact(v, depth + 1));
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 100)) out[k] = SENSITIVE_KEY.test(k) ? "[REDACTED]" : redact(v, depth + 1);
+    for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 100)) {
+      if (SENSITIVE_KEY.test(k)) { out[k] = "[REDACTED]"; continue; }
+      if (k.toLowerCase().replace(/[^a-z]/g, "") === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) { out[k] = "[REDACTED_PATH]"; continue; }
+      out[k] = redact(v, depth + 1);
+    }
     return out;
   }
-  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}â€¦[TRUNCATED]` : value;
+  if (typeof value === "string") return value.length > 4000 ? `${value.slice(0, 4000)}…[TRUNCATED]` : value;
   return value;
 }
+function safeEvent(r: any) { return r ? { ...r, payload: redact(r.payload ?? {}), evidenceRefs: redact(r.evidenceRefs ?? []) } : r; }
+function safeEvalCase(r: any) { return r ? { ...r, input: redact(r.input ?? {}), expected: redact(r.expected ?? {}), metadata: redact(r.metadata ?? {}) } : r; }
+function safeProposal(r: any) { return r ? { ...r, payload: redact(r.payload ?? {}), evidenceRefs: redact(r.evidenceRefs ?? []) } : r; }
 
 async function writeFeedbackAudit(db: Database, input: { userId: string; action: string; resourceId?: string | null; metadata?: Record<string, unknown> }) {
   try {
@@ -63,7 +70,7 @@ export function feedbackRoutes(db: Database) {
       evidenceRefs: Array.isArray(body?.evidenceRefs) ? body.evidenceRefs.slice(0, 50) : [],
       redacted: true,
     }).returning();
-    return c.json({ ok: true, event: row }, 201);
+    return c.json({ ok: true, event: safeEvent(row) }, 201);
   });
 
   app.get("/events", async (c) => {
@@ -72,7 +79,7 @@ export function feedbackRoutes(db: Database) {
     const taskId = c.req.query("taskId");
     const where = taskId ? and(eq(feedbackEvents.userId, userId), eq(feedbackEvents.taskId, taskId)) : eq(feedbackEvents.userId, userId);
     const rows = await db.select().from(feedbackEvents).where(where).orderBy(desc(feedbackEvents.createdAt)).limit(100);
-    return c.json({ ok: true, events: rows });
+    return c.json({ ok: true, events: rows.map(safeEvent) });
   });
 
   app.post("/eval-cases/from-event/:id", async (c) => {
@@ -94,14 +101,14 @@ export function feedbackRoutes(db: Database) {
       metadata: { generatedFrom: "feedback_event", feedbackKind: fb.kind, signal: fb.signal, redacted: true },
       createdAt: now, updatedAt: now,
     }).returning();
-    return c.json({ ok: true, evalCase: row ?? null }, 201);
+    return c.json({ ok: true, evalCase: safeEvalCase(row) }, 201);
   });
 
   app.get("/eval-cases", async (c) => {
     if (!enabled()) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback disabled (HELM_FEEDBACK_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(evalCases).where(eq(evalCases.userId, userId)).orderBy(desc(evalCases.updatedAt)).limit(100);
-    return c.json({ ok: true, evalCases: rows });
+    return c.json({ ok: true, evalCases: rows.map(safeEvalCase) });
   });
 
   app.post("/proposals/draft", async (c) => {
@@ -149,7 +156,7 @@ export function feedbackRoutes(db: Database) {
       createdAt: now, updatedAt: now,
     }).returning();
     await writeFeedbackAudit(db, { userId, action: "proposal.draft.created", resourceId: row?.id ?? null, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus: "pending", evalGateStatus: "not_run", sourceFeedbackId, sourceEvalCaseId } });
-    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. No apply/activation path exists." }, 201);
+    return c.json({ ok: true, proposal: safeProposal(row), note: "Draft-only. No apply/activation path exists." }, 201);
   });
 
   app.get("/proposals", async (c) => {
@@ -157,7 +164,7 @@ export function feedbackRoutes(db: Database) {
     if (process.env.HELM_FEEDBACK_PROPOSALS_ENABLED !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Feedback proposals disabled (HELM_FEEDBACK_PROPOSALS_ENABLED!=1)"), 403);
     const userId = c.get("userId");
     const rows = await db.select().from(selfImprovementProposals).where(eq(selfImprovementProposals.userId, userId)).orderBy(desc(selfImprovementProposals.updatedAt)).limit(100);
-    return c.json({ ok: true, proposals: rows });
+    return c.json({ ok: true, proposals: rows.map(safeProposal) });
   });
 
   app.get("/proposals/:id", async (c) => {
@@ -167,7 +174,7 @@ export function feedbackRoutes(db: Database) {
     const id = c.req.param("id");
     const [row] = await db.select().from(selfImprovementProposals).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Proposal not found"), 404);
-    return c.json({ ok: true, proposal: row });
+    return c.json({ ok: true, proposal: safeProposal(row) });
   });
 
   app.patch("/proposals/:id", async (c) => {
@@ -203,7 +210,7 @@ export function feedbackRoutes(db: Database) {
     if (Array.isArray(body?.evidenceRefs)) patch.evidenceRefs = redact(body.evidenceRefs.slice(0, 50)) as unknown[];
     const [row] = await db.update(selfImprovementProposals).set(patch).where(and(eq(selfImprovementProposals.id, id), eq(selfImprovementProposals.userId, userId))).returning();
     await writeFeedbackAudit(db, { userId, action: "proposal.draft.updated", resourceId: row?.id ?? id, metadata: { status: "draft", activation: "blocked", requiresApproval: true, reviewStatus, evalGateStatus, fields: Object.keys(patch).filter((k) => k !== "updatedAt") } });
-    return c.json({ ok: true, proposal: row ?? null, note: "Draft-only. Activation remains blocked; review/eval metadata does not activate proposals." });
+    return c.json({ ok: true, proposal: safeProposal(row), note: "Draft-only. Activation remains blocked; review/eval metadata does not activate proposals." });
   });
   return app;
 }
