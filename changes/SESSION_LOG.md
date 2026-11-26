@@ -2192,3 +2192,7 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Added `backend/api/src/routes/browser.binary-error-mapping.test.ts` (2/2 PASS): dispatch-on binary screenshot path returns adapter bytes/content-type/no-store; structured 503 binary error body preserved with no secret/authorization leakage and no browser-worker fetch.
 - Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.binary-error-mapping.test.ts` PASS 2/2; targeted browser suite PASS 47/47; `pnpm -C backend/api typecheck` PASS.
 - P6 remains 66%: deterministic confidence improved; gate blockers unchanged (deep real-browser parity, real takeover semantics, formal security/PII signoff, non-loopback credential verification, BrowserOS CI gate). Default dispatch OFF.
+### 2026-11-26T10:45:00Z - P6 binary dispatch-off screenshot route contract
+- Added `backend/api/src/routes/browser.binary-dispatch-off.test.ts` (1/1 PASS): `HELM_BROWSER_ADAPTER_DISPATCH=0` proxies `/screenshot.png` through browser-worker with auth header, returns bytes/content-type/no-store, and makes no BrowserOS MCP URL fetch.
+- Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.binary-dispatch-off.test.ts` PASS 1/1; targeted browser suite PASS 48/48; `pnpm -C backend/api typecheck` PASS.
+- P6 remains 66%: deterministic confidence improved; gate blockers unchanged (deep real-browser parity, real takeover semantics, formal security/PII signoff, non-loopback credential verification, BrowserOS CI gate). Default dispatch OFF.
