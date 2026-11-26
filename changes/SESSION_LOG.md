@@ -1957,3 +1957,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/runtime.test.ts src/runtime.behavior.test.ts --reporter=verbose PASS 16/16; pnpm -C backend/worker typecheck PASS; pnpm -C backend/worker lint PASS.
 - **Commit**: 21bbefd (eat(p2): propagate completed action hashes in resume plan).
 - **Remaining**: P2 durable replay/resume execution still partial (policy guardrail added; runtime/worker still need explicit replay short-circuit/continuation semantics for already-completed side-effect steps across real resumed runs).
+## 2026-11-26 - P2 completedActionHash resume guard regression
+
+- **processTask regression**: Added processTask.checkpoint.test.ts case where resumed checkpoint carries completedActionHashes=["ah_done"]; runtime receives resumePlan, reports denied duplicate side-effect tool completion, and task completes without inserting duplicate approval/receipt rows.
+- **Evidence**: pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose PASS 12/12; pnpm -C backend/worker typecheck PASS.
+- **Commit**: 30ddc94 (	est(p2): cover resumePlan completed actionHash guardrail propagation).
+- **Remaining**: P2 still needs explicit replay/continuation semantics beyond denial for already-completed side-effect steps in real resumed runtime flows (deterministic no-duplicate dispatch proven at policy/process boundary; not full replay engine).

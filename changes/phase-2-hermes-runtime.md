@@ -1,6 +1,6 @@
 # Phase 2 - Agent Runtime (Helm-native, Hermes-like capabilities)
 
-**Status:** `[~]` 82%  
+**Status:** `[~]` 83%  
 **Blueprint refs:** Phase 2, `05-Hermes-Agent-Runtime.md`
 
 ## Goal
