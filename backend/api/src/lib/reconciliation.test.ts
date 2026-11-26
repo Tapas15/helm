@@ -175,7 +175,41 @@ describe("reconcileUncertainReceipts (P5 DB-canonical, no-blind-retry)", () => {
     expect(lookupCalendarEventById).toHaveBeenCalledWith(db, expect.anything(), "usr_1", expect.anything(), false);
     expect(state.receipts[0].status).toBe("executed");
   });
+
+
+  it("repeated not-found runs keep receipt uncertain and record lookup attempts (no blind retry)", async () => {
+    state.receipts = [baseReceipt()];
+    lookupGmailSend.mockResolvedValue({ ok: false, reason: "not_found", checked: 1 });
+    const out1 = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
+    expect(out1).toMatchObject({ scanned: 1, reconciled: 0, failed: 0, skipped: 1 });
+    expect(state.receipts[0].status).toBe("uncertain");
+    expect(state.receiptUpdates).toHaveLength(1);
+
+    const out2 = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
+    expect(out2).toMatchObject({ scanned: 1, reconciled: 0, failed: 0, skipped: 1 });
+    expect(state.receipts[0].status).toBe("uncertain");
+    expect(state.receiptUpdates).toHaveLength(2);
+    expect(lookupGmailSend).toHaveBeenCalledTimes(2);
+    expect(state.audits).toHaveLength(0);
+    expect(state.events).toHaveLength(0);
+    expect(emitFeedbackEventMock).not.toHaveBeenCalled();
+  });
+
+  it("repeated run after successful reconciliation is DB-canonical no-op (receipt no longer uncertain)", async () => {
+    state.receipts = [baseReceipt()];
+    lookupGmailSend.mockResolvedValueOnce({ ok: true, externalRef: "msg_1", matchedBy: "idempotency_header" });
+    const out1 = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
+    expect(out1).toMatchObject({ scanned: 1, reconciled: 1, failed: 0, skipped: 0 });
+
+    // DB-canonical: resolved receipt no longer selected as uncertain.
+    state.receipts = [];
+    const out2 = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
+    expect(out2).toMatchObject({ scanned: 0, reconciled: 0, failed: 0, skipped: 0, errors: [] });
+    expect(state.audits).toHaveLength(1);
+    expect(state.events).toHaveLength(1);
+    expect(emitFeedbackEventMock).toHaveBeenCalledTimes(1);
 });
 
 
 
+});

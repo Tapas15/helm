@@ -2060,3 +2060,9 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Proves: reconciliation status missing->active transition after ensure, ensure idempotent create-then-update, dev-auth guard prevents schedule creation, rollback flag-off reports `temporal_disabled`.
 - Impact: P5 76%->77%; overall 82.8%->82.9% (equal-weight P0-P8).
 - Remaining gap: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation repeated-run no-blind-retry contracts
+
+- **Scope**: Added deterministic repeated-run contract tests in `backend/api/src/lib/reconciliation.test.ts` (8/8 total): repeated not-found lookups keep receipt uncertain and record lookup attempts without blind retry/side effects; successful reconciliation is DB-canonical no-op on repeated run (no duplicate audit/event/feedback).
+- **Evidence**: `pnpm -C backend/api exec vitest run src/lib/reconciliation.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS.
+- **Impact**: P5 77% -> 78%; overall 82.9% -> 83.0% (equal-weight P0-P8). Deterministic contract hardening only.
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging disable-flag rollback proof. CI not watched.
