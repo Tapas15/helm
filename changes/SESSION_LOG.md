@@ -2184,3 +2184,7 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - Added `backend/api/src/lib/browser-adapter-edge.test.ts` (6/6 PASS): missing-session NOT_FOUND, unavailable MCP retryable classification via createSession, navigate timeout retryable, unsupported binary 404, TAKEOVER_ACTIVE blocks click retryably, snapshot/screenshot allowed during takeover with artifact parity.
 - Evidence: `pnpm -C backend/api exec vitest run src/lib/browser-adapter-edge.test.ts` PASS 6/6; targeted browser suite PASS 43/43; `pnpm -C backend/api typecheck` PASS.
 - P6 remains 66%: deterministic confidence improved; dispatch gate still blocked on deep real-browser parity, formal security/PII signoff, and BrowserOS CI gate. Default dispatch OFF.
+### 2026-11-26T10:20:00Z - P6 browser route adapter error-mapping contracts
+- Added `backend/api/src/routes/browser.adapter-error-mapping.test.ts` (2/2 PASS): dispatch-on adapter structured errors preserved through browser routes (`BROWSEROS_UNAVAILABLE` stream-status 503, snapshot 400 structured error), no browser-worker fetch.
+- Evidence: `pnpm -C backend/api exec vitest run src/routes/browser.adapter-error-mapping.test.ts` PASS 2/2; targeted browser suite PASS 45/45; `pnpm -C backend/api typecheck` PASS.
+- P6 remains 66%: gate blockers unchanged (deep real-browser parity, real takeover semantics, formal security/PII signoff, non-loopback credential verification, BrowserOS CI gate). Default dispatch OFF.
