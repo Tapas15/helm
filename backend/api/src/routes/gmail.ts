@@ -155,7 +155,7 @@ export function gmailRoutes(db: Database) {
     }
     await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null } }).where(eq(actionReceipts.id, receiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "gmail.send", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, gmailMessageId: json?.id ?? null } });
-    return c.json({ ok: true, receiptId, gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null });
+    return c.json(safeJson({ ok: true, receiptId, gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null }));
   });
 
   return app;

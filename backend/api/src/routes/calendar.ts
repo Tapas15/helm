@@ -169,7 +169,7 @@ export function calendarRoutes(db: Database) {
     }
     await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.create_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, calendarEventId: json?.id ?? null } });
-    return c.json({ ok: true, receiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null });
+    return c.json(safeJson({ ok: true, receiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null }));
   });
 
   app.post("/events/update", async (c) => {
@@ -257,7 +257,7 @@ export function calendarRoutes(db: Database) {
     }
     await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.update_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId } });
-    return c.json({ ok: true, receiptId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null });
+    return c.json(safeJson({ ok: true, receiptId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null }));
   });
 
   app.post("/events/delete", async (c) => {
