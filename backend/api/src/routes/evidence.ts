@@ -22,8 +22,31 @@ function isInside(root: string, candidate: string) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+const SENSITIVE_KEYS = new Set([
+  "authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token",
+  "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey",
+  "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted",
+]);
+
+function redactEvidenceValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactEvidenceValue);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_KEYS.has(normalized)) out[k] = "[REDACTED]";
+    else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) out[k] = "[REDACTED_PATH]";
+    else out[k] = redactEvidenceValue(v);
+  }
+  return out;
+}
+
 function safeArtifact(r: typeof browserArtifacts.$inferSelect) {
-  return { id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt };
+  return { id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: redactEvidenceValue(r.metadata ?? {}) as Record<string, unknown>, createdAt: r.createdAt };
+}
+
+function safeReceipt(r: typeof actionReceipts.$inferSelect) {
+  return { id: r.id, userId: r.userId, taskId: r.taskId, runId: r.runId, approvalId: r.approvalId, actionKind: r.actionKind, actionHash: r.actionHash, idempotencyKey: r.idempotencyKey, status: r.status, externalRef: r.externalRef, evidence: redactEvidenceValue(r.evidence ?? {}) as Record<string, unknown>, createdAt: r.createdAt };
 }
 
 export function artifactRoutes(db: Database) {
@@ -69,7 +92,7 @@ export function receiptRoutes(db: Database) {
     const where = taskId ? and(eq(actionReceipts.userId, userId), eq(actionReceipts.taskId, taskId)) : eq(actionReceipts.userId, userId);
     const rows = await db.select().from(actionReceipts).where(where).orderBy(desc(actionReceipts.createdAt)).limit(status ? 200 : limit);
     const filtered = (status ? rows.filter((r) => r.status === status) : rows).slice(0, limit);
-    return c.json({ receipts: filtered, limit });
+    return c.json({ receipts: filtered.map(safeReceipt), limit });
   });
 
   app.post("/:id/reconcile", async (c) => {
@@ -115,7 +138,7 @@ export function receiptRoutes(db: Database) {
       evidence: { ...(row.evidence as Record<string, unknown> ?? {}), reconciled: true, reconciledAt: new Date().toISOString(), reconcileNote: note, reconcileOutcome: resolvedOutcome, autoLookup },
     }).where(and(eq(actionReceipts.id, id), eq(actionReceipts.status, "uncertain"))).returning();
     if (!updated) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Receipt changed during reconciliation", true), 409);
-    return c.json({ ok: true, receipt: updated, autoLookup });
+    return c.json({ ok: true, receipt: safeReceipt(updated), autoLookup: redactEvidenceValue(autoLookup) as Record<string, unknown> | null });
   });
 
   return app;
