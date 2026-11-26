@@ -4,7 +4,7 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-84.0%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-84.1%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Focus](https://img.shields.io/badge/Current_Focus-P0_Complete_%7C_P6_Security_Gate-238636?style=for-the-badge)](#-present--what-were-building-now)
 [![Latest CI](https://img.shields.io/badge/CI-Latest_Watched_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45815147183)
@@ -61,10 +61,10 @@ timeline
 
 ### Overall
 
-**`84.0%`** complete (Phases 0–8, equal weight)
+**`84.1%`** complete (Phases 0–8, equal weight)
 
 ```text
-[????????????????????????] 84.0%
+[????????????????????????] 84.1%
 ```
 
 **Usable prototype with active hardening.** P0 foundation gate is complete (CI green with fresh-DB migrate smoke). P5 deterministic contract depth improved; real Temporal/provider sandbox closure, P6 parity/security, live UI smoke, and P8 ops/legal signoff remain.
@@ -96,7 +96,7 @@ timeline
 | **P5 Temporal / Reliability** | 80% | **Present** | `????????????????????` |
 | **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `????????????????????` |
 | **P7 Memory / Skills / Proactivity** | 97% | **Present** | `????????????????????` |
-| **P8 Hardening / Release** | 46% | Future / active prep | `????????????????????` |
+| **P8 Hardening / Release** | 47% | Future / active prep | `????????????????????` |
 
 ---
 

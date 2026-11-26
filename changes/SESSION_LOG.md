@@ -2239,3 +2239,16 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
   - `pnpm test` full run: browser-worker `correlation-echo.test.ts` timed out once at default 5s; rerun `pnpm -C backend/browser-worker exec vitest run --passWithNoTests --testTimeout=15000` PASS 3/3. Other packages green; env-gated integration/browser-smoke tests skipped as expected.
 - **Not changed:** no destructive DB reset; no runtime behavior changes; no secrets; `changes/memory_implementation.md` and `backups/` left untouched.
 - **Remaining P0 gap:** push commits and confirm remote CI/fresh-clone green (external confirmation). `db:migrate` smoke now in CI; fresh-clone CI proof still required after push.
+## 2026-11-26 - P8 deterministic task export/delete contract coverage (local)
+- **Scope:** add fast deterministic route-contract coverage for P8 task export/delete controls (no DB/container required).
+- **Changes:** added ackend/api/src/routes/tasks.export-delete.test.ts (7/7) covering:
+  - owned task detail export shape includes bounded related arrays
+  - missing/other-task export returns 404
+  - bulk export is user-scoped and caps limit by HELM_TASK_EXPORT_MAX
+  - delete disabled returns 403 and does not mutate
+  - delete without x-helm-confirm-delete: yes returns 400 and does not mutate
+  - missing owned task delete returns 404 and does not mutate
+  - enabled+confirmed delete runs transactional deletes and writes 	ask.delete audit
+- **Evidence:** pnpm -C backend/api exec vitest run src/routes/tasks.export-delete.test.ts PASS 7/7; pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS; pnpm lint PASS.
+- **Docs:** updated changes/phase-8-hardening-release.md, changes/P8-hardening-checklist.md, changes/CURRENT_STATE.md.
+- **Risk:** low (tests/docs only; no runtime behavior change). CI not watched per directive.
