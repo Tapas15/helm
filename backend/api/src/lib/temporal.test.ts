@@ -110,6 +110,32 @@ describe("temporal lib (P5 stub-mode contracts, no real Temporal)", () => {
     expect(state).toHaveLength(1);
     expect(state[0]!.signals).toEqual(["approve:apr_1", "approve:apr_2"]);
   });
+
+  it("stub external workflow dedupes repeated same-idempotency starts across gmail/calendar/browser action kinds", async () => {
+    process.env.HELM_TEMPORAL_ENABLED = "1";
+    process.env.HELM_TEMPORAL_MODE = "external-write";
+    process.env.HELM_TEMPORAL_TEST_MODE = "stub";
+    const cases = [
+      { actionKind: "gmail.send", idempotencyKey: "idem_gmail_1", approvalId: "apr_g1", payload: { accountId: "cac_1" } },
+      { actionKind: "calendar.create_event", idempotencyKey: "idem_cal_1", approvalId: "apr_c1", payload: { accountId: "cac_1" } },
+      { actionKind: "browser.external_action", idempotencyKey: "idem_br_1", approvalId: "apr_b1", payload: { url: "https://example.test" } },
+    ] as const;
+
+    for (const c of cases) {
+      const input = { taskId: "tsk_1", userId: "usr_1", actionKind: c.actionKind, actionHash: `ah_${c.idempotencyKey}`, idempotencyKey: c.idempotencyKey, approvalId: c.approvalId, payload: c.payload };
+      const first = await maybeStartExternalActionWorkflow(input as any);
+      const second = await maybeStartExternalActionWorkflow({ ...input, approvalId: `${c.approvalId}_2` } as any);
+      expect(first.started).toBe(true);
+      expect(second).toEqual({ started: true, workflowId: first.workflowId, runId: first.runId });
+    }
+
+    const state = __getTemporalStubState();
+    expect(state).toHaveLength(3);
+    expect(state.find((s) => s.workflowId === "helm-ext-idem_gmail_1")?.signals).toEqual(["approve:apr_g1", "approve:apr_g1_2"]);
+    expect(state.find((s) => s.workflowId === "helm-ext-idem_cal_1")?.signals).toEqual(["approve:apr_c1", "approve:apr_c1_2"]);
+    expect(state.find((s) => s.workflowId === "helm-ext-idem_br_1")?.signals).toEqual(["approve:apr_b1", "approve:apr_b1_2"]);
+  });
 });
+
 
 

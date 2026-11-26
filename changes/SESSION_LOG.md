@@ -2073,3 +2073,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: repeated scheduled-style `POST /run` invocations pass stable scoped args to reconciliation service and return DB-canonical summaries; repeated `POST /dry-run` remains read-only (no mutator call).
 - **Impact**: P5 78% -> 79%; overall 83.0% -> 83.1% (equal-weight P0-P8).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 temporal stub external-workflow dedupe contracts
+
+- **Scope**: Added deterministic stub contract in `backend/api/src/lib/temporal.test.ts` (+1, 8/8) for repeated same-idempotency `maybeStartExternalActionWorkflow` starts across gmail/calendar/browser action kinds.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/lib/temporal.test.ts` PASS 8/8; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: same idempotency key dedupes to same workflow/run; no duplicate workflow start; approval signals recorded.
+- **Impact**: P5 remains 79%; overall 83.1% (contract depth added, no real-env closure). 
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
