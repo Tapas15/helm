@@ -14,6 +14,25 @@ const browserUrl = process.env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790";
 const browserToken = process.env.BROWSER_WORKER_TOKEN ?? "dev-browser-token";
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
+const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
+const redactBrowserValue = (value: unknown, keyHint = ""): unknown => {
+  const lower = keyHint.toLowerCase();
+  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
+  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
+  if (Array.isArray(value)) return value.map((v) => redactBrowserValue(v));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactBrowserValue(v, k)]));
+  return value;
+};
+
+function maybeRedactJsonResponse(r: { status: number; contentType: string; text: string }) {
+  if (!r.contentType.includes("json")) return r;
+  try {
+    const parsed = JSON.parse(r.text || "{}");
+    return { ...r, text: JSON.stringify(redactBrowserValue(parsed)) };
+  } catch {
+    return r;
+  }
+}
 
 async function proxy(path: string, init?: RequestInit) {
   if (browserAdapterEnabled) return browserAdapter.request(path, init);
@@ -71,7 +90,7 @@ export function browserRoutes(db: Database) {
     const userId = c.get("userId");
     const r = await proxy("/v1/sessions");
     const json = JSON.parse(r.text || "{}");
-    if (r.status >= 400 || !Array.isArray(json?.sessions)) return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    if (r.status >= 400 || !Array.isArray(json?.sessions)) { const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType }); }
     const owned = await db.select({ id: tasks.id, state: tasks.state }).from(tasks).where(eq(tasks.userId, userId));
     const ownedTaskIds = new Set(owned.map(t => t.id));
     const ownedSessionIds = new Set(owned.map(t => String((t.state as any)?.activeBrowserSessionId ?? "")).filter(Boolean));
@@ -96,13 +115,13 @@ export function browserRoutes(db: Database) {
       }
       await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: parsed.data.taskId ?? null, action: "browser.session.created", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: "user_requested", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     }
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   app.get("/sessions/:id", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}`);
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   app.get("/sessions/:id/artifacts", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
@@ -110,7 +129,7 @@ export function browserRoutes(db: Database) {
     const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 50) || 50, 1), 100);
     const rows = await db.select().from(browserArtifacts).where(and(eq(browserArtifacts.userId, c.get("userId")), eq(browserArtifacts.sessionId, c.req.param("id")))).orderBy(desc(browserArtifacts.createdAt)).limit(limit);
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.artifacts.list", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "list", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), count: rows.length, limit } }).catch(() => undefined);
-    return c.json({ ok: true, sessionId: c.req.param("id"), artifacts: rows.map((r) => ({ id: r.id, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: r.metadata ?? {}, createdAt: r.createdAt })) });
+    return c.json({ ok: true, sessionId: c.req.param("id"), artifacts: rows.map((r) => ({ id: r.id, taskId: r.taskId, runId: r.runId, sessionId: r.sessionId, kind: r.kind, mime: r.mime, sha256: r.sha256, sizeBytes: r.sizeBytes, metadata: redactBrowserValue(r.metadata ?? {}), createdAt: r.createdAt })) });
   });
   app.get("/sessions/:id/screenshot.png", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
@@ -129,12 +148,12 @@ export function browserRoutes(db: Database) {
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/stream/status`);
     if (r.status < 400) await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.stream.status", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "observe", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
 
   app.get("/adapter/status", (c) => c.json({ ok: true, adapter: browserAdapter.kind, dispatchEnabled: browserAdapterEnabled }));
 
-  async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) }); return c.newResponse(r.text, r.status as any, { "content-type": r.contentType }); }
+  async function act(c: any, schema: any, path: string) { const body = await c.req.json().catch(() => ({})); const parsed = schema.safeParse(body); if (!parsed.success) return c.json(err(HELM_ERROR_CODES.VALIDATION_ERROR, "Invalid action input", false, parsed.error.flatten()), 400); const r = maybeRedactJsonResponse(await proxy(path, { method: "POST", body: JSON.stringify(parsed.data) })); const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType }); }
   async function guardedAct(c: any, schema: any, action: string, path: string) {
     const body = await c.req.json().catch(() => ({}));
     const base = schema.safeParse(body);
@@ -164,7 +183,7 @@ export function browserRoutes(db: Database) {
         payload: { source: "browser.guardedAct", action, sessionId: c.req.param("id"), status: r.status, code: json?.error?.code ?? HELM_ERROR_CODES.INTERNAL_ERROR, retryable: json?.error?.retryable ?? r.status >= 500 },
         evidenceRefs: [{ type: "action_receipt", id: claimed.id, actionKind: `browser.${action}` }],
       });
-      return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+      const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
     }
     await db.update(actionReceipts).set({ status: "executed", evidence: { ...(claimed.evidence as any ?? {}), result: json?.data ?? {} } }).where(eq(actionReceipts.id, claimed.id));
     await emitTaskEvent(db, { userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId, type: `browser.${action}.executed`, source: "api", correlationId: c.get("correlationId"), causationId: approval.id, payload: { sessionId: c.req.param("id"), approvalId: approval.id, actionHash: guard.data.actionHash, idempotencyKey: guard.data.idempotencyKey, action } });
@@ -186,7 +205,7 @@ export function browserRoutes(db: Database) {
     if (!allowed) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Navigation to non-allowlisted domain requires approvalId/actionHash/idempotencyKey", false, { url }), 403);
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.navigate.low_risk", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "allowlisted low-risk navigation", metadata: { url, requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/navigate`, { method: "POST", body: JSON.stringify({ ...parsed.data, userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, correlationId: c.get("correlationId") }) });
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   app.post("/sessions/:id/click", (c) => guardedAct(c, BrowserClickInput, "click", `/v1/sessions/${c.req.param("id")}/click`));
   app.post("/sessions/:id/fill", (c) => guardedAct(c, BrowserFillInput, "fill", `/v1/sessions/${c.req.param("id")}/fill`));
@@ -200,10 +219,10 @@ export function browserRoutes(db: Database) {
     const json = (() => { try { return JSON.parse(r.text || "{}"); } catch { return null as any; } })();
     const artifact = json?.data?.artifact;
     if (r.status < 400 && artifact?.artifactId) {
-      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "screenshot"), path: String(artifact.path), mime: String(artifact.mime ?? "image/png"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: (artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}, createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
+      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "screenshot"), path: String(artifact.path), mime: String(artifact.mime ?? "image/png"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: redactBrowserValue((artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}), createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
     }
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.screenshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), artifactId: artifact?.artifactId ?? null } });
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   app.post("/sessions/:id/snapshot", async (c) => {
     const owned = await requireOwnedSession(db, c.get("userId"), c.req.param("id"));
@@ -212,10 +231,10 @@ export function browserRoutes(db: Database) {
     const json = (() => { try { return JSON.parse(r.text || "{}"); } catch { return null as any; } })();
     const artifact = json?.data?.artifact;
     if (r.status < 400 && artifact?.artifactId) {
-      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "dom_snapshot"), path: String(artifact.path), mime: String(artifact.mime ?? "text/plain; charset=utf-8"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: (artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}, createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
+      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId: c.get("userId"), taskId: owned.task.id, runId: (owned.task as any).currentStepId ?? null, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "dom_snapshot"), path: String(artifact.path), mime: String(artifact.mime ?? "text/plain; charset=utf-8"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: redactBrowserValue((artifact.metadata && typeof artifact.metadata === "object") ? artifact.metadata : {}), createdAt: new Date() }).onConflictDoNothing().catch(() => undefined);
     }
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.snapshot", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "observe" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), artifactId: artifact?.artifactId ?? null } });
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
 
   app.post("/sessions/:id/takeover/request", async (c) => {
@@ -236,7 +255,7 @@ export function browserRoutes(db: Database) {
         await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.requested", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.reason, metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
       }
     }
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
 
   app.post("/sessions/:id/takeover/resume", async (c) => {
@@ -257,7 +276,7 @@ export function browserRoutes(db: Database) {
         await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: task.id, action: "browser.takeover.resumed", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: parsed.data.note ?? "resumed", metadata: { correlationId: c.get("correlationId"), requestId: c.get("requestId") } });
       }
     }
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
 
   app.post("/sessions/:id/external-action", async (c) => {
@@ -317,11 +336,11 @@ export function browserRoutes(db: Database) {
         payload: { source: "browser.external_action", action: input.action, sessionId: c.req.param("id"), status: r.status, code: json?.error?.code ?? HELM_ERROR_CODES.INTERNAL_ERROR, retryable: json?.error?.retryable ?? r.status >= 500 },
         evidenceRefs: [{ type: "action_receipt", id: claimed.id, actionKind: `browser.external.${input.action}` }],
       });
-      return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+      const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
     }
     const artifact = json?.data?.artifact;
     if (artifact?.artifactId) {
-      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId, taskId: approval.taskId, runId: approval.runId, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "external_action_evidence"), path: String(artifact.path), mime: String(artifact.mime ?? "image/png"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: artifact.metadata ?? {}, createdAt: new Date() }).onConflictDoNothing();
+      await db.insert(browserArtifacts).values({ id: String(artifact.artifactId), userId, taskId: approval.taskId, runId: approval.runId, sessionId: c.req.param("id"), kind: String(artifact.kind ?? "external_action_evidence"), path: String(artifact.path), mime: String(artifact.mime ?? "image/png"), sha256: String(artifact.sha256 ?? ""), sizeBytes: Number(artifact.sizeBytes ?? 0), metadata: redactBrowserValue(artifact.metadata ?? {}), createdAt: new Date() }).onConflictDoNothing();
     }
     await db.update(actionReceipts).set({ status: "executed", evidence: { ...(claimed.evidence as any ?? {}), result: json?.data ?? {}, artifactId: artifact?.artifactId ?? null } }).where(eq(actionReceipts.id, claimed.id));
     await emitTaskEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, type: "browser.external_action.executed", source: "api", correlationId, causationId: approval.id, payload: { sessionId: c.req.param("id"), approvalId: approval.id, actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, action: input.action, artifact } });
@@ -354,7 +373,7 @@ export function browserRoutes(db: Database) {
     if (!owned.ok) return c.json(owned.body as any, owned.status as any);
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/close`, { method: "POST", body: "{}" });
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: owned.task.id, action: "browser.close", resourceType: "browser_session", resourceId: c.req.param("id"), decision: r.status < 400 ? "allow" : "deny", reason: r.status < 400 ? "closed" : "proxy_error", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId") } });
-    return c.newResponse(r.text, r.status as any, { "content-type": r.contentType });
+    const rr = maybeRedactJsonResponse(r); return c.newResponse(rr.text, rr.status as any, { "content-type": rr.contentType });
   });
   return app;
 }
