@@ -5,8 +5,8 @@
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
 [![Overall](https://img.shields.io/badge/Overall-87.1%25_(coding--only)-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates_Pending-238636?style=for-the-badge)](#-present--what-were-building-now)
+[![Status](https://img.shields.io/badge/Status-Coding_Active_%7C_Release_Gates_Pending-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Focus](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates-238636?style=for-the-badge)](#-present--what-were-building-now)
 
 <br/>
 
@@ -95,7 +95,7 @@ timeline
 | **P5 Temporal / Reliability** | 80% | **Present** | `????????????????????` |
 | **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `????????????????????` |
 | **P7 Memory / Skills / Proactivity** | 97% | **Present** | `????????????????????` |
-| **P8 Hardening / Release** | 48% | Future / active prep | `????????????????????` |
+| **P8 Hardening / Release** | 74% | Coding-stable; release gates pending | `????????????????????` |
 
 ---
 
