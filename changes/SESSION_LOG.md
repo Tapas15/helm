@@ -1751,3 +1751,62 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - [ ] Eval-case from-event route needs a focused contract/integration test with realistic Drizzle mock shape.
 - [ ] P7a feedback emission wiring, proposal/eval/approval/rollback gates.
 - [ ] **Blocked:** self-improvement activation requires explicit user approval.
+## 2026-11-25 - Session handoff/status consolidation
+**Time:** 2026-11-25T22:47:00Z
+**Agent:** Kilo
+**Phase:** Cross-phase (P0-P8 status consolidation)
+
+### Completed
+- [x] Consolidated current session status from provided handoff context (no new code changes in this slice).
+- [x] Confirmed latest local CI-fix slice: `4a9b458` (`fix(worker): resolve eslint failures blocking CI`) passed GitHub Actions run [45715144160](https://github.com/Tapas15/helm/actions/runs/45715144160) — Lint/Typecheck/Build/Test/Dependency audit PASS.
+- [x] Confirmed prior failing run: [45714528196](https://github.com/Tapas15/helm/actions/runs/45714528196) (`e19187d`) failed lint after 17s; fixed by `4a9b458`.
+- [x] Confirmed prior green run: [45614969597](https://github.com/Tapas15/helm/actions/runs/45614969597) (`7bf214c`).
+
+### Current State (from handoff)
+- **Overall:** 79.8% (equal-weight P0-P8), 20.2% remaining. P0 94%, P1 92%, P2 73%, P3 93%, P4 90%, P5 68%, P6 66%, P7 97% (3%), P8 43%.
+- **Repo:** `https://github.com/Tapas15/helm` (`main`), working dir `C:\Users\Tapas\Documents\projects\Dubai_competetion_projects\helm`. Untracked `backups/` (do not commit); modified `changes/memory_implementation.md` (unrelated, not committed).
+- **P3 evidence:** artifact persistence/listing edge-case contracts and takeover state/edge contracts covered by existing browser route tests; commits recorded in `CURRENT_STATE.md`.
+- **P7b contracts:** memory status/retrieval/consolidation/retention/audit contracts hardened; `backend/api/src/routes/memory.test.ts` PASS 24/24; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS. Flag-gated, fail-closed embedding selection, no auto-delete/apply, no note leakage on disabled/FORBIDDEN paths.
+- **P7a:** feedback/eval/proposal scaffold in place; correlation hardening partial. Contract-limited gaps remain (worker claim failures lack safe user/task/run correlation; browser-worker has no DB feedback write path).
+
+### Evidence
+- GitHub Actions [45715144160](https://github.com/Tapas15/helm/actions/runs/45715144160) PASS (`4a9b458`).
+- GitHub Actions [45714528196](https://github.com/Tapas15/helm/actions/runs/45714528196) FAIL lint (`e19187d`, resolved).
+- GitHub Actions [45614969597](https://github.com/Tapas15/helm/actions/runs/45614969597) PASS (`7bf214c`).
+- Handoff-reported local evidence: `backend/api/src/routes/memory.test.ts` PASS 24/24; `packages/shared/src/memory-retrieval.eval.test.ts` PASS 9/9; `browser.artifacts*.test.ts` + `browser.feedback.test.ts` PASS 11/11; takeover combos PASS 14/14 / 12/12; `pnpm -C backend/api exec tsc -p tsconfig.json --noEmit` PASS.
+
+### Remaining / Blocked
+- [ ] P3 rebind route contract tests (`POST /v1/browser/sessions/:id/rebind`): ownership/authz, legacy-unbound hard-block, active-session state updates; no live browser required.
+- [ ] P3 takeover recovery semantics/docs/tests where behavior is already implemented/safe to harden.
+- [ ] P7a feedback coverage only where safe correlation exists; no fabricated IDs; no browser-worker DB writes without contract decision.
+- [ ] P6/P8 evidence/docs/tests that do not require live BrowserOS parity smoke, real Temporal/provider credentials, legal/compliance signoff, or dispatch changes (dispatch OFF).
+- [ ] **Blocked:** P7c/P7d activation/apply/enable/auto-run and autonomous self-improvement — explicit written user approval required.
+- [ ] **Blocked:** memory retention enforcement/delete, consolidation apply/merge, external embedding runtime wiring — explicit approval/gate decisions required.
+- [ ] **Blocked:** live UI/WS/browser automation smoke, real external/provider/Temporal proof, formal STRIDE/threat-model/PII/legal/compliance signoff, backup/restore drill artifacts.
+## 2026-11-26 - P8 hardening/release-evidence slice
+**Time:** 2026-11-26T02:36:00Z
+**Agent:** Kilo
+**Phase:** P8 Hardening / Release
+
+### Completed
+- [x] Hardened backup/restore scripts: `scripts/backup-db.ps1` now emits SHA256 sidecar and scope warning (DB dump only; artifacts/vault keys separate); `scripts/restore-db.ps1` now verifies checksum by default, requires explicit `-Force`, and prints scope warning.
+- [x] Refreshed P8 evidence/docs: `P8-hardening-checklist.md`, `P8-security-privacy-checklist.md`, `P8-threat-model-baseline.md`, `P8-pii-retention-baseline.md`, `P8-pii-retention-implementation-notes.md`, `P8-release-evidence.md`, `P8-dependency-audit-triage.md`, `P8-backup-restore-dry-run.md`.
+- [x] Refreshed P8 runbooks: `RUNBOOK-backup-restore.md`, `RUNBOOK-backup-restore-drill.md`.
+- [x] Updated `changes/phase-8-hardening-release.md` with current evidence/blockers and latest watched green CI.
+- [x] Cleaned `.env.example` duplicate Temporal keys.
+- [x] Updated `changes/CURRENT_STATE.md`: overall 79.8% -> 80.0%, P8 43% -> 45% (remaining 55%), latest completed entry added.
+
+### Evidence
+- `pnpm --filter @helm/observability test` PASS (1/1).
+- `pnpm lint --filter @helm/observability` PASS (cache hit).
+- `pnpm typecheck --filter @helm/observability` PASS (cache hit).
+- PowerShell parse PASS: `backup-db.ps1 parse OK`, `restore-db.ps1 parse OK`.
+- Commit: `437834a` (`docs(p8): harden backup/restore and release evidence`).
+
+### Remaining / Blocked
+- [ ] Full backup/restore drill including artifacts/vault-key scope in staging-like env; encrypted backup storage/retention/access controls/scheduled verification. **Blocked:** ops/manual evidence.
+- [ ] Dependency/SAST/secrets/container scan gating decision and remediation cadence. **Blocked:** security/product decision.
+- [ ] Formal STRIDE/threat-model signoff and incident/key-rotation runbook. **Blocked:** manual security review.
+- [ ] PII retention/export/delete/legal privacy beyond task scaffold; artifact PII classification/redaction. **Blocked:** product/legal/privacy decision.
+- [ ] Compliance/provenance/Dubai submission signoff; third-party notices refresh on dependency changes. **Blocked:** legal/submission decisions.
+- [ ] Chaos/fault matrix, SLO dashboards/alerts, packaging/release gates. **Blocked:** ops/manual/product decisions.
