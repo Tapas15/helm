@@ -32,6 +32,29 @@ function normalizeRetention(v: unknown): { retentionPolicy: RetentionPolicy; exp
   return { retentionPolicy, expiresAt, pii };
 }
 
+const SENSITIVE_EXPORT_KEYS = new Set([
+  "authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token",
+  "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey",
+  "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted",
+]);
+
+function redactExportValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactExportValue);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_EXPORT_KEYS.has(normalized)) {
+      out[k] = "[REDACTED]";
+    } else if (normalized === "path" && typeof v === "string" && (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith("/"))) {
+      out[k] = "[REDACTED_PATH]";
+    } else {
+      out[k] = redactExportValue(v);
+    }
+  }
+  return out;
+}
+
 function noteMeta(existing: unknown, patch: Record<string, unknown>): Record<string, unknown> {
   const base = typeof existing === "object" && existing && !Array.isArray(existing) ? { ...(existing as Record<string, unknown>) } : {};
   const prevVersion = typeof base.version === "number" && Number.isFinite(base.version) ? base.version : 0;
@@ -88,7 +111,7 @@ export function memoryRoutes(db: Database) {
     const userId = c.get("userId");
     const rows = await db.select().from(memoryNotes).where(eq(memoryNotes.userId, userId)).orderBy(desc(memoryNotes.createdAt)).limit(500);
     await writeMemoryAudit(db, { userId, action: "memory.export", metadata: { count: rows.length } });
-    return c.json({ ok: true, exportedAt: new Date().toISOString(), count: rows.length, notes: rows });
+    return c.json({ ok: true, exportedAt: new Date().toISOString(), count: rows.length, notes: redactExportValue(rows) });
   });
 
   app.post("/notes", async (c) => {

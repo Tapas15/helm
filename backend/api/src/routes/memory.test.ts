@@ -205,9 +205,9 @@ describe("memory routes (P7b)", () => {
     expect(body.note.metadata.confidence).toBeLessThanOrEqual(0.8);
   });
 
-  it("exports and gets by id and audits export", async () => {
+  it("exports redacts sensitive/path fields and audits export metadata only", async () => {
     process.env.HELM_MEMORY_ENABLED = "1";
-    const row = { id: "mem_1", userId: "u1", content: "hi", metadata: { provenance: { kind: "user_confirmed" }, version: 1 } };
+    const row = { id: "mem_1", userId: "u1", content: "hi", metadata: { provenance: { kind: "user_confirmed" }, version: 1, path: "C:\\\\Users\\\\Tapas\\\\secret.txt", apiKey: "sk-live-123" } };
     const db = makeDb({ selectRows: [row] });
     const app = makeApp(db);
     const get = await app.request("/v1/memory/notes/mem_1");
@@ -216,7 +216,13 @@ describe("memory routes (P7b)", () => {
     expect(exp.status).toBe(200);
     const body = await exp.json() as any;
     expect(body.count).toBe(1);
-    expect(db.auditRows.some((r: any) => r.action === "memory.export" && r.metadata?.count === 1)).toBe(true);
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain("sk-live-123");
+    expect(serialized).not.toContain("C:\\\\Users\\\\Tapas\\\\secret.txt");
+    expect(body.notes[0].metadata.path).toBe("[REDACTED_PATH]");
+    expect(body.notes[0].metadata.apiKey).toBe("[REDACTED]");
+    const audit = db.auditRows.find((r: any) => r.action === "memory.export");
+    expect(audit?.metadata).toEqual({ count: 1 });
   });
 
   it("audits delete", async () => {
