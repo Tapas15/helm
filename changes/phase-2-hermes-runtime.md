@@ -46,6 +46,22 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [ ] Runtime evals depth: real tool-calling reliability, approval correctness/recovery under real providers/browser/connectors. **Partially started:** deterministic harness added.
 - [ ] Optional Hermes sidecar adapter live integration implementing same `AgentRuntime` contract against real Hermes runtime (no Hermes code copied). **Partially started:** fail-closed skeleton + contract test added.
 
+## Resume Semantics (Narrowed, Current)
+
+**Supported now (deterministic, tested):**
+- Checkpoint persistence at safe runtime boundaries (`runtimeCheckpoint` in task checkpoint/state).
+- Non-terminal resume emits `runtime.checkpoint.resumed` and `runtime.checkpoint.resume_plan_applied` with counts/boundary.
+- Pending approval resume guard: unresolved pending approval resumes task to `waiting_approval` without rerunning runtime; executed-receipt pending approval clears pending plan and continues safely.
+- Approval/action dedupe: duplicate approval requests by `actionHash`/existing receipt are deduped (no duplicate approval/receipt rows).
+- Side-effect dedupe: duplicate tool call with completed `actionHash` in `resumePlan` is denied/no-dispatch and emits `runtime.tool.deduped`.
+- Read-only dedupe: duplicate read-only tool call with same `name+argsKey` in `resumePlan` is denied/no-dispatch and emits `runtime.tool.deduped`.
+- Resume prompt/context injection: compact resumePlan summary injected into runtime system prompt (metadata-only hint).
+
+**Not supported yet (do not claim):**
+- Full step-level replay/continuation engine that deterministically rehydrates model/tool loop and skips arbitrary completed safe work across complex resumed flows.
+- Durable replay execution after process crash mid-tool-loop beyond current checkpoint guards/dedupe.
+- Real-provider/browser/connector end-to-end resume proof.
+
 ## Evidence
 - `pnpm -C packages/shared build` PASS.
 - `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7).
