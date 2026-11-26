@@ -124,6 +124,7 @@ export function App() {
       return api<{ task: Task }>("/v1/tasks", { method: "POST", body: JSON.stringify({ prompt: p, kind, settings }) });
     },
     onSuccess: (d) => { setPrompt(""); setSelected(d.task.id); qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["messages", d.task.id] }); },
+    onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); },
   });
   const control = useMutation({ mutationFn: (args: { id: string; action: string }) => api(`/v1/tasks/${args.id}/control`, { method: "POST", body: JSON.stringify({ action: args.action }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); }, onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); } });
   const resolveApproval = useMutation({ mutationFn: (args: { id: string; decision: "approve" | "reject"; reason?: string }) => api(`/v1/approvals/${args.id}/resolve`, { method: "POST", body: JSON.stringify({ decision: args.decision, reason: args.reason }) }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); qc.invalidateQueries({ queryKey: ["receipts"] }); }, onError: (e) => { window.alert(e instanceof Error ? e.message : String(e)); } });
@@ -220,14 +221,17 @@ export function App() {
         <h2 style={{ marginTop: 0 }}>Helm</h2>
         <p className="muted">Personal AI operator · chat + browser + approvals</p>
         <div className="card" style={{ marginBottom: 16 }}>
-          <textarea rows={4} value={prompt} placeholder="Ask Helm or describe an outcome..." onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (prompt.trim() && !send.isPending) send.mutate(prompt.trim()); } }} />
+          <label className="muted" htmlFor="helm-prompt" style={{ display: "block", marginBottom: 6 }}>Message</label>
+          <textarea id="helm-prompt" rows={4} value={prompt} placeholder="Ask Helm or describe an outcome..." aria-label="Task prompt" onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (prompt.trim() && !send.isPending) send.mutate(prompt.trim()); } }} />
           <div className="row" style={{ marginTop: 8 }}>
-            <select value={kind} onChange={(e) => setKind(e.target.value as any)} style={{ background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
+            <label className="muted" htmlFor="helm-kind">Kind</label>
+            <select id="helm-kind" aria-label="Task kind" value={kind} onChange={(e) => setKind(e.target.value as any)} style={{ background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }}>
               <option value="assistant">assistant</option><option value="browser">browser</option>
             </select>
-            <input value={modelOverride} onChange={(e) => setModelOverride(e.target.value)} placeholder={runtimeConfigQ.data?.runtime?.model ? `model (${runtimeConfigQ.data.runtime.model})` : "model override"} style={{ width: 170, background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }} />
-            <button onClick={() => modelOverride.trim() && validateModel.mutate(modelOverride.trim())} disabled={!modelOverride.trim() || validateModel.isPending}>Check</button>
-            <button className="primary" disabled={!prompt.trim() || send.isPending} onClick={() => send.mutate(prompt.trim())}>{send.isPending ? "Sending..." : "Send"}</button>
+            <label className="muted" htmlFor="helm-model">Model</label>
+            <input id="helm-model" aria-label="Model override" value={modelOverride} onChange={(e) => setModelOverride(e.target.value)} placeholder={runtimeConfigQ.data?.runtime?.model ? `model (${runtimeConfigQ.data.runtime.model})` : "model override"} style={{ width: 170, background: "#0b1222", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px" }} />
+            <button onClick={() => modelOverride.trim() && validateModel.mutate(modelOverride.trim())} disabled={!modelOverride.trim() || validateModel.isPending} aria-label="Validate model override">Check</button>
+            <button className="primary" disabled={!prompt.trim() || send.isPending} aria-label="Send message" onClick={() => send.mutate(prompt.trim())}>{send.isPending ? "Sending..." : "Send"}</button>
           </div>
           {modelStatus && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{modelStatus}</div>}
         </div>
@@ -238,13 +242,41 @@ export function App() {
             <button onClick={logout}>Sign out</button>
           </div>
         </div>
-        <div>{tasks.map((t) => (<div key={t.id} className={`task ${selected === t.id ? "active" : ""}`} onClick={() => setSelected(t.id)}><div style={{ fontSize: 14 }}>{t.title}</div><div className="row"><span className="pill">{t.status}</span><span className="muted">{t.kind}</span></div></div>))}{tasks.length === 0 && <div className="muted">No tasks yet.</div>}</div>
+        <div aria-label="Task list" role="listbox" aria-activedescendant={selected ? `task-${selected}` : undefined}>
+          {tasks.map((t) => (
+            <div
+              key={t.id}
+              id={`task-${t.id}`}
+              role="option"
+              aria-selected={selected === t.id}
+              tabIndex={0}
+              className={`task ${selected === t.id ? "active" : ""}`}
+              onClick={() => setSelected(t.id)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(t.id); } }}
+            >
+              <div style={{ fontSize: 14 }}>{t.title}</div>
+              <div className="row"><span className="pill">{t.status}</span><span className="muted">{t.kind}</span></div>
+            </div>
+          ))}
+          {tasks.length === 0 && <div className="muted" role="status">No tasks yet.</div>}
+        </div>
       </aside>
       <main className="main">
-        <div className="card">
-          <div className="row" style={{ marginBottom: 8 }}><h3 style={{ margin: 0 }}>Chat</h3>{current && <><span className="pill">{current.status}</span><span className="muted">{current.id}</span>{(() => { const s = current.status; const acts = s === "running" || s === "planning" || s === "waiting_approval" || s === "waiting_input" ? ["pause","cancel"] : s === "paused" ? ["resume","cancel"] : s === "failed" || s === "cancelled" ? ["retry"] : s === "completed" ? [] : ["cancel"]; return acts.map((a) => <button key={a} disabled={control.isPending} onClick={() => control.mutate({ id: current.id, action: a })}>{a}</button>); })()}</>}</div>
-          {!current && <div className="muted">Select a task or send a message to start.</div>}
-          {current && <div style={{ display: "grid", gap: 10, maxHeight: 360, overflow: "auto", paddingRight: 4 }}>
+        <div className="card" aria-label="Chat">
+          <div className="row" style={{ marginBottom: 8 }}>
+            <h3 style={{ margin: 0 }}>Chat</h3>
+            {current && <>
+              <span className="pill" aria-label={`Task status ${current.status}`}>{current.status}</span>
+              <span className="muted" style={{ fontSize: 12 }}>{current.id}</span>
+              {(() => {
+                const s = current.status;
+                const acts = s === "running" || s === "planning" || s === "waiting_approval" || s === "waiting_input" ? ["pause","cancel"] : s === "paused" ? ["resume","cancel"] : s === "failed" || s === "cancelled" ? ["retry"] : [];
+                return acts.map((a) => <button key={a} disabled={control.isPending} aria-label={`${a} task`} onClick={() => control.mutate({ id: current.id, action: a })}>{control.isPending ? "…" : a}</button>);
+              })()}
+            </>}
+          </div>
+          {!current && <div className="muted" role="status">Select a task or send a message to start.</div>}
+          {current && <div role="log" aria-live="polite" aria-relevant="additions text" aria-label="Task messages" style={{ display: "grid", gap: 10, maxHeight: 360, overflow: "auto", paddingRight: 4 }}>
             {messages.map((m) => (<div key={m.id} style={{ justifySelf: m.role === "user" ? "end" : "start", maxWidth: "85%", background: m.role === "user" ? "#164e3b" : "#101a31", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}><div className="muted" style={{ marginBottom: 4 }}>{m.role}</div><div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div></div>))}
             {showLiveAssistant && <div style={{ justifySelf: "start", maxWidth: "85%", background: "#101a31", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}><div className="muted" style={{ marginBottom: 4 }}>assistant {current.status}</div><div style={{ whiteSpace: "pre-wrap" }}>{streamingDelta || completedText || "…"}</div></div>}
             {toolCards.length > 0 && <div style={{ display: "grid", gap: 8 }}>{toolCards.map((e) => { const p = e.payload as any; const name = p?.name ?? p?.action ?? e.type; const detail = p?.result ?? p?.reason ?? p?.summary ?? p?.note ?? p?.message ?? ""; return (<div key={e.id} className="card" style={{ padding: 10, background: "#0b1528" }}><div className="row"><span className="pill">{e.type}</span><strong style={{ fontSize: 13 }}>{String(name)}</strong></div>{detail ? <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{String(detail).slice(0, 500)}</div> : null}</div>); })}</div>}
@@ -279,7 +311,22 @@ export function App() {
           {receipts.map((r) => (<div key={r.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">{r.status}</span><strong>{r.actionKind}</strong><span className="muted">{r.id}</span></div><div className="muted">idempotency: {r.idempotencyKey}</div>{r.status === "uncertain" && <div className="row" style={{ marginTop: 8 }}><button className="primary" disabled={reconcileReceipt.isPending} onClick={() => reconcileReceipt.mutate({ id: r.id, outcome: "executed" })}>Mark executed</button><button className="danger" disabled={reconcileReceipt.isPending} onClick={() => reconcileReceipt.mutate({ id: r.id, outcome: "failed" })}>Mark failed</button></div>}</div>))}
           {artifacts.length === 0 && receipts.length === 0 && <div className="muted">No evidence or receipts yet.</div>}
         </div>
-        <div className="card"><h3 style={{ marginTop: 0 }}>Approvals</h3>{pendingApprovals.length === 0 && <div className="muted">No pending approvals for this view.</div>}{pendingApprovals.map((a) => (<div key={a.id} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><div className="row"><span className="pill">{a.status}</span><strong>{a.actionKind}</strong><span className="muted">{a.id}</span></div><div className="muted" style={{ margin: "6px 0" }}>{a.summary}</div><div className="muted">actionHash: {a.actionHash}</div><div className="row" style={{ marginTop: 8 }}><button className="primary" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "approve" })}>Approve</button><button className="danger" disabled={resolveApproval.isPending} onClick={() => resolveApproval.mutate({ id: a.id, decision: "reject", reason: "Rejected from UI" })}>Reject</button></div><pre style={{ marginTop: 8 }}>{JSON.stringify(a.evidence, null, 2)}</pre></div>))}</div>
+        <div className="card" aria-label="Approvals">
+          <h3 style={{ marginTop: 0 }}>Approvals</h3>
+          {pendingApprovals.length === 0 && <div className="muted" role="status">No pending approvals for this view.</div>}
+          {pendingApprovals.map((a) => (
+            <div key={a.id} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}>
+              <div className="row"><span className="pill">{a.status}</span><strong>{a.actionKind}</strong><span className="muted">{a.id}</span></div>
+              <div className="muted" style={{ margin: "6px 0" }}>{a.summary}</div>
+              <div className="muted">actionHash: {a.actionHash}</div>
+              <div className="row" style={{ marginTop: 8 }}>
+                <button className="primary" disabled={resolveApproval.isPending} aria-label={`Approve ${a.actionKind}`} onClick={() => resolveApproval.mutate({ id: a.id, decision: "approve" })}>{resolveApproval.isPending ? "…" : "Approve"}</button>
+                <button className="danger" disabled={resolveApproval.isPending} aria-label={`Reject ${a.actionKind}`} onClick={() => resolveApproval.mutate({ id: a.id, decision: "reject", reason: "Rejected from UI" })}>{resolveApproval.isPending ? "…" : "Reject"}</button>
+              </div>
+              <pre style={{ marginTop: 8 }}>{JSON.stringify(a.evidence, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Connectors</h3>
           <div className="muted" style={{ marginBottom: 8 }}>Direct Google OAuth2+PKCE primary. Composio deferred (optional adapter).</div>
@@ -297,7 +344,16 @@ export function App() {
           })}
           {(connectorsQ.data?.connectors ?? []).length === 0 && <div className="muted">No connectors loaded.</div>}
         </div>
-        <div className="card"><h3 style={{ marginTop: 0 }}>Event timeline</h3><div className="row" style={{ marginBottom: 8 }}><span className="pill">{stale ? "stale" : connected ? "live" : "offline"}</span><span className="muted">last seq: {lastSequence}</span></div>{events.length === 0 && <div className="muted">No events.</div>}{events.map((e) => (<div key={e.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">#{e.sequence}</span><strong>{e.type}</strong><span className="muted">{e.source}</span><span className="muted">{new Date(e.ts).toLocaleTimeString()}</span></div><pre>{JSON.stringify(e.payload, null, 2)}</pre></div>))}</div>
+        <div className="card" aria-label="Event timeline">
+          <h3 style={{ marginTop: 0 }}>Event timeline</h3>
+          <div className="row" style={{ marginBottom: 8 }} aria-live="polite">
+            <span className="pill" aria-label={`Event stream ${stale ? "stale" : connected ? "live" : "offline"}`}>{stale ? "stale" : connected ? "live" : "offline"}</span>
+            <span className="muted">last seq: {lastSequence}</span>
+            {stale && <span className="muted" role="status">Reconnecting may be required; showing last known events.</span>}
+          </div>
+          {events.length === 0 && <div className="muted" role="status">No events yet.</div>}
+          {events.map((e) => (<div key={e.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}><div className="row"><span className="pill">#{e.sequence}</span><strong>{e.type}</strong><span className="muted">{e.source}</span><span className="muted">{new Date(e.ts).toLocaleTimeString()}</span></div><pre>{JSON.stringify(e.payload, null, 2)}</pre></div>))}
+        </div>
       </main>
     </div>
   );
