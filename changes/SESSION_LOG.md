@@ -2115,3 +2115,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: `POST /run` returns stable bounded summary on partial errors (`ok/scanned/reconciled/failed/skipped/errors[]`, bounded error strings); no `evidence/raw` top-level fields.
 - **Impact**: P5 remains 80%; overall 83.2% (observability/safety contract depth).
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 shared temporal action-class taxonomy contracts
+
+- **Scope**: Hardened `packages/shared/src/temporal.test.ts` (9/9) to assert reconciliation/internal schedule actions are non-external-write in `external-write` mode.
+- **Evidence**: `pnpm -C packages/shared exec vitest run src/temporal.test.ts` PASS 9/9; `pnpm -C packages/shared typecheck` PASS.
+- **Proves**: `reconciliation.run`, `reconciliation.schedule.ensure`, `temporal.schedule.reconciliation` not treated as external-write side effects.
+- **Impact**: P5 remains 80%; overall 83.2% (taxonomy contract depth).
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.

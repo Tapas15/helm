@@ -42,6 +42,14 @@ describe("temporal config/contracts (P5 fail-closed defaults)", () => {
     expect(cfg.reconciliationScheduleId).toBe("helm-recon-test");
   });
 
+  it("does not treat reconciliation/internal schedule actions as external-write side effects", () => {
+    const cfg = readTemporalConfig({ HELM_TEMPORAL_ENABLED: "1", HELM_TEMPORAL_MODE: "external-write" } as any);
+    for (const action of ["reconciliation.run", "reconciliation.schedule.ensure", "temporal.schedule.reconciliation", "task.plan", "memory.write"]) {
+      expect(TEMPORAL_EXTERNAL_WRITE_ACTION.test(action)).toBe(false);
+      expect(shouldUseTemporalForAction(cfg, action)).toBe(false);
+    }
+  });
+
   it("covers guarded external-write action classes used by Temporal routing", () => {
     const cfg = readTemporalConfig({ HELM_TEMPORAL_ENABLED: "1", HELM_TEMPORAL_MODE: "external-write" } as any);
     for (const action of ["gmail.send", "calendar.create_event", "calendar.update_event", "calendar.delete_event", "browser.external_action"]) {
@@ -58,3 +66,4 @@ describe("temporal config/contracts (P5 fail-closed defaults)", () => {
     expect(isNonRetryableTemporalErrorType("TimeoutError")).toBe(false);
   });
 });
+
