@@ -3,6 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export type TaskEvent = { id: string; sequence: number; type: string; source: string; ts: string; payload: unknown };
 
+export function mergeTaskEvents(prev: TaskEvent[], evt: TaskEvent): TaskEvent[] {
+  if (prev.some((e) => e.id === evt.id || e.sequence === evt.sequence)) return prev;
+  return [...prev, evt].sort((a, b) => a.sequence - b.sequence);
+}
+
 export function useTaskEventStream(taskId: string | null, token?: string | null) {
   const qc = useQueryClient();
   const lastSeq = useRef(-1);
@@ -35,8 +40,8 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
         lastSeq.current = Math.max(lastSeq.current, evt.sequence);
         qc.setQueryData<{ events: TaskEvent[] }>(["events", taskId], (old) => {
           const prev = old?.events ?? [];
-          if (prev.some((e) => e.id === evt.id || e.sequence === evt.sequence)) return old ?? { events: prev };
-          const next = [...prev, evt].sort((a, b) => a.sequence - b.sequence);
+          const next = mergeTaskEvents(prev, evt);
+          if (next === prev) return old ?? { events: prev };
           return { events: next };
         });
         if (evt.type.startsWith("task.")) qc.invalidateQueries({ queryKey: ["tasks"] });
