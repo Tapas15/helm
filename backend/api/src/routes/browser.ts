@@ -5,6 +5,7 @@ import { emitFeedbackEvent } from "../lib/feedback.js";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
 import { maybeStartExternalActionWorkflow } from "../lib/temporal.js";
 import type { AppEnv } from "../types.js";
+import { redactSensitive } from "../lib/redaction.js";
 
 import { createBrowserAdapter } from "../lib/browser-adapter.js";
 
@@ -14,15 +15,7 @@ const browserUrl = process.env.BROWSER_WORKER_URL ?? "http://127.0.0.1:8790";
 const browserToken = process.env.BROWSER_WORKER_TOKEN ?? "dev-browser-token";
 const uid = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, "")}`;
 const err = (code: string, message: string, retryable = false, details?: unknown) => ({ error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } });
-const SENSITIVE_KEYS = new Set(["authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token", "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey", "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted"]);
-const redactBrowserValue = (value: unknown, keyHint = ""): unknown => {
-  const lower = keyHint.toLowerCase();
-  if (SENSITIVE_KEYS.has(lower)) return "[REDACTED]";
-  if (lower.includes("path") && typeof value === "string" && (/^[/\\]/.test(value) || /^[A-Za-z]:[\\/]/.test(value))) return "[REDACTED_PATH]";
-  if (Array.isArray(value)) return value.map((v) => redactBrowserValue(v));
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, redactBrowserValue(v, k)]));
-  return value;
-};
+const redactBrowserValue = (value: unknown) => redactSensitive(value);
 
 function maybeRedactJsonResponse(r: { status: number; contentType: string; text: string }) {
   if (!r.contentType.includes("json")) return r;
