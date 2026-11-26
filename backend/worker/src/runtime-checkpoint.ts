@@ -4,7 +4,8 @@ export type RuntimeResumePlan = {
   version: 1;
   lastSafeBoundary: string | null;
   pendingApproval?: { actionHash: string; actionKind?: string; approvalId?: string };
-  completedToolRefs: Array<{ name: string; eventSeq: number }>;
+  completedToolRefs: Array<{ name: string; eventSeq: number; actionHash?: string; idempotencyKey?: string }>;
+  completedActionHashes?: string[];
 };
 
 export type RuntimeCheckpoint = {
@@ -37,9 +38,14 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     next.resumePlan = { ...next.resumePlan!, lastSafeBoundary: evt.type };
   }
   if (evt.type === "runtime.tool.completed") {
-    const name = typeof (evt.payload as any)?.name === "string" ? String((evt.payload as any).name) : "unknown";
-    const refs = [...(next.resumePlan?.completedToolRefs ?? []), { name, eventSeq: seq }].slice(-20);
-    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs };
+    const payload = (evt.payload as any) ?? {};
+    const name = typeof payload?.name === "string" ? String(payload.name) : "unknown";
+    const args = payload?.args && typeof payload.args === "object" ? payload.args : {};
+    const actionHash = typeof args.actionHash === "string" && args.actionHash ? String(args.actionHash) : undefined;
+    const idempotencyKey = typeof args.idempotencyKey === "string" && args.idempotencyKey ? String(args.idempotencyKey) : undefined;
+    const refs = [...(next.resumePlan?.completedToolRefs ?? []), { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}) }].slice(-20);
+    const completedActionHashes = Array.from(new Set([...(next.resumePlan?.completedActionHashes ?? []), ...(actionHash ? [actionHash] : [])])).slice(-20);
+    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs, completedActionHashes };
   }
   if (evt.type === "runtime.completed") {
     const status = String((evt.payload as any)?.status ?? "succeeded");

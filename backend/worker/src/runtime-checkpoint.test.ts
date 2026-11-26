@@ -26,8 +26,9 @@ describe("runtime checkpoint", () => {
     expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.approval.requested");
   });
 
-  it("records completed tool refs in bounded resume plan", () => {
-    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.completed", ts, trace, payload: { name: "browser_snapshot" } } as any, 5);
-    expect(cp.resumePlan?.completedToolRefs).toEqual([{ name: "browser_snapshot", eventSeq: 5 }]);
+  it("records completed tool refs and action hashes in bounded resume plan", () => {
+    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.completed", ts, trace, payload: { name: "browser_click", args: { actionHash: "ah1", idempotencyKey: "ik1" } } } as any, 5);
+    expect(cp.resumePlan?.completedToolRefs).toEqual([{ name: "browser_click", eventSeq: 5, actionHash: "ah1", idempotencyKey: "ik1" }]);
+    expect(cp.resumePlan?.completedActionHashes).toEqual(["ah1"]);
   });
 });

@@ -56,9 +56,14 @@ export function evaluateToolPolicy(name: string, args: any, ctx: Record<string, 
     if (!norm.ok) return { ok: false as const, error: norm.error, args: norm.args };
     args = norm.args;
   }
+  const resumePlan = (ctx.runtimeResumePlan && typeof ctx.runtimeResumePlan === "object") ? ctx.runtimeResumePlan as any : null;
+  const completedActionHashes = Array.isArray(resumePlan?.completedActionHashes) ? resumePlan.completedActionHashes.map(String) : [];
+  const actionHash = String(args.actionHash ?? "").trim();
+  if (actionHash && completedActionHashes.includes(actionHash)) {
+    return { ok: false as const, error: `Resume plan indicates actionHash ${actionHash} already completed; refusing duplicate side effect`, args, tool };
+  }
   if (tool.requiresApproval) {
     const approvalId = String(args.approvalId ?? "").trim();
-    const actionHash = String(args.actionHash ?? "").trim();
     const idempotencyKey = String(args.idempotencyKey ?? "").trim();
     if (!approvalId || !actionHash || !idempotencyKey) return { ok: false as const, error: `${name} requires approvalId, actionHash, and idempotencyKey`, args };
     const approvedHashes = Array.isArray(ctx.approvedActionHashes) ? ctx.approvedActionHashes.map(String) : [];
@@ -214,7 +219,7 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
       }
       yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
       const result = await runTool(name, args);
-      yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} completed`, payload: { name, result: result.slice(0, 2000) } };
+      yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} completed`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, result: result.slice(0, 2000) } };
       messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
     }
   }
