@@ -103,7 +103,7 @@ export function memoryRoutes(db: Database) {
       if (q && !String(r.content ?? "").toLowerCase().includes(q) && !String(r.kind ?? "").toLowerCase().includes(q)) return false;
       return true;
     }).slice(0, 100);
-    return c.json({ ok: true, notes: filtered });
+    return c.json({ ok: true, notes: redactExportValue(filtered) });
   });
 
   app.get("/export", async (c) => {
@@ -145,7 +145,7 @@ export function memoryRoutes(db: Database) {
       createdAt: now, updatedAt: now,
     }).returning();
     await writeMemoryAudit(db, { userId, action: "memory.create", resourceId: row?.id, metadata: { kind: row?.kind, provenance: provenanceKind, sensitivity: r.sensitivity, confidence, redacted: r.redacted, version: (row?.metadata as any)?.version ?? 1, retentionPolicy: retention.retentionPolicy, pii: retention.pii } });
-    return c.json({ ok: true, note: row }, 201);
+    return c.json({ ok: true, note: redactExportValue(row) }, 201);
   });
 
   app.patch("/notes/:id", async (c) => {
@@ -186,7 +186,7 @@ export function memoryRoutes(db: Database) {
     }
     const [row] = await db.update(memoryNotes).set(patch).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).returning();
     await writeMemoryAudit(db, { userId, action: "memory.update", resourceId: row?.id ?? id, metadata: { kind: row?.kind, provenance: provKind, version: (row?.metadata as any)?.version ?? null, redacted: (row?.metadata as any)?.redactedSensitive ?? null } });
-    return c.json({ ok: true, note: row });
+    return c.json({ ok: true, note: redactExportValue(row) });
   });
 
   app.get("/notes/:id", async (c) => {
@@ -195,7 +195,7 @@ export function memoryRoutes(db: Database) {
     const id = c.req.param("id");
     const [row] = await db.select().from(memoryNotes).where(and(eq(memoryNotes.id, id), eq(memoryNotes.userId, userId))).limit(1);
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Memory note not found"), 404);
-    return c.json({ ok: true, note: row });
+    return c.json({ ok: true, note: redactExportValue(row) });
   });
 
   app.delete("/notes/:id", async (c) => {
