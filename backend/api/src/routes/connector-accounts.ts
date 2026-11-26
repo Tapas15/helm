@@ -81,7 +81,7 @@ export function connectorAccountRoutes(db: Database) {
       if (!res.ok) return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar test failed", res.status >= 500), res.status as any);
       return c.json(safeJson({ ok: true, connectorId: account.connectorId, profile: { calendars: Array.isArray(json?.items) ? json.items.length : 0 } }));
     }
-    return c.json({ ok: true, connectorId: account.connectorId, message: "No test implemented for connector" });
+    return c.json(safeJson({ ok: true, connectorId: account.connectorId, message: "No test implemented for connector" }));
   });
 
   return app;

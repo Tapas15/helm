@@ -56,7 +56,7 @@ export function reconciliationRoutes(db: Database) {
       return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "scope=all requires internal/dev mode"), 403);
     }
     const result = await reconcileUncertainReceipts(db, { limit, olderThanMs, userId: scope === "all" ? undefined : userId });
-    return c.json({ ok: true, ...result });
+    return c.json(redactValue({ ok: true, ...result }));
   });
 
   app.post("/dry-run", async (c) => {

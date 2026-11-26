@@ -165,7 +165,7 @@ export function browserRoutes(db: Database) {
     }
     const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, guard.data.idempotencyKey)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
-    if (claimed.status === "executed") return c.json({ ok: true, deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey });
+    if (claimed.status === "executed") return c.json(redactBrowserValue({ ok: true, deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey }));
     const r = await proxy(path, { method: "POST", body: JSON.stringify({ ...base.data, userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId ?? null, correlationId: c.get("correlationId") }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
@@ -181,7 +181,7 @@ export function browserRoutes(db: Database) {
     await db.update(actionReceipts).set({ status: "executed", evidence: { ...(claimed.evidence as any ?? {}), result: json?.data ?? {} } }).where(eq(actionReceipts.id, claimed.id));
     await emitTaskEvent(db, { userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId, type: `browser.${action}.executed`, source: "api", correlationId: c.get("correlationId"), causationId: approval.id, payload: { sessionId: c.req.param("id"), approvalId: approval.id, actionHash: guard.data.actionHash, idempotencyKey: guard.data.idempotencyKey, action } });
     await db.insert(auditLog).values({ id: uid("aud"), userId: c.get("userId"), ts: new Date(), actorType: "user", actorId: c.get("userId"), taskId: approval.taskId, action: `browser.${action}.executed`, resourceType: "action_receipt", resourceId: claimed.id, decision: "allow", reason: "approved guarded browser action", metadata: { actionHash: guard.data.actionHash, idempotencyKey: guard.data.idempotencyKey } });
-    return c.json({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id, idempotencyKey: guard.data.idempotencyKey } });
+    return c.json(redactBrowserValue({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id, idempotencyKey: guard.data.idempotencyKey } }));
   }
 
   // Read/observe actions proxied (low-risk). Side-effecting actions require approval+hash+idempotency.
@@ -304,7 +304,7 @@ export function browserRoutes(db: Database) {
         });
         if (started.started) {
           await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "api", actorId: "helm-api", taskId: approval.taskId, action: "browser.external_action.temporal_started", resourceType: "browser_session", resourceId: c.req.param("id"), decision: "allow", reason: "temporal_routed", metadata: { workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey } });
-          return c.json({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }, 202);
+          return c.json(redactBrowserValue({ ok: true, routed: "temporal", workflowId: started.workflowId, runId: started.runId, idempotencyKey: input.idempotencyKey }), 202);
         }
       } catch (e) {
         return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, `Temporal routing failed: ${e instanceof Error ? e.message : String(e)}`, true), 503);
@@ -319,7 +319,7 @@ export function browserRoutes(db: Database) {
     }
     const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
-    if (claimed.status === "executed") return c.json({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey } });
+    if (claimed.status === "executed") return c.json(redactBrowserValue({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey } }));
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/external-action`, { method: "POST", body: JSON.stringify({ ...input, userId, taskId: approval.taskId, runId: approval.runId ?? null, correlationId }) });
     const json = JSON.parse(r.text || "{}");
     if (r.status >= 400 || !json?.ok) {
@@ -338,7 +338,7 @@ export function browserRoutes(db: Database) {
     await db.update(actionReceipts).set({ status: "executed", evidence: { ...(claimed.evidence as any ?? {}), result: json?.data ?? {}, artifactId: artifact?.artifactId ?? null } }).where(eq(actionReceipts.id, claimed.id));
     await emitTaskEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, type: "browser.external_action.executed", source: "api", correlationId, causationId: approval.id, payload: { sessionId: c.req.param("id"), approvalId: approval.id, actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, action: input.action, artifact } });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "browser.external_action.executed", resourceType: "action_receipt", resourceId: claimed.id, decision: "allow", reason: "approved action executed with idempotency receipt", metadata: { actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, requestId, correlationId } });
-    return c.json({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id } });
+    return c.json(redactBrowserValue({ ...json, data: { ...(json.data ?? {}), receiptId: claimed.id } }));
   });
 
   app.post("/sessions/:id/rebind", async (c) => {
@@ -358,7 +358,7 @@ export function browserRoutes(db: Database) {
     await db.update(tasks).set({ updatedAt: ts, state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId } }).where(and(eq(tasks.id, task.id), eq(tasks.userId, userId)));
     await emitTaskEvent(db, { userId, taskId: task.id, runId: null, type: "browser.session.rebound", source: "api", correlationId: c.get("correlationId"), causationId: c.get("requestId"), payload: { sessionId, previousTaskId: session.taskId ?? null, policy: "explicit-rebind-owned-task" } });
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts, actorType: "user", actorId: userId, taskId: task.id, action: "browser.session.rebound", resourceType: "browser_session", resourceId: sessionId, decision: "allow", reason: "explicit user rebind", metadata: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), previousTaskId: session.taskId ?? null } });
-    return c.json({ ok: true, sessionId, taskId: task.id, rebound: true });
+    return c.json(redactBrowserValue({ ok: true, sessionId, taskId: task.id, rebound: true }));
   });
 
   app.post("/sessions/:id/close", async (c) => {
