@@ -12,18 +12,18 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-83.2%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-P5_Temporal_Contracts_%7C_P6_Security-f2cc60?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-84.0%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-P0_Complete_%7C_P6_Security_Gate-f2cc60?style=for-the-badge)](ROADMAP.md)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-238636?style=for-the-badge)](ROADMAP.md)
 
-**[Explore the full visual roadmap â†’](ROADMAP.md)**
+**[Explore the full visual roadmap ?](ROADMAP.md)**
 
 </div>
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **83.4%** | Equal-weight P0-P8. Last watched CI green: [45715144160](https://github.com/Tapas15/helm/actions/runs/45715144160) (`4a9b458`); local commits after it not CI-watched per directive. P0 gained CI Postgres + fresh-DB migrate smoke, tsconfig/root-ref cleanup, and generated-src artifact hygiene; push/CI confirmation pending. |
-| Phase 0 Foundation | 95% | Monorepo/CI/Docker/contracts stable; Drizzle alignment cwd-independent/idempotent; temporal-worker tsconfig/root-ref cleaned; generated package src artifacts untracked+gitignored; CI now includes Postgres + fresh-DB `db:migrate` smoke; local lint/typecheck/build PASS, full test green except env-gated skips and one rerun-passed browser-worker timeout flake; push/CI confirmation pending |
+| **Overall** | **84.0%** | Equal-weight P0-P8. Last watched CI green: [45815147183](https://github.com/Tapas15/helm/actions/runs/45815147183) (`696cb8c`, `main`). P0 complete with CI fresh-DB migrate smoke evidence; P6 BrowserOS remains dispatch-OFF pending parity/security/CI gate. |
+| Phase 0 Foundation | 100% | Monorepo/CI/Docker/contracts stable; Drizzle alignment cwd-independent/idempotent; tsconfig workarounds removed (api/worker/browser-worker/temporal-worker); generated package src artifacts untracked+gitignored; CI Postgres + fresh-DB `db:migrate` smoke green; real ESLint config/scripts. Non-blocking debt: Node 20 action deprecation annotations, optional ESLint tightening; legacy `0001_p7_tables_manual.sql` by-design outside journal (no destructive reset). |
 | Phase 1 UI/Task Core | 92% | Chat/SSE/approvals/preview/takeover usable; SSE `Last-Event-ID` resume fallback + cursor validation covered; live UI smoke/fault-injection depth pending |
 | Phase 2 Agent Runtime | 90% | Local Ollama streaming/tool loop/policy; checkpoint/resumePlan narrowed semantics, approval/read-tool dedupe guards, deterministic evals. Remaining: full durable step-level replay, live browser+connector/model-provider E2E, live Hermes sidecar. |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; screenshot/snapshot artifact DB persistence + ownership-checked artifact listing + takeover request/resume state contracts; live WS/takeover smoke blocked in shell |
@@ -31,7 +31,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 5 Temporal/Reliability | 80% | ADR-002, routing/fail-closed, DB-canonical reconciliation/scheduler/dry-run; deterministic contract hardening for routing rollback, no-blind-retry/repeated-run, fault-injection, stub dedupe/schedule, run-shape/scope/disabled/operator-evidence semantics. Remaining: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging rollback proof. |
 | Phase 6 BrowserOS Upgrade | 66% | Playwright default; external BrowserOS MCP adapter behind contract; dispatch OFF. Env-gated MCP smoke/parity evidence exists; deeper parity, formal STRIDE/threat-model/PII retention evidence, and dispatch gate pending |
 | Phase 7 Memory/Skills/Proactivity | 97% | P7a feedback/eval/proposal scaffold + redacted flag-gated emissions; P7b memory CRUD/export/audit/retrieval/consolidation+retention dry-runs, fail-closed embedding seam, contract hardening. Blocked: retention enforcement/delete, consolidation apply/merge, external embedding runtime wiring default off, worker-claim/browser-worker DB feedback contract decisions, P7c/P7d activation/apply/auto-run (explicit written approval required) |
-| Phase 8 Hardening/Release | 45% | Backup scripts hardened (SHA256/checksum/force guard), backup dry-run, redaction/checklists, task export/delete, dep audit baseline; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
+| Phase 8 Hardening/Release | 46% | Backup scripts hardened (SHA256/checksum/force guard), backup dry-run, redaction/checklists, task export/delete, dep audit baseline, report-only security scan workflow; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
 
 > Detailed journey: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)** · P7b contract: **[changes/p7b-memory-status-contract.md](changes/p7b-memory-status-contract.md)**
 

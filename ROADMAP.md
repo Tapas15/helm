@@ -4,10 +4,10 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-83.2%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-84.0%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-P6_BrowserOS_Parity_%2B_Security-238636?style=for-the-badge)](#-present--what-were-building-now)
-[![Latest CI](https://img.shields.io/badge/CI-Latest_Watched_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45715144160)
+[![Focus](https://img.shields.io/badge/Current_Focus-P0_Complete_%7C_P6_Security_Gate-238636?style=for-the-badge)](#-present--what-were-building-now)
+[![Latest CI](https://img.shields.io/badge/CI-Latest_Watched_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45815147183)
 
 <br/>
 
@@ -61,21 +61,22 @@ timeline
 
 ### Overall
 
-**`83.2%`** complete (Phases 0–8, equal weight)
+**`84.0%`** complete (Phases 0–8, equal weight)
 
 ```text
-[¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦] 83.2%
+[????????????????????????] 84.0%
 ```
 
-**Usable prototype with active hardening.** P5 deterministic contract depth improved (routing fail-closed, rollback, no-blind-retry, reconciliation/operator semantics); real Temporal/provider sandbox closure, P6 parity/security, live UI smoke, and P8 ops/legal signoff remain.
+**Usable prototype with active hardening.** P0 foundation gate is complete (CI green with fresh-DB migrate smoke). P5 deterministic contract depth improved; real Temporal/provider sandbox closure, P6 parity/security, live UI smoke, and P8 ops/legal signoff remain.
 
 </td>
 <td width="50%" valign="top">
 
 ### Current Wave
 
-**P5 Temporal reliability contracts + P6 security/parity gate**
+**P0 complete; P6 BrowserOS parity/security gate + P5 real-env closure next**
 
+- P0 foundation gate closed: CI fresh-DB migrate smoke green, tooling/artifact hygiene done
 - Keep Playwright default; BrowserOS external MCP adapter explicit opt-in
 - Expand env-gated parity evidence (artifact/error/takeover semantics)
 - Harden endpoint/config validation and remote-endpoint guard
@@ -87,15 +88,15 @@ timeline
 
 | Phase | Progress | Journey | Bar |
 |---|---:|:---:|---|
-| **P0 Foundation / Repo** | 94% | Past / stabilizing | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P1 UI / Task Core** | 92% | Present / polishing | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P2 Agent Runtime** | 90% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P3 Browser Execution** | 93% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P5 Temporal / Reliability** | 80% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P7 Memory / Skills / Proactivity** | 97% | **Present** | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
-| **P8 Hardening / Release** | 45% | Future / active prep | `¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦` |
+| **P0 Foundation / Repo** | 100% | Complete | `????????????????????` |
+| **P1 UI / Task Core** | 92% | Present / polishing | `????????????????????` |
+| **P2 Agent Runtime** | 90% | **Present** | `????????????????????` |
+| **P3 Browser Execution** | 93% | **Present** | `????????????????????` |
+| **P4 Approvals / Vault / Connectors** | 90% | **Present** | `????????????????????` |
+| **P5 Temporal / Reliability** | 80% | **Present** | `????????????????????` |
+| **P6 BrowserOS Deterministic Upgrade** | 66% | **Present** | `????????????????????` |
+| **P7 Memory / Skills / Proactivity** | 97% | **Present** | `????????????????????` |
+| **P8 Hardening / Release** | 46% | Future / active prep | `????????????????????` |
 
 ---
 
@@ -107,14 +108,14 @@ timeline
 <tr>
 <td width="33%" valign="top">
 
-### ?? P0 — Foundation
-**93%**
+### ? P0 — Foundation
+**100%**
 
 - pnpm/turbo/TS monorepo
 - Docker Postgres/Redis
-- Shared Zod contracts
-- Drizzle schema + dev bootstrap
-- CWD-independent Drizzle journal alignment script
+- Shared Zod contracts + Drizzle schema
+- CWD-independent Drizzle align script
+- CI green with Postgres + fresh-DB migrate smoke
 
 </td>
 <td width="33%" valign="top">
@@ -309,7 +310,7 @@ flowchart TB
 ### Future Milestone Targets
 
 - [x] BrowserOS MCP adapter behind contract (external runtime, no AGPL code copied)
-- [x] Env-gated BrowserOS smoke 5/5 PASS (controlled local positive click/fill + adapter takeover parity)
+- [x] Env-gated BrowserOS MCP smoke 6/6 PASS (controlled local page; positive click/fill + adapter takeover parity)
 - [ ] BrowserOS-vs-Playwright deeper artifact/error parity evidence
 - [ ] BrowserOS external-runtime security/compliance/threat-model signoff
 - [ ] Default dispatch gate decision (explicit, evidence-backed; no silent fallback)
