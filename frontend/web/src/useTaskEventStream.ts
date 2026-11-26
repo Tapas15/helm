@@ -31,6 +31,7 @@ export function useTaskEventStream(taskId: string | null, token?: string | null)
       url.searchParams.set("after", String(lastSeq.current));
       if (token) url.searchParams.set("token", token);
       es = new EventSource(url.toString());
+      (window as any).__helmActiveEs = es;
       const touch = () => { setConnected(true); setStale(false); window.clearTimeout(staleHandle); staleHandle = window.setTimeout(() => setStale(true), 5000); };
       es.onopen = touch;
       es.addEventListener("event", (msg) => {
