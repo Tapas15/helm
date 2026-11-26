@@ -12,8 +12,8 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-84.0%25-1f6feb?style=for-the-badge)](ROADMAP.md)
-[![Current Phase](https://img.shields.io/badge/Current_Focus-P0_Complete_%7C_P6_Security_Gate-f2cc60?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-87.1%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Current Phase](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates_Pending-f2cc60?style=for-the-badge)](ROADMAP.md)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-238636?style=for-the-badge)](ROADMAP.md)
 
 **[Explore the full visual roadmap ?](ROADMAP.md)**
@@ -22,7 +22,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **84.2%** | Equal-weight P0-P8. Last watched CI green: [45818410990](https://github.com/Tapas15/helm/actions/runs/45818410990) (`9270bbb`, `main`). P8 gained deterministic task export/delete route contracts (11/11, authz/cap/no-mutate/audit no-secret-env leakage). |
+| **Overall** | **87.1%** | Equal-weight P0-P8 (coding-only estimate). P8 coding redaction/contract sweep pushed (`378912c..0d5f1fd`); `tsc` PASS, lint 0 errors/10 pre-existing warnings. Manual/ops/legal/security release gates remain. |
 | Phase 0 Foundation | 100% | Monorepo/CI/Docker/contracts stable; Drizzle alignment cwd-independent/idempotent; tsconfig workarounds removed (api/worker/browser-worker/temporal-worker); generated package src artifacts untracked+gitignored; CI Postgres + fresh-DB `db:migrate` smoke green; real ESLint config/scripts. Non-blocking debt: Node 20 action deprecation annotations, optional ESLint tightening; legacy `0001_p7_tables_manual.sql` by-design outside journal (no destructive reset). |
 | Phase 1 UI/Task Core | 92% | Chat/SSE/approvals/preview/takeover usable; SSE `Last-Event-ID` resume fallback + cursor validation covered; live UI smoke/fault-injection depth pending |
 | Phase 2 Agent Runtime | 90% | Local Ollama streaming/tool loop/policy; checkpoint/resumePlan narrowed semantics, approval/read-tool dedupe guards, deterministic evals. Remaining: full durable step-level replay, live browser+connector/model-provider E2E, live Hermes sidecar. |
@@ -31,7 +31,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 | Phase 5 Temporal/Reliability | 80% | ADR-002, routing/fail-closed, DB-canonical reconciliation/scheduler/dry-run; deterministic contract hardening for routing rollback, no-blind-retry/repeated-run, fault-injection, stub dedupe/schedule, run-shape/scope/disabled/operator-evidence semantics. Remaining: real-provider no-duplicate proof, real Temporal schedule/monitor/fault-injection depth, production/staging rollback proof. |
 | Phase 6 BrowserOS Upgrade | 66% | Playwright default; external BrowserOS MCP adapter behind contract; dispatch OFF. Env-gated MCP smoke/parity evidence exists; deeper parity, formal STRIDE/threat-model/PII retention evidence, and dispatch gate pending |
 | Phase 7 Memory/Skills/Proactivity | 97% | P7a feedback/eval/proposal scaffold + redacted flag-gated emissions; P7b memory CRUD/export/audit/retrieval/consolidation+retention dry-runs, fail-closed embedding seam, contract hardening. Blocked: retention enforcement/delete, consolidation apply/merge, external embedding runtime wiring default off, worker-claim/browser-worker DB feedback contract decisions, P7c/P7d activation/apply/auto-run (explicit written approval required) |
-| Phase 8 Hardening/Release | 48% | Backup scripts hardened (SHA256/checksum/force guard), backup dry-run, redaction/checklists, task export/delete + deterministic route contracts (11/11), dep audit baseline, report-only security scan workflow; backup/restore drill, scan gating, threat model, PII/legal, Dubai signoff pending |
+| Phase 8 Hardening/Release | 74% | Coding-stable: shared redaction helper + route migrations/contracts, export/delete contracts, backup scripts/docs/checklists. **Blocked (manual/external):** backup/restore drill, security scan gating/SAST/secrets/container, STRIDE/threat-model signoff, incident/key-rotation runbook, PII retention/export/delete/privacy/classification signoff, compliance/provenance/Dubai signoff, chaos/fault matrix, SLO dashboards/alerts, packaging/release gates. |
 
 > Detailed journey: **[ROADMAP.md](ROADMAP.md)** · Operational evidence: **[changes/CURRENT_STATE.md](changes/CURRENT_STATE.md)** · P7b contract: **[changes/p7b-memory-status-contract.md](changes/p7b-memory-status-contract.md)**
 

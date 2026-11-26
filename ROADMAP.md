@@ -4,10 +4,9 @@
 
 **The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
 
-[![Overall](https://img.shields.io/badge/Overall-84.2%25-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
+[![Overall](https://img.shields.io/badge/Overall-87.1%25_(coding--only)-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Active_Development-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
-[![Focus](https://img.shields.io/badge/Current_Focus-P0_Complete_%7C_P6_Security_Gate-238636?style=for-the-badge)](#-present--what-were-building-now)
-[![Latest CI](https://img.shields.io/badge/CI-Latest_Watched_Green-238636?style=for-the-badge)](https://github.com/Tapas15/helm/actions/runs/45815147183)
+[![Focus](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates_Pending-238636?style=for-the-badge)](#-present--what-were-building-now)
 
 <br/>
 
