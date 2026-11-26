@@ -2,7 +2,7 @@
 
 # Helm Roadmap
 
-**The journey of building a personal AI operating assistant — from blueprint to trusted execution.**
+**The journey of building a personal AI operating assistant ï¿½ from blueprint to trusted execution.**
 
 [![Overall](https://img.shields.io/badge/Overall-87.1%25_(coding--only)-1f6feb?style=for-the-badge)](changes/CURRENT_STATE.md)
 [![Status](https://img.shields.io/badge/Status-Coding_Active_%7C_Release_Gates_Pending-f2cc60?style=for-the-badge)](changes/CURRENT_STATE.md)
@@ -10,7 +10,7 @@
 
 <br/>
 
-[README](README.md) · [Current State](changes/CURRENT_STATE.md) · [Missing Items](changes/PLANNING_MISSING_ITEMS.md) · [Gap Analysis](changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md) · [Binding Audit](changes/BINDING_AUDIT_2026-11-23.md)
+[README](README.md) ï¿½ [Current State](changes/CURRENT_STATE.md) ï¿½ [Missing Items](changes/PLANNING_MISSING_ITEMS.md) ï¿½ [Gap Analysis](changes/BLUEPRINT_GAP_ANALYSIS_2026-11-23.md) ï¿½ [Binding Audit](changes/BINDING_AUDIT_2026-11-23.md)
 
 </div>
 
@@ -24,7 +24,7 @@
 | | |
 |---|---|
 | **Mission** | Build Helm as an original personal AI operating assistant: OpenFUSE-style control surface + Helm-native runtime + deterministic browser execution + reliability/security. |
-| **Invariants** | Model proposes, policy decides · UI is not intelligence · Durable state · Idempotent external effects + receipts · No secrets in logs/events/prompts |
+| **Invariants** | Model proposes, policy decides ï¿½ UI is not intelligence ï¿½ Durable state ï¿½ Idempotent external effects + receipts ï¿½ No secrets in logs/events/prompts |
 | **Source of truth** | [`changes/CURRENT_STATE.md`](changes/CURRENT_STATE.md) is authoritative for status; this roadmap is the visual journey. |
 
 ---
@@ -35,15 +35,15 @@
 %%{init: {'theme':'base','themeVariables': { 'primaryColor':'#dbeafe','primaryTextColor':'#0f172a','primaryBorderColor':'#3b82f6','lineColor':'#64748b','secondaryColor':'#dcfce7','tertiaryColor':'#fef9c3'}}}%%
 timeline
     title Helm Development Journey
-    section Past · Foundation Laid
+    section Past ï¿½ Foundation Laid
       P0 Foundation : Monorepo + contracts + Docker + DB/bootstrap
       P1 Task Core : Task lifecycle + SSE + approvals/evidence UI
-    section Present · Prototype Becoming Real
+    section Present ï¿½ Prototype Becoming Real
       P1 Chat UX : Chat-first UI, streaming, follow-up, tool cards
       P2 Runtime : HelmNativeRuntime, Ollama tool-calling, guardrails pending
       P3 Browser : Playwright + CDP preview + takeover + guarded actions
       P4 Safety : Approval + actionHash + idempotency + receipts
-    section Future · Trusted Personal Assistant
+    section Future ï¿½ Trusted Personal Assistant
       P4 Connectors : Vault, OAuth, Gmail/Calendar, reconciliation
       P5 Reliability : Temporal workflows, retries, schedules
       P6-P7 Capability : BrowserOS upgrade, memory/skills/proactivity
@@ -60,7 +60,7 @@ timeline
 
 ### Overall
 
-**`84.2%`** complete (Phases 0–8, equal weight)
+**`84.2%`** complete (Phases 0ï¿½8, equal weight)
 
 ```text
 [????????????????????????] 84.2%
@@ -99,7 +99,7 @@ timeline
 
 ---
 
-## Past — What Has Been Built
+## Past ï¿½ What Has Been Built
 
 > The groundwork: contracts, durable task state, visible UI, and the first safe execution loop.
 
@@ -107,7 +107,7 @@ timeline
 <tr>
 <td width="33%" valign="top">
 
-### ? P0 — Foundation
+### ? P0 ï¿½ Foundation
 **100%**
 
 - pnpm/turbo/TS monorepo
@@ -119,7 +119,7 @@ timeline
 </td>
 <td width="33%" valign="top">
 
-### ?? P1 — UI / Task Core
+### ?? P1 ï¿½ UI / Task Core
 **91%**
 
 - Chat-first task UI
@@ -156,7 +156,7 @@ timeline
 
 ---
 
-## Present — What We're Building Now
+## Present ï¿½ What We're Building Now
 
 > Current state: Helm is a working prototype with real task/runtime/browser/approval flows. P8 coding hardening is stable; release confidence is blocked by manual ops/security/legal evidence.
 
@@ -179,8 +179,8 @@ flowchart LR
 <tr>
 <td width="33%" valign="top">
 
-### ?? P2 — Agent Runtime
-**90% · Present**
+### ?? P2 ï¿½ Agent Runtime
+**90% ï¿½ Present**
 
 **Delivered**
 - HelmNativeRuntime + normalized `runtime.*` events
@@ -198,8 +198,8 @@ flowchart LR
 </td>
 <td width="33%" valign="top">
 
-### ?? P3 — Browser Execution
-**93% · Present**
+### ?? P3 ï¿½ Browser Execution
+**93% ï¿½ Present**
 
 **Delivered**
 - Playwright browser worker + CDP screencast/WS proxy
@@ -216,8 +216,8 @@ flowchart LR
 </td>
 <td width="33%" valign="top">
 
-### ??? P4 — Approvals / Safety / Connectors
-**90% · Present**
+### ??? P4 ï¿½ Approvals / Safety / Connectors
+**90% ï¿½ Present**
 
 **Delivered**
 - Approval resolve/requeue/cancel + action receipts
@@ -246,7 +246,7 @@ flowchart LR
 
 ---
 
-## Future — What We Will Achieve
+## Future ï¿½ What We Will Achieve
 
 > Destination: release-grade, inspectable personal AI operator. Most remaining work is evidence/gates, not core feature coding.
 
@@ -333,7 +333,7 @@ flowchart TB
 
 <div align="center">
 
-**Helm is being built to be useful, inspectable, and safe — not just impressive.**
+**Helm is being built to be useful, inspectable, and safe ï¿½ not just impressive.**
 
 </div>
 
