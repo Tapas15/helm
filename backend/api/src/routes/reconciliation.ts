@@ -30,7 +30,7 @@ export function reconciliationRoutes(db: Database) {
     if (process.env.HELM_ALLOW_DEV_AUTH !== "1") return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "schedule management requires internal/dev mode"), 403);
     const result = await maybeStartReconciliationSchedule();
     const status = await getTemporalReconciliationScheduleStatus().catch(() => null);
-    return c.json({ ...result, ok: result.ok, status });
+    return c.json(redactValue({ ...result, ok: result.ok, status }));
   });
 
   app.post("/run", async (c) => {
