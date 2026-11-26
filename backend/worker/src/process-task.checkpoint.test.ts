@@ -83,6 +83,23 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.status).toBe("succeeded");
   });
 
+  it("passes read-only argsKey resumePlan and records no duplicate side-effect artifacts on deduped read", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 3, lastEventType: "runtime.tool.completed", updatedAt: "2026-11-26T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 3, argsKey: JSON.stringify({ sessionId: "s1" }) }], completedActionHashes: [] } };
+    let seenResumePlan: any = undefined;
+    const { db, task } = makeDb({ checkpoint });
+    const runtime = { run: async function* (input: any) {
+      seenResumePlan = input?.context?.runtimeResumePlan;
+      yield { type: "runtime.tool.deduped", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "Tool browser_snapshot deduped by resume plan", payload: { name: "browser_snapshot", argsKey: JSON.stringify({ sessionId: "s1" }), reason: "resume_plan_completed_read_tool" } };
+      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } };
+    } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(seenResumePlan?.completedToolRefs?.[0]?.argsKey).toBe(JSON.stringify({ sessionId: "s1" }));
+    expect(db.insertedReceipts).toHaveLength(0);
+    expect(db.insertedApprovals).toHaveLength(0);
+    expect(task.status).toBe("succeeded");
+  });
+
   it("dedupes approval request when same actionHash already pending", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
     const existing = { id: "apr_existing", taskId: "tsk_1", actionHash: "ah_same", actionKind: "external.high_risk", status: "pending" };
