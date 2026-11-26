@@ -2080,3 +2080,10 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Proves**: same idempotency key dedupes to same workflow/run; no duplicate workflow start; approval signals recorded.
 - **Impact**: P5 remains 79%; overall 83.1% (contract depth added, no real-env closure). 
 - **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
+## 2026-11-26 - P5 reconciliation route fault-injection no-blind-retry contracts
+
+- **Scope**: Added `backend/api/src/routes/reconciliation.fault-injection.test.ts` (2/2), deterministic route->service fault-injection contracts.
+- **Evidence**: `pnpm -C backend/api exec vitest run src/routes/reconciliation.fault-injection.test.ts src/routes/reconciliation.run.test.ts src/routes/reconciliation.schedule.test.ts` PASS 7/7; `pnpm -C backend/api typecheck` PASS.
+- **Proves**: `lookup_not_found` records lookup attempt, keeps uncertain, skipped, no provider lookup/audit; `lookup_error` keeps uncertain with failed accounting, no provider lookup/audit.
+- **Impact**: P5 79% -> 80%; overall 83.1% -> 83.2%.
+- **Remaining gap**: real Temporal schedule/monitor/fault-injection E2E depth, real-provider no-duplicate proof, production/staging rollback proof. CI not watched.
