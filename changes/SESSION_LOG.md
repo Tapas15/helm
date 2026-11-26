@@ -2252,3 +2252,13 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence:** pnpm -C backend/api exec vitest run src/routes/tasks.export-delete.test.ts PASS 7/7; pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS; pnpm lint PASS.
 - **Docs:** updated changes/phase-8-hardening-release.md, changes/P8-hardening-checklist.md, changes/CURRENT_STATE.md.
 - **Risk:** low (tests/docs only; no runtime behavior change). CI not watched per directive.
+## 2026-11-26 - P8 export/delete contract hardening (local)
+- **Scope:** extend deterministic P8 export/delete route contracts for cross-user isolation and secret-leakage characterization.
+- **Changes:** ackend/api/src/routes/tasks.export-delete.test.ts 7/7 -> 11/11. Added:
+  - bulk export excludes other-user task rows/IDs
+  - cross-user delete returns 404, no tx mutation, no audit insert
+  - delete audit metadata allowlisted ({enabled, confirm}) and does not echo HELM_VAULT_MASTER_KEY env name/value
+  - export payload characterization: returns stored fields; does not leak unrelated process env secrets by route itself
+- **Evidence:** pnpm -C backend/api exec vitest run src/routes/tasks.export-delete.test.ts PASS 11/11; pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS; pnpm lint PASS.
+- **Docs:** changes/phase-8-hardening-release.md, changes/P8-hardening-checklist.md, changes/CURRENT_STATE.md, changes/SESSION_LOG.md, README.md, ROADMAP.md.
+- **Risk:** tests/docs only; no runtime behavior change. CI not watched per directive.

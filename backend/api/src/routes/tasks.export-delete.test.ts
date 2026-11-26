@@ -5,9 +5,10 @@ import { taskRoutes } from "./tasks.js";
 
 const env = { ...process.env };
 
-function makeDb(opts?: { task?: any; rows?: any[] }) {
+function makeDb(opts?: { task?: any; rows?: any[]; byTable?: Partial<Record<string, any[]>> }) {
   const task = opts?.task ?? { id: "tsk_1", userId: "u1", title: "t", status: "completed", updatedAt: new Date("2026-01-01T00:00:00Z") };
   const rows = opts?.rows ?? [task];
+  const byTable = opts?.byTable ?? {};
   const inserts: Array<{ table: unknown; value: any }> = [];
   const deletes: Array<{ table: unknown }> = [];
   const txCalls: string[] = [];
@@ -22,13 +23,22 @@ function makeDb(opts?: { task?: any; rows?: any[] }) {
   const tx = {
     delete: (table: unknown) => ({ where: async () => { txCalls.push(`delete:${(table as any)?.[Symbol.for("drizzle:Name")] ?? "unknown"}`); deletes.push({ table }); return []; } }),
   };
+  const tableRows = (table: unknown) => {
+    if (table === tasks) return rows.filter((r) => r.id === task.id && r.userId === task.userId);
+    if (table === taskMessages) return byTable.messages ?? [];
+    if (table === taskEvents) return byTable.events ?? [];
+    if (table === approvals) return byTable.approvals ?? [];
+    if (table === actionReceipts) return byTable.receipts ?? [];
+    if (table === browserArtifacts) return byTable.artifacts ?? [];
+    return [];
+  };
   const db: any = {
     inserts, deletes, txCalls, task,
     select: () => ({
       from: (table: unknown) => ({
-        where: () => thenable(table === tasks ? rows.filter((r) => r.id === task.id && r.userId === task.userId) : []),
+        where: () => thenable(tableRows(table)),
         orderBy: () => ({
-          limit: async (n: number) => (table === tasks ? rows.slice(0, n) : []),
+          limit: async (n: number) => (table === tasks ? rows.slice(0, n) : tableRows(table).slice(0, n)),
         }),
       }),
     }),
@@ -115,5 +125,56 @@ describe("task export/delete contracts (P8)", () => {
     expect(db.txCalls.length).toBe(6);
     const audit = db.inserts.find((i: any) => i.table === auditLog);
     expect(audit?.value).toMatchObject({ action: "task.delete", resourceId: "tsk_1", decision: "allow" });
+  });
+
+  it("does not leak other-user task rows in bulk export", async () => {
+    const db = makeDb({ rows: [{ id: "tsk_1", userId: "u1", updatedAt: new Date() }, { id: "tsk_2", userId: "u2", updatedAt: new Date() }] });
+    const res = await makeApp(db, "u1").request("/v1/tasks/export", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 10 }) });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.tasks.map((t: any) => t.id)).toEqual(["tsk_1"]);
+    expect(JSON.stringify(body)).not.toContain("tsk_2");
+  });
+
+  it("rejects cross-user delete as 404 and does not mutate", async () => {
+    process.env.HELM_ALLOW_TASK_DELETE = "1";
+    const db = makeDb({ task: { id: "tsk_other", userId: "u2" }, rows: [] });
+    const res = await makeApp(db, "u1").request("/v1/tasks/tsk_other/delete", { method: "POST", body: "{}", headers: { "x-helm-confirm-delete": "yes" } });
+    expect(res.status).toBe(404);
+    expect(db.txCalls).toHaveLength(0);
+    expect(db.inserts.filter((i: any) => i.table === auditLog)).toHaveLength(0);
+  });
+
+  it("does not echo secret env names/values in delete audit metadata", async () => {
+    process.env.HELM_ALLOW_TASK_DELETE = "1";
+    process.env.HELM_VAULT_MASTER_KEY = "super-secret-test-key";
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/tasks/tsk_1/delete", { method: "POST", body: "{}", headers: { "x-helm-confirm-delete": "yes" } });
+    expect(res.status).toBe(200);
+    const audit = db.inserts.find((i: any) => i.table === auditLog);
+    const serialized = JSON.stringify(audit?.value ?? {});
+    expect(serialized).not.toContain("super-secret-test-key");
+    expect(serialized).not.toContain("HELM_VAULT_MASTER_KEY");
+    expect(audit?.value?.metadata).toEqual({ enabled: true, confirm: true });
+  });
+
+  it("export includes raw fields as stored (characterization, no secret leakage by export route itself)", async () => {
+    process.env.HELM_VAULT_MASTER_KEY = "super-secret-test-key";
+    const db = makeDb({
+      task: { id: "tsk_1", userId: "u1", title: "t", status: "completed", updatedAt: new Date("2026-01-01T00:00:00Z") },
+      rows: [{ id: "tsk_1", userId: "u1", title: "t", status: "completed", updatedAt: new Date("2026-01-01T00:00:00Z") }],
+      byTable: {
+        messages: [{ id: "msg_1", taskId: "tsk_1", userId: "u1", role: "user", content: "hello", createdAt: new Date() }],
+        events: [{ id: "evt_1", taskId: "tsk_1", userId: "u1", type: "runtime.info", payload: { note: "safe" }, createdAt: new Date() }],
+      },
+    });
+    const res = await makeApp(db).request("/v1/tasks/tsk_1/export");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.messages[0].content).toBe("hello");
+    expect(body.events[0].payload.note).toBe("safe");
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain("super-secret-test-key");
+    expect(serialized).not.toContain("HELM_VAULT_MASTER_KEY");
   });
 });

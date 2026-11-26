@@ -8,7 +8,7 @@ P8 covers release hardening: security, reliability, backup/restore, PII/retentio
 - [x] Dependency audit runs in CI as report-only (`pnpm audit --audit-level=high`, continue-on-error); triage documented in `changes/P8-dependency-audit-triage.md`.
 - [x] Scheduled/manual report-only security scan workflow drafted (`.github/workflows/security-scan.yml`: dependency audit + CodeQL security-extended; no gating; container/secrets pending decision).
 - [x] Log redaction baseline in `packages/observability/src/redaction.ts`; regression `packages/observability/src/redaction.test.ts` PASS.
-- [x] Task export/delete controls: user-scoped export (`GET /v1/tasks/:id/export`, `POST /v1/tasks/export`, capped by `HELM_TASK_EXPORT_MAX` default 200/hard max 500); delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`; transactional delete + audit. Env-gated `task-export-delete-api` PASS. Deterministic route contracts PASS 7/7 (`backend/api/src/routes/tasks.export-delete.test.ts`, 2026-11-26).
+- [x] Task export/delete controls: user-scoped export (`GET /v1/tasks/:id/export`, `POST /v1/tasks/export`, capped by `HELM_TASK_EXPORT_MAX` default 200/hard max 500); delete gated by `HELM_ALLOW_TASK_DELETE=1` + `x-helm-confirm-delete: yes`; transactional delete + audit. Env-gated `task-export-delete-api` PASS. Deterministic route contracts PASS 11/11 (`backend/api/src/routes/tasks.export-delete.test.ts`, 2026-11-26; includes cross-user no-leak/no-mutate and audit/env-secret no-leak characterization).
 - [x] Backup/restore scripts hardened: `scripts/backup-db.ps1` emits SHA256; `scripts/restore-db.ps1` requires `-Force`, verifies checksum by default, and warns about artifact/key scope.
 - [x] Non-destructive backup/restore dry-run evidence: `changes/P8-backup-restore-dry-run.md` (includes 2026-11-26 safe dry-run checklist; no new destructive drill).
 - [x] Runbooks: `changes/RUNBOOK-backup-restore.md`, `changes/RUNBOOK-backup-restore-drill.md`.
@@ -27,6 +27,6 @@ P8 covers release hardening: security, reliability, backup/restore, PII/retentio
 
 ## Next Safe Self-Doable Slices
 - Add report-only Trivy/Gitleaks workflow after security/ops tool decision (no gating).
-- Extend deterministic contract tests for P8 export/delete/authz/redaction edge cases (cross-user export/delete, audit metadata no-secret assertions, export payload redaction review).
+- Extend deterministic contract tests for P8 export/delete/redaction: explicit cross-user single-task export 404, audit metadata allowlist (no request body/header echo), and export redaction policy decision (raw-as-stored vs redacted export) with tests once policy chosen.
 - Refresh dependency audit table after next lockfile/dependency change with command evidence.
 - Refresh CURRENT_STATE/phase-8/SESSION_LOG after each slice with evidence.
