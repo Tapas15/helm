@@ -24,7 +24,7 @@ function makeDb(opts?: { task?: any; rows?: any[]; byTable?: Partial<Record<stri
     delete: (table: unknown) => ({ where: async () => { txCalls.push(`delete:${(table as any)?.[Symbol.for("drizzle:Name")] ?? "unknown"}`); deletes.push({ table }); return []; } }),
   };
   const tableRows = (table: unknown) => {
-    if (table === tasks) return rows.filter((r) => r.id === task.id && r.userId === task.userId);
+    if (table === tasks) return rows.filter((r) => r.userId === task.userId);
     if (table === taskMessages) return byTable.messages ?? [];
     if (table === taskEvents) return byTable.events ?? [];
     if (table === approvals) return byTable.approvals ?? [];
@@ -158,23 +158,63 @@ describe("task export/delete contracts (P8)", () => {
     expect(audit?.value?.metadata).toEqual({ enabled: true, confirm: true });
   });
 
-  it("export includes raw fields as stored (characterization, no secret leakage by export route itself)", async () => {
+  it("returns 404 for cross-user single task export without leaking existence", async () => {
+    const db = makeDb({ task: { id: "tsk_other", userId: "u2" }, rows: [] });
+    const res = await makeApp(db, "u1").request("/v1/tasks/tsk_other/export");
+    expect(res.status).toBe(404);
+    const body = await res.json() as any;
+    expect(body?.error?.code).toBe("NOT_FOUND");
+    expect(JSON.stringify(body)).not.toContain("u2");
+  });
+
+  it("export payload does not leak sensitive key-shaped fields", async () => {
     process.env.HELM_VAULT_MASTER_KEY = "super-secret-test-key";
     const db = makeDb({
       task: { id: "tsk_1", userId: "u1", title: "t", status: "completed", updatedAt: new Date("2026-01-01T00:00:00Z") },
       rows: [{ id: "tsk_1", userId: "u1", title: "t", status: "completed", updatedAt: new Date("2026-01-01T00:00:00Z") }],
       byTable: {
-        messages: [{ id: "msg_1", taskId: "tsk_1", userId: "u1", role: "user", content: "hello", createdAt: new Date() }],
-        events: [{ id: "evt_1", taskId: "tsk_1", userId: "u1", type: "runtime.info", payload: { note: "safe" }, createdAt: new Date() }],
+        messages: [{ id: "msg_1", taskId: "tsk_1", userId: "u1", role: "assistant", content: "ok", metadata: { apiKey: "sk-live-123", nested: { accessToken: "tok-abc" } }, createdAt: new Date() }],
+        events: [{ id: "evt_1", taskId: "tsk_1", userId: "u1", type: "runtime.info", payload: { authorization: "Bearer abc", safe: "keep" }, createdAt: new Date() }],
+        receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", kind: "browser", status: "succeeded", request: { password: "pw123" }, response: { sessionToken: "sess-secret" }, createdAt: new Date() }],
       },
     });
     const res = await makeApp(db).request("/v1/tasks/tsk_1/export");
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.messages[0].content).toBe("hello");
-    expect(body.events[0].payload.note).toBe("safe");
-    const serialized = JSON.stringify(body);
+    const serialized = JSON.stringify(await res.json());
+    expect(serialized).not.toContain("sk-live-123");
+    expect(serialized).not.toContain("tok-abc");
+    expect(serialized).not.toContain("Bearer abc");
+    expect(serialized).not.toContain("pw123");
+    expect(serialized).not.toContain("sess-secret");
+    expect(serialized).not.toContain("super-secret-test-key");
+    expect(serialized).toContain("keep");
+    expect(serialized).toContain("[REDACTED]");
+  });
+
+  it("single export writes allowlisted audit metadata with no secret leakage", async () => {
+    process.env.HELM_VAULT_MASTER_KEY = "super-secret-test-key";
+    const db = makeDb();
+    const res = await makeApp(db).request("/v1/tasks/tsk_1/export");
+    expect(res.status).toBe(200);
+    const audit = db.inserts.find((i: any) => i.table === auditLog && i.value?.action === "task.export");
+    expect(audit?.value).toMatchObject({ action: "task.export", resourceType: "task", resourceId: "tsk_1", decision: "allow" });
+    const serialized = JSON.stringify(audit?.value ?? {});
     expect(serialized).not.toContain("super-secret-test-key");
     expect(serialized).not.toContain("HELM_VAULT_MASTER_KEY");
+    expect(audit?.value?.metadata).toEqual({ scope: "single", requestId: "req_1", correlationId: "cor_1" });
+  });
+
+  it("bulk export writes allowlisted audit metadata with no secret leakage", async () => {
+    process.env.HELM_VAULT_MASTER_KEY = "super-secret-test-key";
+    process.env.HELM_TASK_EXPORT_MAX = "2";
+    const db = makeDb({ rows: [{ id: "tsk_1", userId: "u1", updatedAt: new Date() }, { id: "tsk_2", userId: "u1", updatedAt: new Date() }] });
+    const res = await makeApp(db).request("/v1/tasks/export", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 99 }) });
+    expect(res.status).toBe(200);
+    const audit = db.inserts.find((i: any) => i.table === auditLog && i.value?.action === "task.export.bulk");
+    expect(audit?.value).toMatchObject({ action: "task.export.bulk", resourceType: "task", resourceId: "user:u1", decision: "allow" });
+    const serialized = JSON.stringify(audit?.value ?? {});
+    expect(serialized).not.toContain("super-secret-test-key");
+    expect(serialized).not.toContain("HELM_VAULT_MASTER_KEY");
+    expect(audit?.value?.metadata).toEqual({ scope: "user", count: 2, max: 2, requestId: "req_1", correlationId: "cor_1" });
   });
 });

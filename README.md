@@ -85,31 +85,82 @@ flowchart TB
 
 **Flow:** client prompt -> gateway stores task/message -> orchestrator leases task -> model adapter streams response/tool calls -> untrusted runtime proposes actions -> sentinel plane enforces approval/hash/idempotency/audit -> browser/connector brokers execute allowed actions -> receipts/artifacts/events/messages persist -> clients render chat, timeline, approvals, evidence, live preview.
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm 9 (`corepack enable && corepack prepare pnpm@9.15.4 --activate`)
+- Postgres 16+ (local or Docker)
+- Redis (optional for current baseline; required for future queue paths)
+
+### Install
+
+```bash
+git clone https://github.com/Tapas15/helm.git
+cd helm
+pnpm install
+cp .env.example .env
+```
+
+Update `.env` for your local services. Minimum local dev values:
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/helm
+HELM_ALLOW_DEV_AUTH=1
+HELM_AUTH_DEV_USER_ID=usr_local_dev
+HELM_REQUIRE_AUTH=0
+```
+
+### Database setup
+
+```bash
+pnpm db:migrate
+# optional
+pnpm db:seed
+```
+
+### Run backend
+
+API (Hono, default `http://localhost:8787`):
+
+```bash
+pnpm --filter @helm/api dev
+```
+
+Worker (task/runtime worker):
+
+```bash
+pnpm --filter @helm/worker dev
+```
+
+Browser worker (Playwright/browser execution, default `http://localhost:8790`):
+
+```bash
+pnpm --filter @helm/browser-worker dev
+```
+
+### Run frontend
+
+Web app (Vite, default `http://localhost:5173`, proxies `/v1` and `/health` to `http://localhost:8787`):
+
+```bash
+pnpm --filter @helm/web dev
+```
+
+### Run everything in dev mode
+
+```bash
+pnpm dev
+```
+
+This runs workspace `dev` tasks through Turbo; ensure Postgres/env vars are configured first.
+
+## API
+
+See [API documentation](docs/API.md) for the current route surface and handler count.
 ## License and Third-Party Dependencies
 
 - Helm project license: see LICENSE.
 - Third-party dependency licenses: see THIRD_PARTY_NOTICES.md.
 - AGPL/copyleft code (e.g., BrowserOS) is not vendored into Helm. Optional external adapters require separate compliance review.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

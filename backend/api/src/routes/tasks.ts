@@ -46,6 +46,24 @@ function errorBody(code: string, message: string, retryable: boolean, details?: 
   return { error: { code, message, retryable, ...(details !== undefined ? { details } : {}) } };
 }
 
+const SENSITIVE_EXPORT_KEYS = new Set([
+  "authorization", "cookie", "set-cookie", "password", "passwd", "secret", "token",
+  "accesstoken", "refreshtoken", "apikey", "credential", "credentials", "privatekey",
+  "clientsecret", "sessiontoken", "vaultkey", "encryptedvalue", "pkceverifier", "pkceverifierencrypted",
+]);
+
+function redactExportValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactExportValue);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = k.toLowerCase().replace(/[^a-z]/g, "");
+    if (SENSITIVE_EXPORT_KEYS.has(normalized)) out[k] = "[REDACTED]";
+    else out[k] = redactExportValue(v);
+  }
+  return out;
+}
+
 export function taskRoutes(db: Database) {
   const app = new Hono<AppEnv>();
 
@@ -180,7 +198,30 @@ export function taskRoutes(db: Database) {
       db.select().from(actionReceipts).where(and(eq(actionReceipts.taskId, id), eq(actionReceipts.userId, userId))).orderBy(desc(actionReceipts.createdAt)).limit(200),
       db.select().from(browserArtifacts).where(and(eq(browserArtifacts.taskId, id), eq(browserArtifacts.userId, userId))).orderBy(desc(browserArtifacts.createdAt)).limit(200),
     ]);
-    return c.json({ ok: true, exportedAt: new Date().toISOString(), task, messages, events, approvals: approvalsRows, receipts, artifacts });
+    await db.insert(auditLog).values({
+      id: uid("aud"),
+      userId,
+      ts: new Date(),
+      actorType: "user",
+      actorId: userId,
+      taskId: id,
+      action: "task.export",
+      resourceType: "task",
+      resourceId: id,
+      decision: "allow",
+      reason: "user_requested",
+      metadata: { scope: "single", requestId: c.get("requestId"), correlationId: c.get("correlationId") },
+    });
+    return c.json({
+      ok: true,
+      exportedAt: new Date().toISOString(),
+      task: redactExportValue(task),
+      messages: redactExportValue(messages),
+      events: redactExportValue(events),
+      approvals: redactExportValue(approvalsRows),
+      receipts: redactExportValue(receipts),
+      artifacts: redactExportValue(artifacts),
+    });
   });
 
   app.post("/export", async (c) => {
@@ -189,7 +230,20 @@ export function taskRoutes(db: Database) {
     const max = Math.min(Math.max(Number(process.env.HELM_TASK_EXPORT_MAX ?? 200), 1), 500);
     const limit = Number.isFinite(body?.limit) ? Math.min(Math.max(Math.floor(body.limit), 1), max) : Math.min(50, max);
     const rows = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.updatedAt)).limit(limit);
-    return c.json({ ok: true, exportedAt: new Date().toISOString(), scope: "user", count: rows.length, max, tasks: rows });
+    await db.insert(auditLog).values({
+      id: uid("aud"),
+      userId,
+      ts: new Date(),
+      actorType: "user",
+      actorId: userId,
+      action: "task.export.bulk",
+      resourceType: "task",
+      resourceId: `user:${userId}`,
+      decision: "allow",
+      reason: "user_requested",
+      metadata: { scope: "user", count: rows.length, max, requestId: c.get("requestId"), correlationId: c.get("correlationId") },
+    });
+    return c.json({ ok: true, exportedAt: new Date().toISOString(), scope: "user", count: rows.length, max, tasks: redactExportValue(rows) });
   });
 
   app.post("/:id/delete", async (c) => {
