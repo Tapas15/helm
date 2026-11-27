@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { actionReceipts, approvals, auditLog, browserArtifacts, identityPolicies, taskEvents, tasks, type Database } from "@helm/db";
 import { emitFeedbackEvent } from "../lib/feedback.js";
 import { BrowserActionGuard, BrowserClickInput, BrowserExternalActionInput, BrowserFillInput, BrowserNavigateInput, BrowserResumeInput, BrowserScreenshotInput, BrowserTakeoverInput, CreateBrowserSessionInput, HELM_ERROR_CODES, readTemporalConfig, shouldUseTemporalForAction } from "@helm/shared";
@@ -158,12 +158,36 @@ export function browserRoutes(db: Database) {
     if (!auth.ok) return c.json(redactBrowserValue(auth.body) as any, auth.status as any);
     const approval = auth.approval;
     if (owned.task.id !== approval.taskId) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "Approval task does not match browser session task", false), 403);
+    let activeReceiptId: string | null = null;
     if (!auth.receipt) {
-      await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: `browser.${action}`, actionHash: approval.actionHash, idempotencyKey: guard.data.idempotencyKey, status: "executing", evidence: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), sessionId: c.req.param("id"), action }, createdAt: new Date() }).onConflictDoNothing();
+      const receiptId = uid("rcpt");
+      await db.insert(actionReceipts).values({ id: receiptId, userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: `browser.${action}`, actionHash: approval.actionHash, idempotencyKey: guard.data.idempotencyKey, status: "executing", evidence: { requestId: c.get("requestId"), correlationId: c.get("correlationId"), sessionId: c.req.param("id"), action }, createdAt: new Date() }).onConflictDoNothing();
+      const [inserted] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, guard.data.idempotencyKey)).limit(1);
+      if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
+      if (inserted.id !== receiptId) {
+        if (inserted.userId !== c.get("userId") || inserted.actionHash !== approval.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+        if (inserted.status === "executed") return c.json(redactBrowserValue({ ok: true, deduped: true, receiptId: inserted.id, idempotencyKey: inserted.idempotencyKey }));
+        if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Action already executing", true), 409);
+        if (inserted.status === "approved") {
+          const [c2] = await db.update(actionReceipts).set({ status: "executing", evidence: { ...(inserted.evidence as any ?? {}), requestId: c.get("requestId"), correlationId: c.get("correlationId"), sessionId: c.req.param("id"), action } }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+          if (!c2) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          activeReceiptId = c2.id;
+        } else {
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else {
+        activeReceiptId = inserted.id;
+      }
     } else {
-      await db.update(actionReceipts).set({ status: "executing" }).where(eq(actionReceipts.id, auth.receipt.id));
+      const [c2] = await db.update(actionReceipts).set({ status: "executing" }).where(and(eq(actionReceipts.id, auth.receipt.id), inArray(actionReceipts.status, ["approved","executing","failed"] as any))).returning({ id: actionReceipts.id, status: actionReceipts.status });
+      if (!c2) {
+        const [fresh] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, auth.receipt.id)).limit(1);
+        if (fresh?.status === "executed") return c.json(redactBrowserValue({ ok: true, deduped: true, receiptId: fresh.id, idempotencyKey: fresh.idempotencyKey }));
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Action receipt not claimable", true, { receiptId: auth.receipt.id }), 409);
+      }
+      activeReceiptId = c2.id;
     }
-    const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, guard.data.idempotencyKey)).limit(1);
+    const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, activeReceiptId!)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
     if (claimed.status === "executed") return c.json(redactBrowserValue({ ok: true, deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey }));
     const r = await proxy(path, { method: "POST", body: JSON.stringify({ ...base.data, userId: c.get("userId"), taskId: approval.taskId, runId: approval.runId ?? null, correlationId: c.get("correlationId") }) });
@@ -311,13 +335,34 @@ export function browserRoutes(db: Database) {
       }
     }
 
+    let activeReceiptId: string | null = null;
     if (!auth.receipt) {
-      const ts = new Date();
-      await db.insert(actionReceipts).values({ id: uid("rcpt"), userId, taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: approval.actionKind, actionHash: approval.actionHash, idempotencyKey: input.idempotencyKey, status: "executing", evidence: { requestId, correlationId, sessionId: c.req.param("id"), action: input.action }, createdAt: ts }).onConflictDoNothing();
+      const receiptId = uid("rcpt");
+      await db.insert(actionReceipts).values({ id: receiptId, userId, taskId: approval.taskId, runId: approval.runId, approvalId: approval.id, actionKind: approval.actionKind, actionHash: approval.actionHash, idempotencyKey: input.idempotencyKey, status: "executing", evidence: { requestId, correlationId, sessionId: c.req.param("id"), action: input.action }, createdAt: new Date() }).onConflictDoNothing();
+      const [inserted] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+      if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
+      if (inserted.id !== receiptId) {
+        if (inserted.userId !== userId || inserted.actionHash !== approval.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+        if (inserted.status === "executed") return c.json(redactBrowserValue({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: inserted.id, idempotencyKey: inserted.idempotencyKey } }));
+        if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Action already executing", true), 409);
+        if (inserted.status === "approved") {
+          const [c2] = await db.update(actionReceipts).set({ status: "executing", evidence: { ...(inserted.evidence as any ?? {}), requestId, correlationId, sessionId: c.req.param("id"), action: input.action } }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+          if (!c2) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          activeReceiptId = c2.id;
+        } else {
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else { activeReceiptId = inserted.id; }
     } else {
-      await db.update(actionReceipts).set({ status: "executing", evidence: { ...(auth.receipt.evidence as any ?? {}), requestId, correlationId, sessionId: c.req.param("id"), action: input.action } }).where(eq(actionReceipts.id, auth.receipt.id));
+      const [c2] = await db.update(actionReceipts).set({ status: "executing", evidence: { ...(auth.receipt.evidence as any ?? {}), requestId, correlationId, sessionId: c.req.param("id"), action: input.action } }).where(and(eq(actionReceipts.id, auth.receipt.id), inArray(actionReceipts.status, ["approved","executing","failed"] as any))).returning({ id: actionReceipts.id });
+      if (!c2) {
+        const [fresh] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, auth.receipt.id)).limit(1);
+        if (fresh?.status === "executed") return c.json(redactBrowserValue({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: fresh.id, idempotencyKey: fresh.idempotencyKey } }));
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Action receipt not claimable", true, { receiptId: auth.receipt.id }), 409);
+      }
+      activeReceiptId = c2.id;
     }
-    const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    const [claimed] = await db.select().from(actionReceipts).where(eq(actionReceipts.id, activeReceiptId!)).limit(1);
     if (!claimed) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Failed to claim idempotency receipt", true), 409);
     if (claimed.status === "executed") return c.json(redactBrowserValue({ ok: true, sessionId: c.req.param("id"), action: `external.${input.action}`, data: { deduped: true, receiptId: claimed.id, idempotencyKey: claimed.idempotencyKey } }));
     const r = await proxy(`/v1/sessions/${c.req.param("id")}/external-action`, { method: "POST", body: JSON.stringify({ ...input, userId, taskId: approval.taskId, runId: approval.runId ?? null, correlationId }) });
