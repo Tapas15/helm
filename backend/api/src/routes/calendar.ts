@@ -106,6 +106,7 @@ export function calendarRoutes(db: Database) {
       if (existing.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef }));
       if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Create already executing", true), 409);
       if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior create outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
+      if (existing.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: existing.id }), 409);
     }
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
@@ -147,7 +148,7 @@ export function calendarRoutes(db: Database) {
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Create already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior create outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
     }
 
     const eventBody = {
@@ -205,6 +206,7 @@ export function calendarRoutes(db: Database) {
       if (existing.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef }));
       if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
       if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
+      if (existing.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: existing.id }), 409);
     }
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
@@ -246,7 +248,7 @@ export function calendarRoutes(db: Database) {
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
     }
 
     const eventBody: Record<string, unknown> = {};
@@ -297,6 +299,7 @@ export function calendarRoutes(db: Database) {
       if (existing.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef }));
       if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
       if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
+      if (existing.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: existing.id }), 409);
     }
 
     const [account] = await db.select().from(connectorAccounts).where(and(eq(connectorAccounts.id, input.accountId), eq(connectorAccounts.userId, userId))).limit(1);
@@ -338,7 +341,7 @@ export function calendarRoutes(db: Database) {
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
     }
 
     let res: Response;
