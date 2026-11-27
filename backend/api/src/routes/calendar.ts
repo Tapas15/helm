@@ -140,6 +140,15 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, attendees: input.attendees }
     }).onConflictDoNothing();
+    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    if (inserted.id !== receiptId) {
+      if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+      if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Create already executing", true), 409);
+      if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior create outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+    }
 
     const eventBody = {
       summary: input.summary,
@@ -230,6 +239,15 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, summary: input.summary ?? null, startIso: input.startIso ?? null, endIso: input.endIso ?? null }
     }).onConflictDoNothing();
+    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    if (inserted.id !== receiptId) {
+      if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+      if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
+      if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+    }
 
     const eventBody: Record<string, unknown> = {};
     if (input.summary !== undefined) eventBody.summary = input.summary;
@@ -313,6 +331,15 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId }
     }).onConflictDoNothing();
+    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    if (inserted.id !== receiptId) {
+      if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+      if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
+      if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+    }
 
     let res: Response;
     try {

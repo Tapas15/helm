@@ -129,6 +129,18 @@ export function gmailRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { to: input.to, subject: input.subject, accountId: input.accountId }
     }).onConflictDoNothing();
+    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    if (inserted.id !== receiptId) {
+      if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) {
+        await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "gmail.send.idempotency_conflict", resourceType: "action_receipt", resourceId: inserted.id, decision: "deny", reason: "idempotency_key_reused", metadata: { idempotencyKey: input.idempotencyKey } });
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      }
+      if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+      if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Send already executing", true), 409);
+      if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior send outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+    }
 
     const raw = Buffer.from(
       `To: ${input.to.join(", ")}\r\n` +

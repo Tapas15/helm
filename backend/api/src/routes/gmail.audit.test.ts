@@ -19,16 +19,18 @@ const realFetch = globalThis.fetch;
 
 function makeDb(opts?: { existing?: any }) {
   const auditRows: any[] = [];
+  const receipts: any[] = opts?.existing ? [opts.existing] : [];
   const approval = { id: "apr_1", userId: "u1", taskId: "tsk_1", runId: "run_1", status: "approved", actionHash: "hash_1" };
   const account = { id: "ca_1", userId: "u1", connectorId: "google-gmail", status: "active" };
   const db = {
     auditRows,
+    receipts,
     select: () => ({
       from: (table: unknown) => ({
         where: () => ({
           limit: async () => {
             if (table === approvals) return [approval];
-            if (table === actionReceipts) return opts?.existing ? [opts.existing] : [];
+            if (table === actionReceipts) return receipts.slice(0, 1);
             if (table === connectorAccounts) return [account];
             return [];
           },
@@ -38,10 +40,11 @@ function makeDb(opts?: { existing?: any }) {
     insert: (table: unknown) => ({
       values: (v: any) => {
         if (table === auditLog) auditRows.push(v);
+        if (table === actionReceipts && !receipts.some((r) => r.idempotencyKey === v.idempotencyKey)) receipts.push(v);
         return { onConflictDoNothing: () => Promise.resolve(), returning: async () => [v] };
       },
     }),
-    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+    update: () => ({ set: (patch: any) => ({ where: () => { if (receipts[0]) Object.assign(receipts[0], patch); return Promise.resolve(); } }) }),
   } as any;
   return db;
 }
