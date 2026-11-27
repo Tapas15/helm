@@ -141,14 +141,29 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, attendees: input.attendees }
     }).onConflictDoNothing();
-    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    let [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    let activeReceiptId = receiptId;
     if (inserted.id !== receiptId) {
       if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Create already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior create outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status === "approved") {
+        const [claimed] = await db.update(actionReceipts).set({ status: "executing" }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+        if (claimed) { activeReceiptId = claimed.id; }
+        else {
+          let [reread] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+          inserted = reread;
+          if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true), 409);
+          if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+          if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Create already executing", true), 409);
+          if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior create outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else {
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      }
     }
 
     const eventBody = {
@@ -167,20 +182,20 @@ export function calendarRoutes(db: Database) {
         body: JSON.stringify(eventBody),
       });
     } catch (e) {
-      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "calendar.create.uncertain.network", payload: { actionKind: "calendar.create_event", receiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar create outcome uncertain due to network/error", true, { receiptId }), 503);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar create outcome uncertain due to network/error", true, { receiptId: activeReceiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
-      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: json?.error?.message ?? "calendar_create_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: json?.error?.message ?? "calendar_create_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "calendar.create.uncertain.provider" : "calendar.create.failed", payload: { actionKind: "calendar.create_event", receiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar create failed", uncertain, { receiptId }), res.status as any);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar create failed", uncertain, { receiptId: activeReceiptId }), res.status as any);
     }
-    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
+    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, activeReceiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.create_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, calendarEventId: json?.id ?? null } });
-    return c.json(safeJson({ ok: true, receiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null }));
+    return c.json(safeJson({ ok: true, receiptId: activeReceiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null }));
   });
 
   app.post("/events/update", async (c) => {
@@ -241,14 +256,29 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, summary: input.summary ?? null, startIso: input.startIso ?? null, endIso: input.endIso ?? null }
     }).onConflictDoNothing();
-    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    let [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    let activeReceiptId = receiptId;
     if (inserted.id !== receiptId) {
       if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status === "approved") {
+        const [claimed] = await db.update(actionReceipts).set({ status: "executing" }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+        if (claimed) { activeReceiptId = claimed.id; }
+        else {
+          let [reread] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+          inserted = reread;
+          if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true), 409);
+          if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+          if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Update already executing", true), 409);
+          if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior update outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else {
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      }
     }
 
     const eventBody: Record<string, unknown> = {};
@@ -266,20 +296,20 @@ export function calendarRoutes(db: Database) {
         body: JSON.stringify(eventBody),
       });
     } catch (e) {
-      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "calendar.update.uncertain.network", payload: { actionKind: "calendar.update_event", receiptId, accountId: input.accountId, eventId: input.eventId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar update outcome uncertain due to network/error", true, { receiptId }), 503);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar update outcome uncertain due to network/error", true, { receiptId: activeReceiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
-      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_update_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_update_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "calendar.update.uncertain.provider" : "calendar.update.failed", payload: { actionKind: "calendar.update_event", receiptId, accountId: input.accountId, eventId: input.eventId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar update failed", uncertain, { receiptId }), res.status as any);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar update failed", uncertain, { receiptId: activeReceiptId }), res.status as any);
     }
-    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
+    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, activeReceiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.update_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, eventId: input.eventId, calendarEventId: json?.id ?? input.eventId } });
-    return c.json(safeJson({ ok: true, receiptId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null }));
+    return c.json(safeJson({ ok: true, receiptId: activeReceiptId, calendarEventId: json?.id ?? input.eventId, htmlLink: json?.htmlLink ?? null }));
   });
 
   app.post("/events/delete", async (c) => {
@@ -334,14 +364,29 @@ export function calendarRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId }
     }).onConflictDoNothing();
-    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    let [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    let activeReceiptId = receiptId;
     if (inserted.id !== receiptId) {
       if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status === "approved") {
+        const [claimed] = await db.update(actionReceipts).set({ status: "executing" }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+        if (claimed) { activeReceiptId = claimed.id; }
+        else {
+          let [reread] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+          inserted = reread;
+          if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true), 409);
+          if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+          if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Delete already executing", true), 409);
+          if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior delete outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else {
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      }
     }
 
     let res: Response;
@@ -351,20 +396,20 @@ export function calendarRoutes(db: Database) {
         headers: { authorization: `Bearer ${token.token}`, "x-helm-idempotency": input.idempotencyKey },
       });
     } catch (e) {
-      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "calendar.delete.uncertain.network", payload: { actionKind: "calendar.delete_event", receiptId, accountId: input.accountId, eventId: input.eventId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar delete outcome uncertain due to network/error", true, { receiptId }), 503);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar delete outcome uncertain due to network/error", true, { receiptId: activeReceiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
-      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_delete_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, error: json?.error?.message ?? "calendar_delete_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, activeReceiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "calendar.delete.uncertain.provider" : "calendar.delete.failed", payload: { actionKind: "calendar.delete_event", receiptId, accountId: input.accountId, eventId: input.eventId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar delete failed", uncertain, { receiptId }), res.status as any);
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar delete failed", uncertain, { receiptId: activeReceiptId }), res.status as any);
     }
-    await db.update(actionReceipts).set({ status: "executed", externalRef: input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, deleted: true } }).where(eq(actionReceipts.id, receiptId));
+    await db.update(actionReceipts).set({ status: "executed", externalRef: input.eventId, evidence: { accountId: input.accountId, calendarId: input.calendarId, eventId: input.eventId, deleted: true } }).where(eq(actionReceipts.id, activeReceiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.delete_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, eventId: input.eventId } });
-    return c.json(safeJson({ ok: true, receiptId, eventId: input.eventId, deleted: true }));
+    return c.json(safeJson({ ok: true, receiptId: activeReceiptId, eventId: input.eventId, deleted: true }));
   });
 
   return app;

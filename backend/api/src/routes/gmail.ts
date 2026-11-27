@@ -130,8 +130,9 @@ export function gmailRoutes(db: Database) {
       actionHash: input.actionHash, idempotencyKey: input.idempotencyKey, status: "executing",
       evidence: { to: input.to, subject: input.subject, accountId: input.accountId }
     }).onConflictDoNothing();
-    const [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+    let [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (!inserted) return c.json(err(HELM_ERROR_CODES.INTERNAL_ERROR, "Failed to create action receipt", true), 500);
+    let activeReceiptId = receiptId;
     if (inserted.id !== receiptId) {
       if (inserted.userId !== userId || inserted.actionHash !== input.actionHash || inserted.approvalId !== approval.id) {
         await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "gmail.send.idempotency_conflict", resourceType: "action_receipt", resourceId: inserted.id, decision: "deny", reason: "idempotency_key_reused", metadata: { idempotencyKey: input.idempotencyKey } });
@@ -140,7 +141,21 @@ export function gmailRoutes(db: Database) {
       if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
       if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Send already executing", true), 409);
       if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior send outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
-      if (inserted.status !== "approved") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      if (inserted.status === "approved") {
+        const [claimed] = await db.update(actionReceipts).set({ status: "executing", evidence: { ...(inserted.evidence as Record<string, unknown> ?? {}), to: input.to, subject: input.subject, accountId: input.accountId } }).where(and(eq(actionReceipts.id, inserted.id), eq(actionReceipts.status, "approved"))).returning({ id: actionReceipts.id });
+        if (claimed) {
+          activeReceiptId = claimed.id;
+        } else {
+          [inserted] = await db.select({ id: actionReceipts.id, userId: actionReceipts.userId, actionHash: actionReceipts.actionHash, approvalId: actionReceipts.approvalId, status: actionReceipts.status, externalRef: actionReceipts.externalRef, evidence: actionReceipts.evidence }).from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
+          if (!inserted) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true), 409);
+          if (inserted.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: inserted.id, externalRef: inserted.externalRef }));
+          if (inserted.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Send already executing", true), 409);
+          if (inserted.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior send outcome uncertain; reconcile before retry", true, { receiptId: inserted.id }), 409);
+          return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+        }
+      } else {
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key conflict; reconcile before retry", true, { receiptId: inserted.id }), 409);
+      }
     }
 
     const raw = Buffer.from(
@@ -159,22 +174,22 @@ export function gmailRoutes(db: Database) {
         body: JSON.stringify({ raw }),
       });
     } catch (e) {
-      await db.update(actionReceipts).set({ status: "uncertain", evidence: { error: e instanceof Error ? e.message : String(e), uncertain: true, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, receiptId));
-      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: "gmail.send.uncertain", resourceType: "action_receipt", resourceId: receiptId, decision: "deny", reason: "network_error", metadata: { idempotencyKey: input.idempotencyKey } });
-      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "gmail.send.uncertain.network", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Gmail send outcome uncertain due to network/error", true, { receiptId }), 503);
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { error: e instanceof Error ? e.message : String(e), uncertain: true, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, activeReceiptId));
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: "gmail.send.uncertain", resourceType: "action_receipt", resourceId: activeReceiptId, decision: "deny", reason: "network_error", metadata: { idempotencyKey: input.idempotencyKey } });
+      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "gmail.send.uncertain.network", payload: { actionKind: "gmail.send", receiptId: activeReceiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Gmail send outcome uncertain due to network/error", true, { receiptId: activeReceiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
-      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { error: json?.error?.message ?? "send_failed", status: res.status, uncertain, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, receiptId));
-      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: uncertain ? "gmail.send.uncertain" : "gmail.send.failed", resourceType: "action_receipt", resourceId: receiptId, decision: "deny", reason: uncertain ? "provider_uncertain" : "provider_rejected", metadata: { idempotencyKey: input.idempotencyKey, status: res.status } });
-      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "gmail.send.uncertain.provider" : "gmail.send.failed", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
-      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail send failed", uncertain, { receiptId }), res.status as any);
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { error: json?.error?.message ?? "send_failed", status: res.status, uncertain, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, activeReceiptId));
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: uncertain ? "gmail.send.uncertain" : "gmail.send.failed", resourceType: "action_receipt", resourceId: activeReceiptId, decision: "deny", reason: uncertain ? "provider_uncertain" : "provider_rejected", metadata: { idempotencyKey: input.idempotencyKey, status: res.status } });
+      await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "gmail.send.uncertain.provider" : "gmail.send.failed", payload: { actionKind: "gmail.send", receiptId: activeReceiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
+      return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail send failed", uncertain, { receiptId: activeReceiptId }), res.status as any);
     }
-    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, receiptId));
+    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, activeReceiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "gmail.send", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, gmailMessageId: json?.id ?? null } });
-    return c.json(safeJson({ ok: true, receiptId, gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null }));
+    return c.json(safeJson({ ok: true, receiptId: activeReceiptId, gmailMessageId: json?.id ?? null, threadId: json?.threadId ?? null }));
   });
 
   return app;
