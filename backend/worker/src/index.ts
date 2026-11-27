@@ -138,6 +138,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       if (existingReceipt?.status === "executed") {
         taskLog.info({ event: "runtime.resume.pending_approval_already_executed", actionHash: pending.actionHash, receiptId: existingReceipt.id }, "pending approval already executed; continuing without re-proposal");
         checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined, completedActionHashes: Array.from(new Set([...(checkpoint.resumePlan?.completedActionHashes ?? []), pending.actionHash])) } };
+        await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint pending-approval-cleared persist failed"));
       } else {
         const [existingApproval] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, pending.actionHash))).limit(1);
         if (existingApproval && ["pending", "approved", "rejected"].includes(String(existingApproval.status))) {
@@ -149,6 +150,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
           }
           taskLog.info({ event: "runtime.resume.approval_already_resolved", actionHash: pending.actionHash, approvalId: existingApproval.id, status: existingApproval.status }, "pending approval already resolved; continuing runtime");
           checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined } };
+          await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resolved-approval-cleared persist failed"));
         }
       }
     }
@@ -257,6 +259,8 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         } else {
           taskLog.info({ event: "approval.deduped", actionHash, approvalId: approval?.id, status: approval?.status }, "approval proposal deduped by actionHash");
         }
+        checkpoint = deriveRuntimeCheckpoint(checkpoint, { type: "runtime.approval.requested", ts: now().toISOString(), trace, message: summary, payload: { approvalId: approval?.id, actionHash, actionKind, summary } }, await nextSequence(db, task.id));
+        await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint waiting_approval persist failed"));
         await db.update(tasks).set({ status: "waiting_approval", leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, result: { status: "waiting_approval", approvalId: approval?.id, actionHash, summary } }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
         taskLog.info({ event: "approval.requested", approvalId: approval?.id }, "task waiting approval");
         return;
