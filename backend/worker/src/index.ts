@@ -166,6 +166,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         if (memoryFacts.length > 0) runtimeEvents.push({ type: "runtime.memory.loaded", ts: new Date().toISOString(), trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" }, message: "Loaded memory notes", payload: { count: memoryFacts.length } });
       } catch (err) { taskLog.warn({ err }, "memory load failed"); }
     }
+    let lastControlCheck = 0;
     for await (const evt of runtime.run({
       taskId: task.id, runId, userId: task.userId, prompt: task.prompt, kind: task.kind,
       model: typeof (task.state as any)?.modelOverride?.model === "string" ? String((task.state as any).modelOverride.model) : undefined,
@@ -192,7 +193,10 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       if (["runtime.planning", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
         await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
       }
-      if (evt.type === "runtime.response.delta" || evt.type === "runtime.tool.completed" || evt.type === "runtime.planning" || evt.type === "runtime.started") {
+      const nowMs = Date.now();
+      const shouldCheckControl = (nowMs - lastControlCheck > 2000) || ["runtime.started", "runtime.planning", "runtime.tool.proposed", "runtime.tool.started", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.response.delta"].includes(evt.type);
+      if (shouldCheckControl) {
+        lastControlCheck = nowMs;
         const [current] = await db.select({ status: tasks.status }).from(tasks).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId))).limit(1);
         if (current?.status === "cancelled" || current?.status === "paused") {
           await runtime.interrupt?.(runId).catch(() => undefined);

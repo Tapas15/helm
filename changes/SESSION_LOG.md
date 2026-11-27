@@ -2287,3 +2287,7 @@ Append-only log of major work sessions. Do not rewrite history; append new entri
   - Regression tests: checkpoint classification updated; process-task interrupted queued resume passes and does not emit terminal-ignored. (`backend/worker/src/runtime-checkpoint.test.ts`, `backend/worker/src/process-task.checkpoint.test.ts`)
   - Evidence: `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose` PASS 13/13; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
   - Status/docs: P2 95% (+1), overall 88.33% coding-only. Narrowed semantics; no full replay engine claimed.
+- **P2 control-check cadence hardening (local, coding-only)**:
+  - Worker checks task control status on key runtime events and periodic cadence (~2s) during runtime to interrupt/persist interrupted checkpoint on cancelled/paused with lower overwrite window. (`backend/worker/src/index.ts`)
+  - Evidence: `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS 8/8; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
+  - Status/docs: P2 95.5% (+0.5), overall 88.39% coding-only.
