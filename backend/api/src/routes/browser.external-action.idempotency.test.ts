@@ -17,7 +17,7 @@ function makeDb(existingReceipt: any) {
   return {
     select: (_shape?: any) => ({ from: (table: unknown) => ({ where: () => table === approvals ? chain([approval]) : table === actionReceipts ? chain(receiptRows.slice(-1)) : table === tasks ? chain([task]) : table === identityPolicies ? chain([]) : table === taskEvents ? chain([{ max: -1 }]) : chain([]) }) }),
     insert: () => ({ values: (v: any) => { if (v?.idempotencyKey) receiptRows.push({ id: v.id ?? "rcpt_new", ...v }); return { onConflictDoNothing: () => Promise.resolve(), returning: async () => [v] }; } }),
-    update: () => ({ set: (v: any) => ({ where: () => { if (receiptRows.length) Object.assign(receiptRows[receiptRows.length - 1], v); return Promise.resolve(); } }) }),
+    update: () => ({ set: (v: any) => ({ where: () => ({ returning: async () => { if (receiptRows.length) { Object.assign(receiptRows[receiptRows.length - 1], v); return [receiptRows[receiptRows.length - 1]]; } return []; }, then: (r: any, j: any) => Promise.resolve().then(r, j) }) }) }),
   } as any;
 }
 
@@ -68,5 +68,16 @@ describe("browser external action idempotency safety (P4/P5 deterministic)", () 
     expect(json.data?.deduped ?? json.deduped).toBe(true);
     const externalCalls = (globalThis.fetch as any).mock.calls.filter((c: any[]) => String(c[0]).includes("/external-action"));
     expect(externalCalls).toHaveLength(0);
+  });
+
+  it("claims approved receipt atomically before external side effect", async () => {
+    const db = makeDb({ id: "rcpt_approved", userId: "u1", approvalId: "apr_1", actionHash: "hash_1", status: "approved", evidence: {} });
+    const res = await makeApp(db).request("/v1/browser/sessions/sess_1/external-action", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect(res.status).toBe(200);
+    const json = await res.json() as any;
+    expect(json.ok).toBe(true);
+    expect(json.data?.receiptId).toBe("rcpt_approved");
+    const externalCalls = (globalThis.fetch as any).mock.calls.filter((c: any[]) => String(c[0]).includes("/external-action"));
+    expect(externalCalls).toHaveLength(1);
   });
 });
