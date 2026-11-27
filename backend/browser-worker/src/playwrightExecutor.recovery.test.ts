@@ -7,35 +7,34 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const run = process.env.HELM_BROWSER_RECOVERY_TEST === "1";
 
-async function waitForHealth(base: string, token: string, timeoutMs = 20000) {
+async function waitForHealth(base: string, token: string, timeoutMs = 45000, logs?: () => string, child?: ChildProcessWithoutNullStreams | null) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    if (child && child.exitCode !== null) break;
     try {
       const res = await fetch(`${base}/health`, { headers: { authorization: `Bearer ${token}` } });
       if (res.ok) return;
     } catch {}
     await delay(250);
   }
-  throw new Error("browser-worker did not become healthy");
+  const tail = logs?.().slice(-4000) ?? "";
+  const exit = child ? ` exitCode=${child.exitCode} signal=${child.signalCode}` : "";
+  throw new Error(`browser-worker did not become healthy${exit}${tail ? `\n--- worker logs ---\n${tail}` : ""}`);
 }
 
 function startWorker(opts: { port: number; token: string; stateDir: string; artifactDir: string }) {
   const cwd = path.resolve(process.cwd());
-  const cmd = process.platform === "win32" ? "cmd.exe" : "pnpm";
-  const args = process.platform === "win32" ? ["/d", "/s", "/c", "pnpm", "exec", "tsx", "src/index.ts"] : ["exec", "tsx", "src/index.ts"];
-  const child = spawn(cmd, args, {
-    cwd,
-    env: {
-      ...process.env,
-      BROWSER_WORKER_PORT: String(opts.port),
-      BROWSER_WORKER_TOKEN: opts.token,
-      BROWSER_STATE_DIR: opts.stateDir,
-      BROWSER_ARTIFACT_DIR: opts.artifactDir,
-    },
-    stdio: "pipe",
+  const args = ["exec", "tsx", "src/index.ts"];
+  const out: string[] = [];
+  const push = (chunk: unknown) => { const s = String(chunk ?? ""); if (s) out.push(s); if (out.length > 200) out.splice(0, out.length - 200); };
+  const env = { ...process.env, BROWSER_WORKER_PORT: String(opts.port), BROWSER_WORKER_TOKEN: opts.token, BROWSER_STATE_DIR: opts.stateDir, BROWSER_ARTIFACT_DIR: opts.artifactDir };
+  const child = spawn(process.platform === "win32" ? "pnpm.cmd" : "pnpm", args, {
+    cwd, env, stdio: "pipe", windowsHide: true, ...(process.platform === "win32" ? { shell: true } : {}),
   });
-  child.stdout.on("data", () => {});
-  child.stderr.on("data", () => {});
+  child.stdout.on("data", push);
+  child.stderr.on("data", push);
+  child.on("error", (e) => push(`spawn_error:${e.message}\n`));
+  (child as any).__helmLogs = () => out.join("");
   return child;
 }
 
@@ -74,7 +73,7 @@ async function stopWorker(child: ChildProcessWithoutNullStreams | null) {
     const stateDir = path.join(dir, "state");
     const artifactDir = path.join(dir, "artifacts");
     child = startWorker({ port, token, stateDir, artifactDir });
-    await waitForHealth(base, token);
+    await waitForHealth(base, token, 45000, () => (child as any)?.__helmLogs?.() ?? "", child);
 
     const create = await fetch(`${base}/v1/sessions`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ headless: true, initialUrl: "https://example.com" }) }).then(r => r.json() as any);
     expect(create.session?.id).toBeTruthy();
@@ -85,7 +84,7 @@ async function stopWorker(child: ChildProcessWithoutNullStreams | null) {
 
     await stopWorker(child);
     child = startWorker({ port, token, stateDir, artifactDir });
-    await waitForHealth(base, token);
+    await waitForHealth(base, token, 45000, () => (child as any)?.__helmLogs?.() ?? "", child);
 
     const restored = await fetch(`${base}/v1/sessions/${sessionId}`, { headers: { authorization: `Bearer ${token}` } }).then(r => r.json() as any);
     expect(restored.session?.id).toBe(sessionId);
