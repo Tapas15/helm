@@ -137,7 +137,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       const [existingReceipt] = await db.select().from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.actionHash, pending.actionHash))).limit(1);
       if (existingReceipt?.status === "executed") {
         taskLog.info({ event: "runtime.resume.pending_approval_already_executed", actionHash: pending.actionHash, receiptId: existingReceipt.id }, "pending approval already executed; continuing without re-proposal");
-        checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined } };
+        checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined, completedActionHashes: Array.from(new Set([...(checkpoint.resumePlan?.completedActionHashes ?? []), pending.actionHash])) } };
       } else {
         const [existingApproval] = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.actionHash, pending.actionHash))).limit(1);
         if (existingApproval && ["pending", "approved", "rejected"].includes(String(existingApproval.status))) {
@@ -151,6 +151,18 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
           checkpoint = { ...checkpoint, resumePlan: { ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [] }), pendingApproval: undefined } };
         }
       }
+    }
+    // Merge executed receipt hashes into resume plan so runtime policy can dedupe even if checkpoint missed them.
+    const executedReceiptHashesRows = await db.select({ actionHash: actionReceipts.actionHash }).from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.userId, task.userId), eq(actionReceipts.status, "executed")));
+    const executedReceiptHashes = Array.from(new Set(executedReceiptHashesRows.map((r) => String(r.actionHash)).filter(Boolean)));
+    if (executedReceiptHashes.length > 0) {
+      checkpoint = {
+        ...checkpoint,
+        resumePlan: {
+          ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: checkpoint.lastEventType ?? "runtime.checkpoint.resumed", completedToolRefs: [], completedActionHashes: [] }),
+          completedActionHashes: Array.from(new Set([...(checkpoint.resumePlan?.completedActionHashes ?? []), ...executedReceiptHashes])).slice(-50),
+        },
+      };
     }
   }
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));

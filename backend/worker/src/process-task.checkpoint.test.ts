@@ -196,3 +196,13 @@ describe("processTask checkpoint resume/dedupe", () => {
   });
 });
 
+  it("merges executed receipt action hashes into resume plan after pending approval executed", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.approval.requested", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "waiting_approval", resumePlan: { version: 1, lastSafeBoundary: "runtime.approval.requested", pendingApproval: { actionHash: "ah_exec", actionKind: "external.high_risk", approvalId: "apr1" }, completedToolRefs: [], completedActionHashes: [] } };
+    let seen: any = undefined;
+    const { db, task } = makeDb({ checkpoint, taskStatus: "queued", receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", actionHash: "ah_exec", status: "executed" }], approvals: [{ id: "apr1", taskId: "tsk_1", actionHash: "ah_exec", actionKind: "external.high_risk", status: "approved", summary: "ok" }] });
+    const runtime = { run: async function* (input: any) { seen = input?.context?.runtimeResumePlan; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(seen?.completedActionHashes).toContain("ah_exec");
+    expect(task.status).toBe("succeeded");
+  });
