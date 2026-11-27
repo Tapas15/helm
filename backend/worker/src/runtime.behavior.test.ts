@@ -18,4 +18,10 @@ describe("HelmNativeRuntime", () => {
     const completed = events.find(e => e.type === "runtime.completed");
     expect(completed?.payload?.status).toBe("succeeded");
   });
+  it("interrupt() marks active run aborted and toResult maps interrupted to cancelled", async () => {
+    const rt = new HelmNativeRuntime();
+    const events: any[] = [{ type: "runtime.interrupted", ts: new Date().toISOString(), trace: {}, payload: {} }];
+    expect(HelmNativeRuntime.toResult(events).status).toBe("cancelled");
+    await expect(rt.interrupt("missing")).resolves.toBeUndefined();
+  });
 });

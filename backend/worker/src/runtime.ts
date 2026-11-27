@@ -186,7 +186,7 @@ export function historyMessages(input: AgentRuntimeInput): ChatMsg[] {
   });
 }
 
-async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unknown>, cfg: ModelConfig): AsyncIterable<AgentRuntimeEvent> {
+async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unknown>, cfg: ModelConfig, signal?: AbortSignal): AsyncIterable<AgentRuntimeEvent> {
   const messages: ChatMsg[] = [{ role: "system", content: buildSystemPrompt(input) }, ...historyMessages(input)];
   const last = messages[messages.length - 1];
   if (!(last?.role === "user" && last.content === input.prompt)) messages.push({ role: "user", content: input.prompt });
@@ -196,16 +196,20 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
     const body: any = { model: cfg.model, stream: true, messages, max_tokens: cfg.maxTokens };
     if (tools.length) { body.tools = tools; body.tool_choice = "auto"; }
     const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    signal?.addEventListener("abort", onAbort, { once: true });
     const timeout = setTimeout(() => controller.abort(), cfg.timeoutMs);
     let res: Response;
     try {
       res = await fetch(`${cfg.baseUrl}/chat/completions`, { method: "POST", headers: { "content-type": "application/json", ...(cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {}) }, body: JSON.stringify(body), signal: controller.signal });
     } catch (err) {
       clearTimeout(timeout);
-      const msg = err instanceof Error && err.name === "AbortError" ? `Model request timed out after ${cfg.timeoutMs}ms` : (err instanceof Error ? err.message : String(err));
+      signal?.removeEventListener("abort", onAbort);
+      const msg = err instanceof Error && err.name === "AbortError" ? (signal?.aborted ? "Runtime interrupted" : `Model request timed out after ${cfg.timeoutMs}ms`) : (err instanceof Error ? err.message : String(err));
       throw new Error(msg, { cause: err });
     }
-    if (!res.ok || !res.body) { clearTimeout(timeout); const text = await res.text().catch(() => ""); throw new Error(`Model request failed (${res.status}): ${redactModelError(text)}`, { cause: { status: res.status } }); }
+    if (!res.ok || !res.body) { clearTimeout(timeout); signal?.removeEventListener("abort", onAbort); const text = await res.text().catch(() => ""); throw new Error(`Model request failed (${res.status}): ${redactModelError(text)}`, { cause: { status: res.status } }); }
     const reader = res.body.getReader(); const decoder = new TextDecoder(); let buf = ""; let content = ""; const toolCalls: any[] = [];
     try {
       while (true) {
@@ -228,7 +232,7 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
           }
         }
       }
-    } finally { clearTimeout(timeout); }
+    } finally { clearTimeout(timeout); signal?.removeEventListener("abort", onAbort); }
     if (!toolCalls.length) { yield { type: "runtime.completed", ts: now(), trace, message: "Runtime completed", payload: { status: "succeeded", output: content.trim() || finalOutput.trim() || "Completed.", provider: cfg.provider, model: cfg.model } }; return; }
     messages.push({ role: "assistant", content, tool_calls: toolCalls });
     for (const tc of toolCalls) {
@@ -260,8 +264,16 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
 
 export class HelmNativeRuntime implements AgentRuntime {
   readonly provider = "helm-native" as const;
+  private readonly active = new Map<string, AbortController>();
+
+  async interrupt(runId: string): Promise<void> {
+    this.active.get(runId)?.abort();
+  }
 
   async *run(input: AgentRuntimeInput): AsyncIterable<AgentRuntimeEvent> {
+    const controller = new AbortController();
+    this.active.set(input.runId, controller);
+    try {
     if (input.kind === "browser") { for await (const evt of runBrowserTask(input)) yield evt; return; }
     const trace = { ...input.trace, taskId: input.taskId, runId: input.runId, userId: input.userId, agentId: "helm-native" };
     const ctx = (input.context ?? {}) as any;
@@ -289,13 +301,21 @@ export class HelmNativeRuntime implements AgentRuntime {
       if (!toolsExposed && model.provider === "ollama" && !isToolCapableModel(model)) {
         yield { type: "runtime.planning", ts: now(), trace, message: "Model not tool-capable allowlisted; continuing without browser tools", payload: { provider: model.provider, model: model.model, guardrail: "tool_capability_allowlist_non_tool_path", policy: model.policy } };
       }
-      try { for await (const evt of streamChat(input, trace, model)) yield evt; return; }
-      catch (err) { const message = redactModelError(err instanceof Error ? err.message : String(err)); yield { type: "runtime.failed", ts: now(), trace, message, payload: { code: "MODEL_ERROR", retryable: true, provider: model.provider, model: model.model, policy: model.policy } }; return; }
+      try { for await (const evt of streamChat(input, trace, model, controller.signal)) yield evt; return; }
+      catch (err) {
+        if (controller.signal.aborted || (err instanceof Error && err.name === "AbortError")) {
+          yield { type: "runtime.interrupted", ts: now(), trace, message: "Runtime interrupted", payload: { reason: "interrupted", provider: model.provider, model: model.model, policy: model.policy } };
+          return;
+        }
+        const message = redactModelError(err instanceof Error ? err.message : String(err)); yield { type: "runtime.failed", ts: now(), trace, message, payload: { code: "MODEL_ERROR", retryable: true, provider: model.provider, model: model.model, policy: model.policy } }; return;
+      }
     }
     yield { type: "runtime.completed", ts: now(), trace, message: "Runtime completed", payload: { status: "succeeded", output: approved ? "Approval granted. Helm-native MVP recorded approval; external execution adapter not yet enabled for this action." : "Planned and completed in Helm-native MVP runtime. Configure HELM_MODEL/HELM_MODEL_BASE_URL (or OPENAI_API_KEY) for real model responses." } };
+  } finally {
+      this.active.delete(input.runId);
+    }
   }
 
-  async interrupt(_runId: string): Promise<void> {}
   static toResult(events: AgentRuntimeEvent[]): AgentRuntimeResult {
     const failed = [...events].reverse().find((e) => e.type === "runtime.failed");
     if (failed) return { status: "failed", error: { code: "RUNTIME_FAILED", message: failed.message ?? "Runtime failed", retryable: true } };

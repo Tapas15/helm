@@ -2262,3 +2262,13 @@ ode scripts/align-drizzle-journal.mjs idempotent on existing DB.
 - **Evidence:** pnpm -C backend/api exec vitest run src/routes/tasks.export-delete.test.ts PASS 11/11; pnpm -C backend/api exec tsc -p tsconfig.json --noEmit PASS; pnpm lint PASS.
 - **Docs:** changes/phase-8-hardening-release.md, changes/P8-hardening-checklist.md, changes/CURRENT_STATE.md, changes/SESSION_LOG.md, README.md, ROADMAP.md.
 - **Risk:** tests/docs only; no runtime behavior change. CI not watched per directive.
+# Session Log
+Append-only log of major work sessions. Do not rewrite history; append new entries.
+
+## 2026-11-27
+- **P2 runtime interrupt/control safety (local, coding-only)**:
+  - Added cooperative runtime interrupt: `HelmNativeRuntime` tracks active AbortControllers by runId, `interrupt(runId)` aborts, `streamChat` honors abort and emits `runtime.interrupted` (cancelled). (`backend/worker/src/runtime.ts`)
+  - Worker now observes DB task status during runtime events; on `cancelled`/`paused` requests runtime interrupt, persists checkpoint, clears lease, and returns without overwriting control status. Before terminal write, rechecks status and skips overwrite for cancelled/paused. (`backend/worker/src/index.ts`)
+  - Regression tests: paused-mid-runtime requests interrupt/no terminal overwrite; cancelled-mid-runtime no terminal overwrite. (`backend/worker/src/process-task.checkpoint.test.ts`, `runtime.behavior.test.ts`)
+  - Evidence: `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS; `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose` PASS 29/29; `src/process-task.checkpoint.test.ts` PASS 7/7; `src/runtime.behavior.test.ts src/runtime.test.ts` PASS 13/13.
+  - Status/docs: `changes/phase-2-hermes-runtime.md` updated to 92% with narrowed interrupt/resume semantics; `changes/CURRENT_STATE.md` P2 92% (+2). No P2 external blockers claimed closed.

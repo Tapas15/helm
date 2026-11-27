@@ -1,14 +1,14 @@
 ﻿import { describe, expect, it } from "vitest";
-import { actionReceipts, approvals, auditLog, feedbackEvents, taskEvents } from "@helm/db";
+import { actionReceipts, approvals, auditLog, feedbackEvents, taskEvents, tasks } from "@helm/db";
 import { processTask } from "./index.js";
 
-function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }) {
+function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[]; taskStatus?: string }) {
   const insertedEvents: any[] = [];
   const insertedApprovals: any[] = [];
   const insertedAudit: any[] = [];
   const feedbackRows: any[] = [];
   const insertedReceipts: any[] = [];
-  const task: any = { id: "tsk_1", userId: "u1", status: "queued", prompt: "buy a domain", kind: "assistant", state: {}, checkpoint: opts?.checkpoint ?? null, startedAt: new Date(), createdAt: new Date() };
+  const task: any = { id: "tsk_1", userId: "u1", status: opts?.taskStatus ?? "queued", prompt: "buy a domain", kind: "assistant", state: {}, checkpoint: opts?.checkpoint ?? null, startedAt: new Date(), createdAt: new Date() };
   const approvalsRows = opts?.approvals ?? [];
   const receiptRows = opts?.receipts ?? [];
 
@@ -17,6 +17,7 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[] }
     if (table === approvals) rows = approvalsRows;
     if (table === actionReceipts) rows = receiptRows;
     if (table === taskEvents) rows = [];
+    if (table === tasks) rows = [task];
     const c: any = Promise.resolve(rows);
     c.where = () => c;
     c.orderBy = () => c;
@@ -135,5 +136,25 @@ describe("processTask checkpoint resume/dedupe", () => {
     await processTask(task, { db, runtime, workerId: "w1" });
     const applied = db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resume_plan_applied");
     expect(applied?.payload).toMatchObject({ lastSafeBoundary: "runtime.tool.completed", completedToolRefs: 2, completedActionHashes: 1, pendingApproval: "ah_pending" });
+  });
+
+  it("does not overwrite paused task and requests runtime interrupt when paused during runtime", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const { db, task } = makeDb();
+    let flipped = false;
+    let interruptedRunId: string | null = null;
+    const runtime = {
+      interrupt: async (runId: string) => { interruptedRunId = runId; },
+      run: async function* (input: any) {
+        yield { type: "runtime.planning", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "planning", payload: {} };
+        if (!flipped) { task.status = "paused"; flipped = true; }
+        yield { type: "runtime.response.delta", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "", payload: { delta: "hi" } };
+        yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } };
+      },
+    } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(task.status).toBe("paused");
+    expect(interruptedRunId).toBeTruthy();
+    expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
   });
 });

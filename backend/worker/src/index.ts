@@ -165,12 +165,21 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
           await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace, provider: evt.payload?.provider, model: evt.payload?.model });
           deltaBuf = ""; lastDeltaFlush = t;
         }
-        continue;
+      } else {
+        if (deltaBuf) { await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
+        await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
       }
-      if (deltaBuf) { await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
-      await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
       if (["runtime.planning", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
         await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
+      }
+      if (evt.type === "runtime.response.delta" || evt.type === "runtime.tool.completed" || evt.type === "runtime.planning" || evt.type === "runtime.started") {
+        const [current] = await db.select({ status: tasks.status }).from(tasks).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId))).limit(1);
+        if (current?.status === "cancelled" || current?.status === "paused") {
+          await runtime.interrupt?.(runId).catch(() => undefined);
+          taskLog.info({ event: "runtime.interrupt.requested", status: current.status }, "interrupt requested due to task control");
+          if (checkpoint) await persistCheckpoint(db, task, runId, checkpoint).catch(() => undefined);
+          return;
+        }
       }
     }
     if (deltaBuf) await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: now().toISOString(), trace });
@@ -221,6 +230,13 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     const doneAt = now();
     const output = result.output ?? "Completed";
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: output, metadata: { runId, correlationId, status: result.status }, createdAt: doneAt }).catch(() => undefined);
+    const [currentBeforeTerminal] = await db.select({ status: tasks.status, leaseOwner: tasks.leaseOwner }).from(tasks).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId))).limit(1);
+    if (currentBeforeTerminal?.status === "cancelled" || currentBeforeTerminal?.status === "paused") {
+      if (checkpoint) await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
+      await db.update(tasks).set({ leaseOwner: null, leaseUntil: null, updatedAt: doneAt, checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)` }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
+      taskLog.info({ event: "task.control.respected", status: currentBeforeTerminal.status }, "task terminal write skipped due to control status");
+      return;
+    }
     const [updated] = await db.update(tasks).set({
       status: result.status === "cancelled" ? "cancelled" : result.status === "failed" ? "failed" : "succeeded",
       leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt,

@@ -1,6 +1,6 @@
 # Phase 2 - Agent Runtime (Helm-native, Hermes-like capabilities)
 
-**Status:** `[~]` 83%  
+**Status:** `[~]` 92%  
 **Blueprint refs:** Phase 2, `05-Hermes-Agent-Runtime.md`
 
 ## Goal
@@ -13,7 +13,8 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - **Safety/guardrails**: High-risk prompt detection emits `runtime.tool.proposed` with `approvalRequired=true`, `actionHash`; task `waiting_approval`; approve requeues/reject cancels. Runtime guardrails include timeout, max tokens, AbortController, redacted model errors.
 - **Model/tool capability controls**: `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`, `isToolCapableModel()` warning/gating; browser tools gated by `shouldExposeBrowserTools()` and require `sessionId`.
 - **Runtime config/override**: Thread abstraction `RuntimeThreadMessage`/`input.thread`; model override with clamped timeout/maxTokens; `GET /v1/runtime/config`, `POST /v1/runtime/model-validate`.
-- **Tests/probes**: Worker tests PASS (11/11, `runtime.test.ts`, `runtime.behavior.test.ts`). Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
+- **Interrupt/control safety (2026-11-27)**: `HelmNativeRuntime.interrupt(runId)` aborts active run; `streamChat` honors abort signal and emits `runtime.interrupted` (mapped to cancelled). Worker detects DB task `cancelled`/`paused` during runtime, requests interrupt, persists checkpoint, clears lease, and does not overwrite task control status with terminal runtime success/failure.
+- **Tests/probes**: Worker tests PASS (runtime/checkpoint/process-task targeted suites; see Evidence). Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
 
 ## Checklist
 
@@ -34,6 +35,7 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [x] Deterministic runtime eval harness: approval correctness, tool-policy reliability, resume dedupe duplicate-actionHash no-dispatch in streamChat, resume dedupe duplicate read-only tool argsKey no-dispatch in streamChat, interrupted->cancelled recovery semantics (`runtime.evals.test.ts`).
 - [x] Hermes sidecar adapter contract skeleton (fail-closed, no Hermes code copied) + contract test (`hermes-runtime-adapter.ts/.test.ts`).
 - [x] Runtime checkpoint scaffolding + resume guard: worker derives/persists `runtimeCheckpoint` at safe boundaries; emits `runtime.checkpoint.resumed` + `runtime.checkpoint.resume_plan_applied` (counts); dedupes approval proposals by actionHash/executed receipt; persists bounded `resumePlan` with completed tool refs/action hashes/argsKey; runtime tool policy blocks duplicate side-effect `actionHash` and duplicate read-only same-args calls from resumePlan and emits `runtime.tool.deduped` resume-safe boundary; on resume, pending unresolved approval returns to `waiting_approval` without rerunning runtime, executed-receipt pending approval clears plan and continues safely. **Narrowed semantics: not full step-level replay engine.**
+- [x] Cooperative interrupt/control safety: `interrupt(runId)` aborts active runtime; worker checks DB for `cancelled`/`paused` during runtime, requests interrupt, persists checkpoint, clears lease, and does not overwrite control status with terminal runtime result. Regression tests cover cancelled and paused mid-runtime.
 - [x] Worker tests: `backend/worker/src/runtime.test.ts`, `runtime.behavior.test.ts`, `runtime.evals.test.ts`, `hermes-runtime-adapter.test.ts`, `runtime-checkpoint.test.ts`, `process-task.checkpoint.test.ts`, `process-task.feedback.test.ts` PASS.
 - [x] Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
 
@@ -42,11 +44,11 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [ ] Integration-driven behavior tweaks from real runs.
 - [ ] Production/model-provider behavior evidence.
 - [ ] Richer provider/model routing policy depth (cost-aware routing, persisted selection UX polish, enforced sensitive-egress policy gates). **Partially started:** shared policy decision + warnings wired.
-- [ ] Interrupt/resume/checkpoint semantics for long-running runs. **Partial:** checkpoint persisted, non-terminal resume event emitted, approval dedupe guard added, bounded resumePlan scaffolded; durable resume-from-checkpoint execution/replay semantics still not implemented.
+- [ ] Interrupt/resume/checkpoint semantics for long-running runs. **Partial:** cooperative interrupt + control-status non-overwrite + checkpoint persisted; pending-approval resume guard and dedupe exist; durable resume-from-checkpoint execution/replay semantics still not implemented.
 - [ ] Runtime evals depth: real tool-calling reliability, approval correctness/recovery under real providers/browser/connectors. **Partially started:** deterministic harness added.
 - [ ] Optional Hermes sidecar adapter live integration implementing same `AgentRuntime` contract against real Hermes runtime (no Hermes code copied). **Partially started:** fail-closed skeleton + contract test added.
 
-## Resume Semantics (Narrowed, Current)
+## Resume / Interrupt Semantics (Narrowed, Current)
 
 **Supported now (deterministic, tested):**
 - Checkpoint persistence at safe runtime boundaries (`runtimeCheckpoint` in task checkpoint/state).
@@ -56,18 +58,20 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - Side-effect dedupe: duplicate tool call with completed `actionHash` in `resumePlan` is denied/no-dispatch and emits `runtime.tool.deduped`.
 - Read-only dedupe: duplicate read-only tool call with same `name+argsKey` in `resumePlan` is denied/no-dispatch and emits `runtime.tool.deduped`.
 - Resume prompt/context injection: compact resumePlan summary injected into runtime system prompt (metadata-only hint).
+- Cooperative interrupt: worker observes `cancelled`/`paused` task status during runtime, calls `runtime.interrupt(runId)`, persists checkpoint, clears lease, and does not overwrite control status with terminal runtime result. Runtime abort emits `runtime.interrupted` (mapped to cancelled result).
 
 **Not supported yet (do not claim):**
 - Full step-level replay/continuation engine that deterministically rehydrates model/tool loop and skips arbitrary completed safe work across complex resumed flows.
 - Durable replay execution after process crash mid-tool-loop beyond current checkpoint guards/dedupe.
-- Real-provider/browser/connector end-to-end resume proof.
+- Real-provider/browser/connector end-to-end resume/interrupt proof.
 
 ## Evidence
 - `pnpm -C packages/shared build` PASS.
 - `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7).
-- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts --reporter=verbose` PASS (11/11).
-- `pnpm -C backend/worker exec vitest run src/runtime.evals.test.ts src/hermes-runtime-adapter.test.ts --reporter=verbose` PASS (5/5).
-- `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/process-task.feedback.test.ts --reporter=verbose` PASS (8/8).
+- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose` PASS (29/29, 2026-11-27 local).
+- `pnpm -C backend/worker exec vitest run src/runtime.behavior.test.ts src/runtime.test.ts --reporter=verbose` PASS (13/13, 2026-11-27 local, interrupt behavior).
+- `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS (7/7, 2026-11-27 local, includes paused/cancelled mid-runtime no-overwrite + interrupt request).
+- `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS (2026-11-27 local).
 - `pnpm -C backend/api exec vitest run src/routes/runtime.test.ts --reporter=verbose` PASS (3/3).
 - `pnpm -C packages/shared typecheck` PASS; `pnpm -C backend/worker typecheck` PASS; `pnpm -C backend/api typecheck` PASS.
 - `pnpm -C backend/worker lint` PASS; `pnpm -C backend/api lint` PASS (0 errors, 7 pre-existing warnings).
