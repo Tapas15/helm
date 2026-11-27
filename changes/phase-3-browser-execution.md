@@ -36,6 +36,7 @@ Real visible browser work with Playwright worker, live preview, takeover/return 
 - [ ] Live interactive smoke for WS preview + takeover input (click/type/scroll/drag/modifiers). **Blocked:** no browser automation surface in shell.
 - [ ] Richer remote controls (scroll/drag/keyboard modifiers), stability polish.
 - [x] Deterministic browser-worker `sendInput` contract coverage added (2026-11-27 local): takeover guard, scroll/wheel, drag, modifier hold/release for non-press actions, press combo, unsupported type. Env-gated live WS/takeover smoke still blocked.
+- [x] Deterministic API takeover request/resume input-validation contracts added (2026-11-27 local): invalid request/resume input returns 400 with no task mutation/events. Live interactive smoke still blocked.
 - [ ] Browser crash/restart recovery integration coverage expansion for more edge cases.
 - [ ] Richer artifact types/downloads/network evidence capture; retention policy.
 - [ ] Optional Obscura/BrowserOS CDP backend evaluation behind `BrowserExecutor` (no AGPL/copyleft copy; no bypass claims).
