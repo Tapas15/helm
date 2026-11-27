@@ -156,18 +156,18 @@ export function calendarRoutes(db: Database) {
         body: JSON.stringify(eventBody),
       });
     } catch (e) {
-      await db.update(actionReceipts).set({ status: "uncertain", evidence: { error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: "uncertain", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: e instanceof Error ? e.message : String(e), uncertain: true } }).where(eq(actionReceipts.id, receiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "calendar.create.uncertain.network", payload: { actionKind: "calendar.create_event", receiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Calendar create outcome uncertain due to network/error", true, { receiptId }), 503);
     }
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
-      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { error: json?.error?.message ?? "calendar_create_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
+      await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, error: json?.error?.message ?? "calendar_create_failed", status: res.status, uncertain } }).where(eq(actionReceipts.id, receiptId));
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "calendar.create.uncertain.provider" : "calendar.create.failed", payload: { actionKind: "calendar.create_event", receiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Calendar create failed", uncertain, { receiptId }), res.status as any);
     }
-    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
+    await db.update(actionReceipts).set({ status: "executed", externalRef: json?.id ?? null, evidence: { accountId: input.accountId, calendarId: input.calendarId, summary: input.summary, startIso: input.startIso, endIso: input.endIso, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null, status: json?.status ?? null } }).where(eq(actionReceipts.id, receiptId));
     await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "calendar.create_event", resourceType: "connector_account", resourceId: input.accountId, decision: "allow", reason: "approved", metadata: { approvalId: approval.id, idempotencyKey: input.idempotencyKey, calendarEventId: json?.id ?? null } });
     return c.json(safeJson({ ok: true, receiptId, calendarEventId: json?.id ?? null, htmlLink: json?.htmlLink ?? null }));
   });
