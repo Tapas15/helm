@@ -282,7 +282,19 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
           }
           continue;
         }
-        await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "executed", evidence: { runId, correlationId, auto: true }, createdAt: now() }).onConflictDoNothing();
+        const [inserted] = await db.insert(actionReceipts).values({ id: uid("rcpt"), userId: task.userId, taskId: task.id, runId, approvalId: apr.id, actionKind: apr.actionKind, actionHash: apr.actionHash, idempotencyKey: idem, status: "executed", evidence: { runId, correlationId, auto: true }, createdAt: now() }).onConflictDoNothing().returning();
+        const receipt = inserted ?? (await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, idem)).limit(1))[0];
+        if (receipt?.status === "executed") {
+          const mergedHashes = Array.from(new Set([...(checkpoint?.resumePlan?.completedActionHashes ?? []), String(apr.actionHash)])).slice(-50);
+          checkpoint = {
+            ...(checkpoint ?? { version: 1, runId, taskId: task.id, lastEventSeq: 0, lastEventType: "runtime.checkpoint.resumed", updatedAt: now().toISOString(), statusHint: "running" as const }),
+            runId,
+            taskId: task.id,
+            updatedAt: now().toISOString(),
+            resumePlan: { ...(checkpoint?.resumePlan ?? { version: 1, lastSafeBoundary: checkpoint?.lastEventType ?? "runtime.checkpoint.resumed", completedToolRefs: [], completedActionHashes: [] }), completedActionHashes: mergedHashes, pendingApproval: checkpoint?.resumePlan?.pendingApproval?.actionHash === apr.actionHash ? undefined : checkpoint?.resumePlan?.pendingApproval },
+          };
+          await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint receipt persist failed"));
+        }
       }
     }
     const doneAt = now();
