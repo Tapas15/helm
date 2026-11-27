@@ -8,7 +8,10 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      "/v1": process.env.VITE_API_PROXY_TARGET || "http://localhost:8787",
+      "/v1": {
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:8787",
+        ws: true,
+      },
       "/health": process.env.VITE_API_PROXY_TARGET || "http://localhost:8787",
     },
   },
