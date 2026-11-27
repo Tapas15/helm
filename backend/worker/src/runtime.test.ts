@@ -24,11 +24,13 @@ describe("runtime helpers", () => {
     expect(shouldExposeBrowserTools({ ...baseInput, context: { activeBrowserSessionId: "s1" } })).toBe(true);
   });
   it("system prompt includes resume checkpoint summary", () => {
-    const p = buildSystemPrompt({ ...baseInput, context: { activeBrowserSessionId: "s1", runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 1 }], completedActionHashes: ["ah1"] } } });
+    const p = buildSystemPrompt({ ...baseInput, context: { activeBrowserSessionId: "s1", runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 1 }], completedActionHashes: ["ah1"], inFlightToolRefs: [{ name: "browser_click", eventSeq: 2, actionHash: "ah2" }] } } });
     expect(p).toContain("Resume checkpoint");
     expect(p).toContain("boundary=runtime.tool.completed");
     expect(p).toContain("browser_snapshot");
     expect(p).toContain("ah1");
+    expect(p).toContain("In-flight tool refs at checkpoint");
+    expect(p).toContain("browser_click");
     expect(p).toContain("Do not repeat completed side-effect actions");
   });
   it("normalizes missing browser sessionId from active context", () => {

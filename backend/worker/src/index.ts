@@ -125,7 +125,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         ts: now().toISOString(),
         trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
         message: "Applied runtime resume plan guardrails",
-        payload: { lastSafeBoundary: plan.lastSafeBoundary ?? null, completedToolRefs: Array.isArray(plan.completedToolRefs) ? plan.completedToolRefs.length : 0, completedActionHashes: Array.isArray(plan.completedActionHashes) ? plan.completedActionHashes.length : 0, pendingApproval: plan.pendingApproval?.actionHash ?? null },
+        payload: { lastSafeBoundary: plan.lastSafeBoundary ?? null, completedToolRefs: Array.isArray(plan.completedToolRefs) ? plan.completedToolRefs.length : 0, completedActionHashes: Array.isArray(plan.completedActionHashes) ? plan.completedActionHashes.length : 0, inFlightToolRefs: Array.isArray((plan as any).inFlightToolRefs) ? (plan as any).inFlightToolRefs.length : 0, pendingApproval: plan.pendingApproval?.actionHash ?? null },
       };
       runtimeEvents.push(appliedEvt);
       await insertEvent(db, task.id, task.userId, runId, appliedEvt.type, correlationId, task.id, { ...appliedEvt.payload, message: appliedEvt.message, ts: appliedEvt.ts, trace: appliedEvt.trace });

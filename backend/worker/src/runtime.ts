@@ -165,8 +165,9 @@ export function buildSystemPrompt(input: AgentRuntimeInput): string {
     const boundary = typeof resumePlan.lastSafeBoundary === "string" ? resumePlan.lastSafeBoundary : "unknown";
     const refs = Array.isArray(resumePlan.completedToolRefs) ? resumePlan.completedToolRefs.slice(-8).map((r: any) => String(r?.name ?? "unknown")).filter(Boolean) : [];
     const hashes = Array.isArray(resumePlan.completedActionHashes) ? resumePlan.completedActionHashes.slice(-8).map(String) : [];
+    const inflight = Array.isArray(resumePlan.inFlightToolRefs) ? resumePlan.inFlightToolRefs.slice(-5).map((r: any) => String(r?.name ?? "unknown")).filter(Boolean) : [];
     const pending = resumePlan.pendingApproval?.actionHash ? String(resumePlan.pendingApproval.actionHash) : "";
-    return `Resume checkpoint: boundary=${boundary}. Completed tool refs: ${refs.length ? refs.join(", ") : "none"}. Completed side-effect actionHashes: ${hashes.length ? hashes.join(", ") : "none"}.${pending ? ` Pending approval actionHash: ${pending}.` : ""} Do not repeat completed side-effect actions; continue from the last safe boundary.`;
+    return `Resume checkpoint: boundary=${boundary}. Completed tool refs: ${refs.length ? refs.join(", ") : "none"}. Completed side-effect actionHashes: ${hashes.length ? hashes.join(", ") : "none"}.${inflight.length ? ` In-flight tool refs at checkpoint (dispatch started, completion unknown): ${inflight.join(", ")}.` : ""}${pending ? ` Pending approval actionHash: ${pending}.` : ""} Do not repeat completed side-effect actions; continue from the last safe boundary.`;
   })() : "";
   const guardrails = [
     "Answer directly when no tool is required; do not use browser tools for normal questions.",
