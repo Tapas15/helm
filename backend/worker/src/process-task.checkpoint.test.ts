@@ -185,3 +185,11 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(resumed).toHaveLength(1);
     expect(task.status).toBe("succeeded");
   });
+  it("passes executedActionHashes from receipts for post-approval dedupe", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const { db, task } = makeDb({ receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", actionHash: "ah_exec", status: "executed" }] });
+    let seen: any = undefined;
+    const runtime = { run: async function* (input: any) { seen = input?.context?.executedActionHashes; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(seen).toContain("ah_exec");
+  });

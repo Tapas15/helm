@@ -80,6 +80,10 @@ export function evaluateToolPolicy(name: string, args: any, ctx: Record<string, 
     const seen = refs.some((r: any) => String(r?.name ?? "") === name && String(r?.argsKey ?? "") === argsKey);
     if (seen) return { ok: false as const, error: `Resume plan indicates ${name} already completed for same args; refusing duplicate read`, args, tool, deduped: true as const, argsKey };
   }
+  const executedActionHashes = Array.isArray(ctx.executedActionHashes) ? ctx.executedActionHashes.map(String) : [];
+  if (actionHash && executedActionHashes.includes(actionHash)) {
+    return { ok: false as const, error: `Executed actionHash ${actionHash} already recorded; refusing duplicate side effect`, args, tool, deduped: true as const, dedupeReason: "executed_action_hash" };
+  }
   if (tool.requiresApproval) {
     const approvalId = String(args.approvalId ?? "").trim();
     const idempotencyKey = String(args.idempotencyKey ?? "").trim();
@@ -241,10 +245,9 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
       const policy = evaluateToolPolicy(name, args, (input.context ?? {}) as Record<string, unknown>);
       args = (policy as any).args ?? args;
       if (!policy.ok) {
-        const result = JSON.stringify({ error: policy.error });
         const deduped = Boolean((policy as any).deduped) || (typeof policy.error === "string" && policy.error.includes("already completed; refusing duplicate side effect"));
-        const dedupeReason = (policy as any).deduped ? "resume_plan_completed_read_tool" : "resume_plan_completed_action_hash";
-        yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
+        const dedupeReason = (policy as any).dedupeReason ?? ((policy as any).deduped ? "resume_plan_completed_read_tool" : "resume_plan_completed_action_hash");
+        const result = JSON.stringify({ error: policy.error });
         yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} blocked`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, argsKey: (policy as any).argsKey, result, policy: deduped ? "deduped" : "denied", actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined } };
         if (deduped) {
           yield { type: "runtime.tool.deduped", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} deduped by resume plan`, payload: { name, actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined, argsKey: (policy as any).argsKey, reason: dedupeReason } };

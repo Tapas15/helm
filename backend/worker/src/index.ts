@@ -156,6 +156,8 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
     const approvedActionKinds = approvedRows.map((r) => r.actionKind);
     const approvedActionHashes = approvedRows.map((r) => r.actionHash);
+    const executedReceiptRows = await db.select({ actionHash: actionReceipts.actionHash }).from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.userId, task.userId), eq(actionReceipts.status, "executed")));
+    const executedActionHashes = Array.from(new Set(executedReceiptRows.map((r) => String(r.actionHash)).filter(Boolean)));
     const approvalId = approvedRows[0]?.id ?? null;
     const approvedActionHash = approvedRows[0]?.actionHash ?? null;
     const recentMessages = await db.select({ role: taskMessages.role, content: taskMessages.content, createdAt: taskMessages.createdAt }).from(taskMessages).where(and(eq(taskMessages.taskId, task.id), eq(taskMessages.userId, task.userId))).orderBy(taskMessages.createdAt).limit(20);
@@ -172,7 +174,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     for await (const evt of runtime.run({
       taskId: task.id, runId, userId: task.userId, prompt: task.prompt, kind: task.kind,
       model: typeof (task.state as any)?.modelOverride?.model === "string" ? String((task.state as any).modelOverride.model) : undefined,
-      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, runtimeCheckpoint: checkpoint, runtimeResumePlan: checkpoint?.resumePlan ?? null, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
+      context: { ...((task.state as Record<string, unknown> | null) ?? {}), approvedActionKinds, approvalGranted: approvedActionKinds.length > 0, approvedActionHashes, executedActionHashes, approvalId, approvedActionHash, recentMessages, memoryFacts, runtimeCheckpoint: checkpoint, runtimeResumePlan: checkpoint?.resumePlan ?? null, persona: "You are Helm, a personal AI operator for the user's own tasks. Be precise, safe, and evidence-oriented." },
       thread,
       trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
     })) {

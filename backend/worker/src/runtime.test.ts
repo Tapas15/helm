@@ -72,4 +72,12 @@ describe("runtime helpers", () => {
     expect(result).toMatchObject({ ok: false, deduped: true });
     expect(String((result as any).error)).toContain("already completed for same args");
   });
+  it("denies duplicate side-effect when executedActionHashes contains actionHash", () => {
+    const ctx = { executedActionHashes: ["ah_done"] };
+    const r = evaluateToolPolicy("browser_click", { sessionId: "bs_1", selector: "#buy", approvalId: "apr_1", actionHash: "ah_done", idempotencyKey: "ik1" }, ctx);
+    expect(r.ok).toBe(false);
+    expect((r as any).deduped).toBe(true);
+    expect((r as any).dedupeReason).toBe("executed_action_hash");
+  });
 });
+
