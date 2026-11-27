@@ -16,6 +16,7 @@ const ModelOverrideInput = z.object({
   sensitivity: z.enum(["normal", "sensitive"]).optional(),
   taskKind: z.string().min(1).max(50).optional(),
   toolCallingRequired: z.boolean().optional(),
+  prompt: z.string().max(2000).optional(),
 }).strict();
 
 export function runtimeRoutes(_db: Database) {
@@ -56,6 +57,7 @@ export function runtimeRoutes(_db: Database) {
       sensitivity: override.sensitivity ?? "normal",
       taskKind: override.taskKind ?? "assistant",
       toolCallingRequired: override.toolCallingRequired ?? false,
+      prompt: override.prompt,
     }, { defaultModel, defaultProvider, defaultBaseUrl, allowlist, enforceSensitiveEgress: process.env.HELM_ENFORCE_SENSITIVE_EGRESS === "1" });
     return c.json(redactValue({
       ok: true,

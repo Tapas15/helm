@@ -13,6 +13,8 @@ export const RuntimeModelPolicyInput = z.object({
   sensitivity: RuntimeModelSensitivity.default("normal"),
   taskKind: z.string().default("assistant"),
   toolCallingRequired: z.boolean().default(false),
+  prompt: z.string().optional(),
+  sensitivitySource: z.enum(["explicit", "heuristic", "default"]).optional(),
 });
 export type RuntimeModelPolicyInput = z.infer<typeof RuntimeModelPolicyInput>;
 
@@ -24,6 +26,7 @@ export const RuntimeModelPolicyDecision = z.object({
   toolCapable: z.boolean(),
   allowlisted: z.boolean(),
   sensitivity: RuntimeModelSensitivity,
+  sensitivitySource: z.enum(["explicit", "heuristic", "default"]),
   reasons: z.array(z.string()),
   warnings: z.array(z.string()),
   egressAllowed: z.boolean(),
@@ -44,11 +47,25 @@ export function isLocalProvider(provider: string | null | undefined, baseUrl: st
   return p === "ollama" || b.includes("11434") || b.includes("localhost") || b.includes("127.0.0.1");
 }
 
+const SENSITIVE_PROMPT_RE = /\b(password|passcode|otp|one[- ]time|2fa|mfa|ssn|social security|credit card|card number|cvv|bank account|routing number|api key|secret key|private key|seed phrase|recovery phrase|bearer token|access token)\b/i;
+
+export function inferRuntimeSensitivity(input: { sensitivity?: RuntimeModelSensitivity; prompt?: string; context?: Record<string, unknown> | null }): { sensitivity: RuntimeModelSensitivity; source: "explicit" | "heuristic" | "default" } {
+  if (input.sensitivity === "sensitive") return { sensitivity: "sensitive", source: "explicit" };
+  const ctx = input.context ?? {};
+  if (ctx.sensitive === true || ctx.containsSensitiveData === true || ctx.pii === true) return { sensitivity: "sensitive", source: "explicit" };
+  const text = String(input.prompt ?? "").slice(0, 2000);
+  if (text && SENSITIVE_PROMPT_RE.test(text)) return { sensitivity: "sensitive", source: "heuristic" };
+  return { sensitivity: input.sensitivity ?? "normal", source: input.sensitivity ? "explicit" : "default" };
+}
+
 export function decideRuntimeModelPolicy(
   input: RuntimeModelPolicyInput,
   env: { defaultModel?: string | null; defaultProvider?: string | null; defaultBaseUrl?: string | null; allowlist?: string[]; enforceSensitiveEgress?: boolean },
 ): RuntimeModelPolicyDecision {
   const allowlist = (env.allowlist ?? [...DEFAULT_TOOL_CAPABLE_ALLOWLIST]).map((s) => s.toLowerCase());
+  const inferred = inferRuntimeSensitivity({ sensitivity: input.sensitivity, prompt: input.prompt });
+  const sensitivity = inferred.sensitivity;
+  const sensitivitySource = input.sensitivitySource ?? inferred.source;
   const selectedModel = input.requestedModel ?? env.defaultModel ?? null;
   const selectedProvider = input.requestedProvider ?? env.defaultProvider ?? (isLocalProvider(null, input.requestedBaseUrl ?? env.defaultBaseUrl ?? null) ? "ollama" : "openai-compatible");
   const selectedBaseUrl = input.requestedBaseUrl ?? env.defaultBaseUrl ?? null;
@@ -63,7 +80,8 @@ export function decideRuntimeModelPolicy(
       selectedBaseUrl,
       toolCapable: false,
       allowlisted: false,
-      sensitivity: input.sensitivity,
+      sensitivity,
+      sensitivitySource,
       reasons: ["No model/baseUrl configured; runtime will use deterministic fallback"],
       warnings: [],
       egressAllowed: true,
@@ -76,8 +94,9 @@ export function decideRuntimeModelPolicy(
   const local = isLocalProvider(selectedProvider, selectedBaseUrl);
   if (local) reasons.push("Local/provider-local endpoint selected");
   else reasons.push("Non-local provider endpoint selected");
+  if (sensitivitySource === "heuristic") reasons.push("Sensitivity inferred from prompt/context heuristic");
 
-  const sensitiveNonLocal = input.sensitivity === "sensitive" && !local;
+  const sensitiveNonLocal = sensitivity === "sensitive" && !local;
   const denySensitiveEgress = sensitiveNonLocal && env.enforceSensitiveEgress === true;
   if (sensitiveNonLocal) {
     warnings.push(denySensitiveEgress
@@ -104,7 +123,8 @@ export function decideRuntimeModelPolicy(
     selectedBaseUrl,
     toolCapable,
     allowlisted,
-    sensitivity: input.sensitivity,
+    sensitivity,
+    sensitivitySource,
     reasons,
     warnings,
     egressAllowed: !denySensitiveEgress,

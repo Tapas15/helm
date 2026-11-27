@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { decideRuntimeModelPolicy, normalizeAllowlist, type AgentRuntime, type AgentRuntimeEvent, type AgentRuntimeInput, type AgentRuntimeResult, type RuntimeModelPolicyDecision } from "@helm/shared";
+import { decideRuntimeModelPolicy, inferRuntimeSensitivity, normalizeAllowlist, type AgentRuntime, type AgentRuntimeEvent, type AgentRuntimeInput, type AgentRuntimeResult, type RuntimeModelPolicyDecision } from "@helm/shared";
 import { runBrowserTask } from "./browserTask.js";
 
 const now = () => new Date().toISOString();
@@ -9,16 +9,19 @@ type ChatMsg = { role: "system" | "user" | "assistant" | "tool"; content: string
 
 const DEFAULT_TOOL_CAPABLE_ALLOWLIST = ["llama3.2:latest", "llama3.2:3b", "qwen2.5:latest", "qwen2.5:3b"];
 
-export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { model?: string; provider?: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; maxTokens?: number }, ctx: { taskKind?: string; toolCallingRequired?: boolean; sensitivity?: "normal" | "sensitive" } = {}): ModelConfig | null {
+export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { model?: string; provider?: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; maxTokens?: number }, ctx: { taskKind?: string; toolCallingRequired?: boolean; sensitivity?: "normal" | "sensitive"; prompt?: string; context?: Record<string, unknown> | null } = {}): ModelConfig | null {
   const allowlist = normalizeAllowlist(env.HELM_MODEL_TOOL_CAPABLE_ALLOWLIST ?? DEFAULT_TOOL_CAPABLE_ALLOWLIST.join(","));
   const defaultBase = (env.HELM_MODEL_BASE_URL ?? env.OPENAI_BASE_URL ?? (env.OLLAMA_BASE_URL ? `${env.OLLAMA_BASE_URL}/v1` : "")).replace(/\/$/, "") || null;
   const defaultModel = env.HELM_MODEL ?? env.OPENAI_MODEL ?? (env.OLLAMA_BASE_URL ? "llama3.2:latest" : null);
   const defaultProvider = env.HELM_MODEL_PROVIDER ?? (defaultBase?.includes("11434") || env.OLLAMA_BASE_URL ? "ollama" : "openai-compatible");
+  const inferred = inferRuntimeSensitivity({ sensitivity: ctx.sensitivity, prompt: ctx.prompt, context: ctx.context ?? null });
   const policy = decideRuntimeModelPolicy({
     requestedModel: override?.model,
     requestedProvider: override?.provider,
     requestedBaseUrl: override?.baseUrl,
-    sensitivity: ctx.sensitivity ?? "normal",
+    sensitivity: inferred.sensitivity,
+    sensitivitySource: inferred.source,
+    prompt: ctx.prompt,
     taskKind: ctx.taskKind ?? "assistant",
     toolCallingRequired: ctx.toolCallingRequired ?? false,
   }, { defaultModel, defaultProvider, defaultBaseUrl: defaultBase, allowlist, enforceSensitiveEgress: env.HELM_ENFORCE_SENSITIVE_EGRESS === "1" });
@@ -282,9 +285,9 @@ export class HelmNativeRuntime implements AgentRuntime {
     const ctx = (input.context ?? {}) as any;
     const override = ctx.modelOverride && typeof ctx.modelOverride === "object" ? ctx.modelOverride : undefined;
     const toolsExposed = shouldExposeBrowserTools(input);
-    const sensitivity = ctx.modelSensitivity === "sensitive" || ctx.sensitivity === "sensitive" ? "sensitive" : "normal";
-    const model = resolveModel(process.env, override, { taskKind: input.kind, toolCallingRequired: toolsExposed, sensitivity });
-    yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null, modelRoute: model?.policy.route ?? "fallback-no-model", modelSensitivity: sensitivity, modelWarnings: model?.policy.warnings ?? [] } };
+    const sensitivity = ctx.modelSensitivity === "sensitive" || ctx.sensitivity === "sensitive" || ctx.sensitive === true || ctx.containsSensitiveData === true ? "sensitive" : undefined;
+    const model = resolveModel(process.env, override, { taskKind: input.kind, toolCallingRequired: toolsExposed, sensitivity, prompt: input.prompt, context: ctx });
+    yield { type: "runtime.started", ts: now(), trace, message: "Runtime started", payload: { provider: this.provider, kind: input.kind, model: model?.model ?? null, modelProvider: model?.provider ?? null, modelRoute: model?.policy.route ?? "fallback-no-model", modelSensitivity: model?.policy.sensitivity ?? (sensitivity ?? "normal"), modelSensitivitySource: model?.policy.sensitivitySource ?? (sensitivity ? "explicit" : "default"), modelWarnings: model?.policy.warnings ?? [] } };
     if (model?.policy.warnings.length) {
       yield { type: "runtime.planning", ts: now(), trace, message: "Model routing policy warnings", payload: { warnings: model.policy.warnings, reasons: model.policy.reasons, route: model.policy.route, selectedModel: model.model, selectedProvider: model.provider } };
     }

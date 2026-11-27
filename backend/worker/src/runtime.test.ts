@@ -79,5 +79,17 @@ describe("runtime helpers", () => {
     expect((r as any).deduped).toBe(true);
     expect((r as any).dedupeReason).toBe("executed_action_hash");
   });
+
+  it("resolveModel infers sensitive prompt and can deny non-local egress", () => {
+    const cfg = resolveModel({
+      HELM_MODEL: "gpt-4.1-mini",
+      HELM_MODEL_PROVIDER: "openai-compatible",
+      HELM_MODEL_BASE_URL: "https://api.openai.com/v1",
+      HELM_ENFORCE_SENSITIVE_EGRESS: "1",
+    } as any, undefined, { taskKind: "assistant", toolCallingRequired: true, prompt: "my credit card number is 4111..." });
+    expect(cfg?.policy.sensitivity).toBe("sensitive");
+    expect(cfg?.policy.sensitivitySource).toBe("heuristic");
+    expect(cfg?.policy.egressAllowed).toBe(false);
+  });
 });
 
