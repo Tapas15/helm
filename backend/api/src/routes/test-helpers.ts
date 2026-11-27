@@ -99,5 +99,58 @@ export function testHelperRoutes(db: Database) {
     return c.json({ ok: true, task });
   });
 
+  app.post("/tasks/:id/seed-browser-session", async (c) => {
+    const userId = c.get("userId");
+    const taskId = c.req.param("id");
+    const body = await c.req.json().catch(() => ({} as Record<string, unknown>));
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
+    if (!task) return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
+    const sessionId = typeof body.sessionId === "string" && body.sessionId ? body.sessionId : uid("bs");
+    const status = typeof body.status === "string" ? body.status : "ready";
+    const owner = body.owner === "user" ? "user" : "agent";
+    const ts = new Date();
+    const session = {
+      id: sessionId,
+      provider: "playwright",
+      status,
+      taskId,
+      runId: null,
+      createdAt: ts.toISOString(),
+      updatedAt: ts.toISOString(),
+      currentUrl: "https://example.com",
+      title: "Example Domain",
+      headless: true,
+      control: { owner, takeoverReason: owner === "user" ? "E2E seeded takeover" : null, takeoverRequestedAt: owner === "user" ? ts.toISOString() : null, resumedAt: owner === "agent" ? ts.toISOString() : null },
+      lastScreenshotAt: ts.toISOString(),
+    };
+    await db.update(tasks).set({
+      updatedAt: ts,
+      status: owner === "user" ? "waiting_input" as any : (task.status as any),
+      state: { ...((task.state as Record<string, unknown>) ?? {}), activeBrowserSessionId: sessionId, takeover: { active: owner === "user", reason: owner === "user" ? "E2E seeded takeover" : null, requestedAt: owner === "user" ? ts.toISOString() : null } },
+    } as any).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+    await db.insert(taskEvents).values({
+      id: uid("evt"), userId, taskId, runId: null,
+      sequence: (await db.select({ seq: taskEvents.sequence }).from(taskEvents).where(eq(taskEvents.taskId, taskId)).orderBy(desc(taskEvents.sequence)).limit(1).then((r: Array<{ seq: number | null }>) => Number(r[0]?.seq ?? -1) + 1)),
+      schemaVersion: 1, ts, source: "api", type: "browser.session.seeded", correlationId: uid("corr"), causationId: taskId,
+      payload: { sessionId, seeded: true, owner },
+    } as any);
+    return c.json({ ok: true, session });
+  });
+
+  app.post("/tasks/:id/clear-lease", async (c) => {
+    const userId = c.get("userId");
+    const taskId = c.req.param("id");
+    const ts = new Date();
+    const [task] = await db.update(tasks).set({ leaseOwner: null, leaseUntil: null, updatedAt: ts } as any).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).returning();
+    if (!task) return c.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, 404);
+    await db.insert(taskEvents).values({
+      id: uid("evt"), userId, taskId, runId: null,
+      sequence: (await db.select({ seq: taskEvents.sequence }).from(taskEvents).where(eq(taskEvents.taskId, taskId)).orderBy(desc(taskEvents.sequence)).limit(1).then((r: Array<{ seq: number | null }>) => Number(r[0]?.seq ?? -1) + 1)),
+      schemaVersion: 1, ts, source: "api", type: "task.lease.cleared.seeded", correlationId: uid("corr"), causationId: taskId,
+      payload: { seeded: true },
+    } as any);
+    return c.json({ ok: true, task });
+  });
+
   return app;
 }

@@ -12,7 +12,7 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 <div align="center">
 
-[![Overall Progress](https://img.shields.io/badge/Overall_Progress-87.3%25-1f6feb?style=for-the-badge)](ROADMAP.md)
+[![Overall Progress](https://img.shields.io/badge/Overall_Progress-87.8%25-1f6feb?style=for-the-badge)](ROADMAP.md)
 [![Current Phase](https://img.shields.io/badge/Current_Focus-P8_Coding_Stable_%7C_Manual_Gates_Pending-f2cc60?style=for-the-badge)](ROADMAP.md)
 [![Roadmap](https://img.shields.io/badge/Journey-Past_%7C_Present_%7C_Future-238636?style=for-the-badge)](ROADMAP.md)
 
@@ -22,9 +22,9 @@ Helm is an original personal AI operating assistant built from scratch for the D
 
 | Scope | Progress | Notes |
 |---|---:|---|
-| **Overall** | **87.3%** | Equal-weight P0-P8 coding-only estimate. P1 action-matrix E2E + lease recovery proof green; P8 coding-stable. **Release blocked by manual/ops/legal/security gates** (backup/restore drill, scan gating/SAST/secrets/container, STRIDE/threat-model, incident/key-rotation, PII/privacy/classification, compliance/Dubai signoff, chaos/SLO/alerts, packaging/release gates). |
+| **Overall** | **87.8%** | Equal-weight P0-P8 coding-only estimate. P1 coding-scope closed (6/6 E2E + 2/2 lease/fault-depth integration + worker terminal dedupe). P8 coding-stable. **Release blocked by manual/ops/legal/security gates** (backup/restore drill, scan gating/SAST/secrets/container, STRIDE/threat-model, incident/key-rotation, PII/privacy/classification, compliance/Dubai signoff, chaos/SLO/alerts, packaging/release gates). |
 | Phase 0 Foundation | 100% | Monorepo/CI/Docker/contracts stable; Drizzle alignment cwd-independent/idempotent; tsconfig workarounds removed (api/worker/browser-worker/temporal-worker); generated package src artifacts untracked+gitignored; CI Postgres + fresh-DB `db:migrate` smoke green; real ESLint config/scripts. Non-blocking debt: Node 20 action deprecation annotations, optional ESLint tightening; legacy `0001_p7_tables_manual.sql` by-design outside journal (no destructive reset). |
-| Phase 1 UI/Task Core | 97% | Chat/SSE/approvals/preview/takeover usable; state-aware controls + mutation errors; explicit live/stale/offline SSE UX; keyboard/ARIA/focus/responsive polish. Playwright E2E 5/5 green (SSE reconnect + create/export/delete + pause/resume/cancel/retry + seeded approve/reject). Env-gated lease recovery integration 1/1 green. AG-UI `/v1/ws` deferred; artifact storage/retention MVP, MinIO/retention deferred to P8. Preview/takeover full E2E and broader fault-injection depth remain. |
+| Phase 1 UI/Task Core | 100% | Coding-scope complete: chat/SSE/controls/export-delete/approvals; Playwright E2E 6/6 green (SSE reconnect, action matrix, seeded approve/reject, browser preview/takeover flow). Env-gated lease recovery/fault-depth 2/2 green; worker terminal-event dedupe guard. AG-UI `/v1/ws` deferred; artifact storage/retention MVP deferred to P8. Broader P5 fault-injection matrix remains. |
 | Phase 2 Agent Runtime | 90% | Local Ollama streaming/tool loop/policy; checkpoint/resumePlan narrowed semantics, approval/read-tool dedupe guards, deterministic evals. Remaining: full durable step-level replay, live browser+connector/model-provider E2E, live Hermes sidecar. |
 | Phase 3 Browser Execution | 93% | Playwright worker, CDP screencast, WS proxy, persist/restore, guarded actions; screenshot/snapshot artifact DB persistence + ownership-checked artifact listing + takeover request/resume state contracts; live WS/takeover smoke blocked in shell |
 | Phase 4 Connectors/Vault | 90% | Vault AES-GCM, Gmail/Calendar read+write, guarded receipts/reconcile UI; real OAuth connect/test/send/create E2E verified; refresh/revoke/uncertain-reconcile hardening pending |

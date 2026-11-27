@@ -1,6 +1,6 @@
-FROM mcr.microsoft.com/playwright:v1.52.0-noble
+﻿FROM mcr.microsoft.com/playwright:v1.65.1-noble
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN npm i -g corepack@latest --force && corepack enable && corepack prepare pnpm@9.15.4 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs ./
 COPY packages ./packages
 COPY backend ./backend

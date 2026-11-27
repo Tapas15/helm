@@ -230,15 +230,20 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       errorCode: result.error?.code ?? null, errorMessage: result.error?.message ?? null,
     }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId))).returning();
     if (updated) {
-      await insertEvent(db, task.id, task.userId, runId, "task.completed", correlationId, task.id, { status: updated.status, output, ...trace });
-      await emitFeedback(db, {
-        userId: task.userId, taskId: task.id, runId, kind: "task_outcome",
-        signal: updated.status === "succeeded" ? "positive" : updated.status === "failed" ? "negative" : "neutral",
-        severity: updated.status === "failed" ? "error" : "info",
-        summary: `task.${updated.status}`,
-        payload: { status: updated.status, errorCode: updated.errorCode ?? null },
-        evidenceRefs: [{ type: "task_event", action: "task.completed", taskId: task.id }],
-      });
+      const existingTerminal = await db.select({ type: taskEvents.type }).from(taskEvents).where(and(eq(taskEvents.taskId, task.id), or(eq(taskEvents.type, "task.completed"), eq(taskEvents.type, "task.failed")))).limit(1);
+      if (!existingTerminal[0]) {
+        await insertEvent(db, task.id, task.userId, runId, "task.completed", correlationId, task.id, { status: updated.status, output, ...trace });
+        await emitFeedback(db, {
+          userId: task.userId, taskId: task.id, runId, kind: "task_outcome",
+          signal: updated.status === "succeeded" ? "positive" : updated.status === "failed" ? "negative" : "neutral",
+          severity: updated.status === "failed" ? "error" : "info",
+          summary: `task.${updated.status}`,
+          payload: { status: updated.status, errorCode: updated.errorCode ?? null },
+          evidenceRefs: [{ type: "task_event", action: "task.completed", taskId: task.id }],
+        });
+      } else {
+        taskLog.warn({ event: "task.terminal.duplicate_prevented", existing: existingTerminal[0].type }, "terminal event already exists; skipping duplicate");
+      }
       taskLog.info({ event: "task.completed", status: updated.status }, "task completed");
     }
   } catch (err) {
@@ -249,14 +254,19 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
       await persistCheckpoint(db, task, runId, checkpoint).catch(() => undefined);
     }
     await db.insert(taskMessages).values({ id: uid("msg"), userId: task.userId, taskId: task.id, role: "assistant", content: `Error: ${message}`, metadata: { runId, correlationId, status: "failed" }, createdAt: doneAt }).catch(() => undefined);
-    await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
-    await insertEvent(db, task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
-    await emitFeedback(db, {
-      userId: task.userId, taskId: task.id, runId, kind: "tool_failure",
-      signal: "negative", severity: "error", summary: "task.failed.runtime_crash",
-      payload: { code: "RUNTIME_CRASH", message: message.slice(0, 300) },
-      evidenceRefs: [{ type: "task_event", action: "task.failed", taskId: task.id }],
-    });
+    const [updated] = await db.update(tasks).set({ status: "failed", leaseOwner: null, leaseUntil: null, updatedAt: doneAt, completedAt: doneAt, checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)`, errorCode: "RUNTIME_CRASH", errorMessage: message }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId))).returning();
+    const existingTerminal = await db.select({ type: taskEvents.type }).from(taskEvents).where(and(eq(taskEvents.taskId, task.id), or(eq(taskEvents.type, "task.completed"), eq(taskEvents.type, "task.failed")))).limit(1);
+    if (updated && !existingTerminal[0]) {
+      await insertEvent(db, task.id, task.userId, runId, "task.failed", correlationId, task.id, { code: "RUNTIME_CRASH", message, ...trace });
+      await emitFeedback(db, {
+        userId: task.userId, taskId: task.id, runId, kind: "tool_failure",
+        signal: "negative", severity: "error", summary: "task.failed.runtime_crash",
+        payload: { code: "RUNTIME_CRASH", message: message.slice(0, 300) },
+        evidenceRefs: [{ type: "task_event", action: "task.failed", taskId: task.id }],
+      });
+    } else if (existingTerminal[0]) {
+      taskLog.warn({ event: "task.terminal.duplicate_prevented", existing: existingTerminal[0].type }, "terminal event already exists; skipping duplicate failure event");
+    }
     taskLog.error({ err, event: "task.failed" }, "task failed");
   } finally {
     clearInterval(heartbeat);
