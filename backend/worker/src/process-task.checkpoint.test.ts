@@ -46,12 +46,13 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[]; 
           if (table === feedbackEvents) feedbackRows.push(v);
           if (table === actionReceipts) { insertedReceipts.push(v); receiptRows.push(v); }
         })();
-        return {
-          onConflictDoNothing: async () => { await p; },
+        const chain: any = {
+          onConflictDoNothing: () => chain,
           returning: async () => { await p; return [v]; },
           catch: (fn: any) => p.catch(fn),
           then: (resolve: any, reject: any) => p.then(resolve, reject),
         };
+        return chain;
       },
     }),
     update: () => ({ set: (v: any) => updateChain(v) }),
@@ -213,28 +214,26 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.status).toBe("succeeded");
   });
 
-  it("persists waiting_approval checkpoint boundary before task status write", async () => {
+  it("persists executed action receipt hash in checkpoint before terminal completion", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const { db, task } = makeDb();
+    const { db, task } = makeDb({ approvals: [{ id: "apr1", taskId: "tsk_1", userId: "u1", actionHash: "ah_ok", actionKind: "fs.read", status: "approved", summary: "ok" }] });
     const origUpdate = db.update;
     db.update = (table: unknown) => {
       const chain = origUpdate(table);
       return {
         set: (v: any) => {
-          if (table === tasks && v?.status === "waiting_approval") {
-            expect(task.checkpoint?.statusHint).toBe("waiting_approval");
-            expect(task.checkpoint?.resumePlan?.pendingApproval?.actionHash).toBe("ah_wait");
+          if (table === tasks && (v?.status === "succeeded" || v?.status === "failed" || v?.status === "cancelled")) {
+            expect(task.checkpoint?.resumePlan?.completedActionHashes ?? []).toContain("ah_ok");
           }
           return chain.set(v);
         },
       };
     };
     const runtime = { run: async function* () {
-      yield { type: "runtime.tool.proposed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "needs approval", payload: { approvalRequired: true, actionHash: "ah_wait", action: "external.high_risk" } };
-      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "waiting", payload: { status: "waiting_approval", output: "wait" } };
+      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } };
     } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
-    expect(task.status).toBe("waiting_approval");
-    expect(task.checkpoint?.resumePlan?.pendingApproval?.actionHash).toBe("ah_wait");
+    expect(db.insertedReceipts.some((r: any) => r.actionHash === "ah_ok" && r.status === "executed")).toBe(true);
+    expect(task.status).toBe("succeeded");
   });
 });
