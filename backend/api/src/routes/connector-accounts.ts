@@ -24,14 +24,15 @@ export async function getValidGoogleAccessToken(vault: DbCredentialBroker, userI
   if (process.env.HELM_TEST_CONNECTOR_HTTP === "1") return { token: access || "test-token" };
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!refresh || !clientId || !clientSecret) return { token: access || null, reason: refresh ? "missing_client_config" : "missing_refresh_token" };
+  const expired = isGoogleTokenExpired(parsed);
+  if (!refresh || !clientId || !clientSecret) return { token: expired ? null : (access || null), reason: refresh ? "missing_client_config" : "missing_refresh_token" };
   try {
     const refreshed = await refreshGoogleAccessToken({ clientId, clientSecret, refreshToken: refresh });
     const merged = { ...parsed, ...refreshed, refresh_token: refreshed.refresh_token ?? refresh, obtained_at: Date.now() };
     await vault.putSecret({ ownerUserId: userId, provider: "google", name: `google-oauth:${accountId}`, value: JSON.stringify(merged) });
     return { token: typeof merged.access_token === "string" ? merged.access_token : null };
   } catch (e) {
-    return { token: access || null, reason: e instanceof Error ? e.message : "refresh_failed" };
+    return { token: expired ? null : (access || null), reason: e instanceof Error ? e.message : "refresh_failed" };
   }
 }
 

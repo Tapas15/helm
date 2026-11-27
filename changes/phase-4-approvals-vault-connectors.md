@@ -35,7 +35,7 @@ High-risk actions require approval; side-effect ledger prevents double execution
 ### Remaining / Blocked
 - [x] **Verified 2026-11-24:** Real Google OAuth connect/callback/test verified for Gmail and Calendar (simplytaps3@gmail.com). Scope fix `ddd445d` added `gmail.send` and `calendar.events`. Approval-gated Gmail send succeeded (`rcpt_7a0bc795563d405499c13f72db1c90ba`, `gmailMessageId=1a20f3b6dad91d55`); same-idempotency retry returned deduped same receipt/externalRef. Approval-gated Calendar create succeeded (`rcpt_da3b49611c3f4f4e9b1d34f63d33d5cf`, `calendarEventId=jshv868h65pplmu3tjmbtu2eo0`); same-idempotency retry deduped and calendar query showed one `Helm E2E Test` event. No auto-delete.
 - [ ] Real-provider uncertain-reconcile proof in provider sandbox (forced uncertain/timeout scenarios beyond API-level cases).
-- [ ] Token refresh/revoke hardening against real provider behavior.
+- [~] Token refresh/revoke hardening (deterministic, local 2026-11-27): `getValidGoogleAccessToken` no longer returns expired access token when refresh fails/missing config; refresh success persists merged token preserving refresh_token/scope. Revoke endpoint records provider revoke failure reason and reports `providerRevoked=false` while still revoking local account/secret. Real-provider refresh/revoke behavior proof remains blocked.
 - [ ] Richer connector diagnostics/sync UX.
 - [ ] Broader connector policy matrix; full mutating endpoint/tool idempotency+audit coverage audit.
 - [ ] Vault secret storage/deployment hardening for production (encrypted provider/KMS decision).

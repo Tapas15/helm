@@ -142,21 +142,26 @@ export function connectorRoutes(db: Database) {
     if (!row) return c.json(err(HELM_ERROR_CODES.NOT_FOUND, "Connector account not found"), 404);
     const token = await vault.getSecretValue({ ownerUserId: userId, provider: "google", name: `google-oauth:${id}` });
     let revokeOk = false;
+    let revokeError: string | null = null;
     if (token) {
       try {
         const parsed = JSON.parse(token) as Record<string, unknown>;
         const revokeToken = (parsed.refresh_token ?? parsed.access_token) as string | undefined;
         if (revokeToken) {
           const revokeBase = process.env.GOOGLE_REVOKE_BASE ?? "https://oauth2.googleapis.com/revoke";
-          const rr = await fetch(`${revokeBase}?token=${encodeURIComponent(revokeToken)}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" } }).catch(() => null);
+          const rr = await fetch(`${revokeBase}?token=${encodeURIComponent(revokeToken)}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" } }).catch((e) => { revokeError = e instanceof Error ? e.message : String(e); return null; });
           revokeOk = !!rr?.ok;
+          if (rr && !rr.ok) {
+            const body = await rr.json().catch(() => null) as any;
+            revokeError = body?.error_description ?? body?.error ?? `revoke_failed_${rr.status}`;
+          }
         }
-      } catch {}
+      } catch (e) { revokeError = e instanceof Error ? e.message : String(e); }
     }
     await db.update(connectorAccounts).set({ status: "revoked", updatedAt: new Date() }).where(eq(connectorAccounts.id, id));
     if (row.secretRefId) await vault.revokeSecret({ ownerUserId: userId, secretId: row.secretRefId, reason: "user_revoke" });
-    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: { providerRevoked: revokeOk } });
-    return c.json(redactConnectorValue({ ok: true, accountId: id, status: "revoked", providerRevoked: revokeOk }));
+    await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, action: "connector.account.revoke", resourceType: "connector_account", resourceId: id, decision: "allow", reason: "user_requested", metadata: { providerRevoked: revokeOk, ...(revokeError ? { revokeError: String(revokeError).slice(0, 200) } : {}) } });
+    return c.json(redactConnectorValue({ ok: true, accountId: id, status: "revoked", providerRevoked: revokeOk, ...(revokeError ? { revokeError: String(revokeError).slice(0, 200) } : {}) }));
   });
 
   return app;
