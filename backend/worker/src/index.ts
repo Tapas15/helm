@@ -107,15 +107,17 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     checkpoint = null;
   }
   if (checkpoint && !isTerminalCheckpoint(checkpoint)) {
-    const resumeEvt: AgentRuntimeEvent = {
-      type: "runtime.checkpoint.resumed",
-      ts: now().toISOString(),
-      trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
-      message: "Resumed from runtime checkpoint",
-      payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null, resumePlan: checkpoint.resumePlan ?? null },
-    };
-    runtimeEvents.push(resumeEvt);
-    await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
+    if (checkpoint.lastEventType !== "runtime.checkpoint.resumed") {
+      const resumeEvt: AgentRuntimeEvent = {
+        type: "runtime.checkpoint.resumed",
+        ts: now().toISOString(),
+        trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
+        message: "Resumed from runtime checkpoint",
+        payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null, resumePlan: checkpoint.resumePlan ?? null },
+      };
+      runtimeEvents.push(resumeEvt);
+      await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
+    }
     const plan = checkpoint.resumePlan;
     if (plan) {
       const appliedEvt: AgentRuntimeEvent = {

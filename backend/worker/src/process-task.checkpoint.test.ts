@@ -175,3 +175,13 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.status).toBe("succeeded");
   });
 });
+  it("does not emit duplicate resume events when interrupted checkpoint was already resumed by control plane", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 8, lastEventType: "runtime.checkpoint.resume_requested", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.checkpoint.resume_requested", completedToolRefs: [], completedActionHashes: [] } };
+    const { db, task } = makeDb({ checkpoint, taskStatus: "queued" });
+    const runtime = { run: async function* () { yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    const resumed = db.insertedEvents.filter((e: any) => e.type === "runtime.checkpoint.resumed");
+    expect(resumed).toHaveLength(1);
+    expect(task.status).toBe("succeeded");
+  });
