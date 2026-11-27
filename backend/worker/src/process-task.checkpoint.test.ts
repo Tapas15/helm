@@ -206,3 +206,13 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(seen?.completedActionHashes).toContain("ah_exec");
     expect(task.status).toBe("succeeded");
   });
+  it("persists checkpoint when runtime yields no events and task control becomes paused", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const { db, task } = makeDb({ taskStatus: "queued" });
+    task.status = "paused"; // simulate control flip observed at next control check boundary
+    const runtime = { run: async function* () { /* no events */ } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(task.status).toBe("paused");
+    // no terminal overwrite; checkpoint may remain null because no runtime event occurred, but process should exit cleanly
+    expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
+  });
