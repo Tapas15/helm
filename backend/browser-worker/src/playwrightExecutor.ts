@@ -124,43 +124,48 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
   subscribe(sessionId: string, fn: (frame: { sessionId: string; data: string; ts: number }) => void): (() => void) | null { const s = this.sessions.get(sessionId); if (!s) return null; s.emitter.on("frame", fn); return () => { s.emitter.off("frame", fn); }; }
   getLastFrame(sessionId: string): string | null { return this.sessions.get(sessionId)?.lastFrame ?? this.sessions.get(sessionId)?.lastScreenshotBase64 ?? null; }
 
-  async sendInput(sessionId: string, input: any): Promise<{ ok: boolean; error?: string }> {
+  async sendInput(sessionId: string, input: any): Promise<{ ok: boolean; error?: string; type?: string }> {
     const s = await this.ensure(sessionId);
     if (!s) return { ok: false, error: "session not found" };
     if (s.session.control.owner !== "user") return { ok: false, error: "takeover required for interactive control" };
     try {
       const t = String(input.type ?? "");
       const modifiers = Array.isArray(input.modifiers) ? input.modifiers.filter((m: unknown) => typeof m === "string") : [];
-      if (t === "click") await s.page.mouse.click(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left", clickCount: Math.max(1, Number(input.clickCount ?? 1)), delay: Math.max(0, Number(input.delay ?? 0)) });
-      else if (t === "dblclick") await s.page.mouse.dblclick(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left" });
-      else if (t === "move" || t === "mousemove") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0));
-      else if (t === "mousedown") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.down({ button: input.button ?? "left" }));
-      else if (t === "mouseup") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.up({ button: input.button ?? "left" }));
-      else if (t === "drag") {
-        await s.page.mouse.move(Number(input.fromX ?? input.x ?? 0), Number(input.fromY ?? input.y ?? 0));
-        await s.page.mouse.down({ button: input.button ?? "left" });
-        await s.page.mouse.move(Number(input.toX ?? 0), Number(input.toY ?? 0), { steps: Math.max(1, Number(input.steps ?? 10)) });
-        await s.page.mouse.up({ button: input.button ?? "left" });
+      for (const mod of modifiers) await s.page.keyboard.down(String(mod));
+      try {
+        if (t === "click") await s.page.mouse.click(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left", clickCount: Math.max(1, Number(input.clickCount ?? 1)), delay: Math.max(0, Number(input.delay ?? 0)) });
+        else if (t === "dblclick") await s.page.mouse.dblclick(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left" });
+        else if (t === "move" || t === "mousemove") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0));
+        else if (t === "mousedown") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.down({ button: input.button ?? "left" }));
+        else if (t === "mouseup") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.up({ button: input.button ?? "left" }));
+        else if (t === "drag") {
+          await s.page.mouse.move(Number(input.fromX ?? input.x ?? 0), Number(input.fromY ?? input.y ?? 0));
+          await s.page.mouse.down({ button: input.button ?? "left" });
+          await s.page.mouse.move(Number(input.toX ?? 0), Number(input.toY ?? 0), { steps: Math.max(1, Number(input.steps ?? 10)) });
+          await s.page.mouse.up({ button: input.button ?? "left" });
+        }
+        else if (t === "type") await s.page.keyboard.type(String(input.text ?? ""), { delay: Math.max(0, Number(input.delay ?? 0)) });
+        else if (t === "press") {
+          const key = String(input.key ?? "Enter");
+          const combo = modifiers.length ? `${modifiers.join("+")}+${key}` : key;
+          await s.page.keyboard.press(combo, { delay: Math.max(0, Number(input.delay ?? 0)) });
+        }
+        else if (t === "keydown") await s.page.keyboard.down(String(input.key ?? ""));
+        else if (t === "keyup") await s.page.keyboard.up(String(input.key ?? ""));
+        else if (t === "scroll" || t === "wheel") await s.page.mouse.wheel(Number(input.deltaX ?? 0), Number(input.deltaY ?? 0));
+        else return { ok: false, error: "unsupported input type", type: t };
+      } finally {
+        for (const mod of [...modifiers].reverse()) await s.page.keyboard.up(String(mod)).catch(() => undefined);
       }
-      else if (t === "type") await s.page.keyboard.type(String(input.text ?? ""), { delay: Math.max(0, Number(input.delay ?? 0)) });
-      else if (t === "press") {
-        const key = String(input.key ?? "Enter");
-        const combo = modifiers.length ? `${modifiers.join("+")}+${key}` : key;
-        await s.page.keyboard.press(combo, { delay: Math.max(0, Number(input.delay ?? 0)) });
-      }
-      else if (t === "keydown") await s.page.keyboard.down(String(input.key ?? ""));
-      else if (t === "keyup") await s.page.keyboard.up(String(input.key ?? ""));
-      else if (t === "scroll" || t === "wheel") await s.page.mouse.wheel(Number(input.deltaX ?? 0), Number(input.deltaY ?? 0));
-      else return { ok: false, error: "unsupported input type" };
       s.session.updatedAt = new Date().toISOString(); this.scheduleClose(sessionId); await persistState(this.stateDir, s);
-      return { ok: true };
+      return { ok: true, type: t };
     } catch (e) {
       if (isStaleTargetError(e)) {
         await this.discardSession(sessionId);
         const restored = await this.restoreSession(sessionId);
-        if (restored) return { ok: false, error: "session recovered after stale target; retry input" };
+        if (restored) return { ok: false, error: "session recovered after stale target; retry input", type: String(input?.type ?? "") };
       }
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      return { ok: false, error: e instanceof Error ? e.message : String(e), type: String(input?.type ?? "") };
     }
   }
 
