@@ -174,7 +174,7 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.terminal_ignored")).toBeFalsy();
     expect(task.status).toBe("succeeded");
   });
-});
+
   it("does not emit duplicate resume events when interrupted checkpoint was already resumed by control plane", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
     const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 8, lastEventType: "runtime.checkpoint.resume_requested", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.checkpoint.resume_requested", completedToolRefs: [], completedActionHashes: [] } };
@@ -185,6 +185,7 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(resumed).toHaveLength(1);
     expect(task.status).toBe("succeeded");
   });
+
   it("passes executedActionHashes from receipts for post-approval dedupe", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
     const { db, task } = makeDb({ receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", actionHash: "ah_exec", status: "executed" }] });
@@ -193,3 +194,5 @@ describe("processTask checkpoint resume/dedupe", () => {
     await processTask(task, { db, runtime, workerId: "w1" });
     expect(seen).toContain("ah_exec");
   });
+});
+
