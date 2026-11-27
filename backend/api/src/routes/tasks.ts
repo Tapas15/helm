@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { actionReceipts, approvals, browserArtifacts, tasks, taskEvents, taskMessages, auditLog, type Database } from "@helm/db";
 import {
   CreateTaskInput,
@@ -342,17 +342,39 @@ export function taskRoutes(db: Database) {
     }
 
     const ts = new Date();
+    const checkpoint = (task.checkpoint as any) ?? null;
+    const shouldResetInterruptedCheckpoint =
+      action.data === "resume" &&
+      transition.to === "queued" &&
+      checkpoint?.version === 1 &&
+      checkpoint?.statusHint === "interrupted";
+    const nextCheckpoint = shouldResetInterruptedCheckpoint
+      ? {
+          ...checkpoint,
+          statusHint: "running",
+          updatedAt: ts.toISOString(),
+          lastEventType: "runtime.checkpoint.resume_requested",
+          resumePlan: checkpoint.resumePlan
+            ? { ...checkpoint.resumePlan, lastSafeBoundary: "runtime.checkpoint.resume_requested" }
+            : checkpoint.resumePlan,
+        }
+      : null;
+    const updateSet: any = {
+      status: transition.to,
+      updatedAt: ts,
+      completedAt: transition.to === "cancelled" ? ts : TERMINAL_TASK_STATUSES.has(transition.to) ? ts : task.completedAt,
+      leaseOwner: transition.to === "queued" ? null : task.leaseOwner,
+      leaseUntil: transition.to === "queued" ? null : task.leaseUntil,
+      errorCode: transition.to === "queued" ? null : task.errorCode,
+      errorMessage: transition.to === "queued" ? null : task.errorMessage,
+    };
+    if (shouldResetInterruptedCheckpoint && nextCheckpoint) {
+      updateSet.checkpoint = nextCheckpoint as any;
+      updateSet.state = sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(nextCheckpoint)}::jsonb)`;
+    }
     const [updated] = await db
       .update(tasks)
-      .set({
-        status: transition.to,
-        updatedAt: ts,
-        completedAt: transition.to === "cancelled" ? ts : TERMINAL_TASK_STATUSES.has(transition.to) ? ts : task.completedAt,
-        leaseOwner: transition.to === "queued" ? null : task.leaseOwner,
-        leaseUntil: transition.to === "queued" ? null : task.leaseUntil,
-        errorCode: transition.to === "queued" ? null : task.errorCode,
-        errorMessage: transition.to === "queued" ? null : task.errorMessage,
-      })
+      .set(updateSet)
       .where(and(eq(tasks.id, id), eq(tasks.status, from)))
       .returning();
     if (!updated) {
@@ -370,7 +392,7 @@ export function taskRoutes(db: Database) {
       type: `task.${action.data}`,
       correlationId,
       causationId: requestId,
-      payload: { action: action.data, from, to: transition.to, requestId, correlationId },
+      payload: { action: action.data, from, to: transition.to, requestId, correlationId, checkpointReset: shouldResetInterruptedCheckpoint },
     });
     await db.insert(auditLog).values({
       id: uid("aud"),
@@ -383,9 +405,9 @@ export function taskRoutes(db: Database) {
       resourceType: "task",
       resourceId: id,
       decision: "allow",
-      metadata: { from, to: transition.to, requestId, correlationId },
+      metadata: { from, to: transition.to, requestId, correlationId, checkpointReset: shouldResetInterruptedCheckpoint },
     });
-    c.get("logger").info({ taskId: id, action: action.data, from, to: transition.to, requestId, correlationId }, "task control");
+    c.get("logger").info({ taskId: id, action: action.data, from, to: transition.to, requestId, correlationId, checkpointReset: shouldResetInterruptedCheckpoint }, "task control");
     return c.json({ task: redactExportValue(updated) });
   });
 
