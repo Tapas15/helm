@@ -89,7 +89,10 @@ export function gmailRoutes(db: Database) {
     if (approval.actionHash !== input.actionHash) return c.json(err(HELM_ERROR_CODES.FORBIDDEN, "actionHash mismatch"), 403);
     const [existing] = await db.select().from(actionReceipts).where(eq(actionReceipts.idempotencyKey, input.idempotencyKey)).limit(1);
     if (existing) {
-      if (existing.userId !== userId || existing.actionHash !== input.actionHash || existing.approvalId !== approval.id) return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      if (existing.userId !== userId || existing.actionHash !== input.actionHash || existing.approvalId !== approval.id) {
+        await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "user", actorId: userId, taskId: approval.taskId, action: "gmail.send.idempotency_conflict", resourceType: "action_receipt", resourceId: existing.id, decision: "deny", reason: "idempotency_key_reused", metadata: { idempotencyKey: input.idempotencyKey } });
+        return c.json(err(HELM_ERROR_CODES.CONFLICT, "Idempotency key reused with different action/approval", false), 409);
+      }
       if (existing.status === "executed") return c.json(safeJson({ ok: true, deduped: true, receiptId: existing.id, externalRef: existing.externalRef }));
       if (existing.status === "executing") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Send already executing", true), 409);
       if (existing.status === "uncertain") return c.json(err(HELM_ERROR_CODES.CONFLICT, "Prior send outcome uncertain; reconcile before retry", true, { receiptId: existing.id }), 409);
@@ -144,6 +147,7 @@ export function gmailRoutes(db: Database) {
       });
     } catch (e) {
       await db.update(actionReceipts).set({ status: "uncertain", evidence: { error: e instanceof Error ? e.message : String(e), uncertain: true, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, receiptId));
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: "gmail.send.uncertain", resourceType: "action_receipt", resourceId: receiptId, decision: "deny", reason: "network_error", metadata: { idempotencyKey: input.idempotencyKey } });
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: "error", summary: "gmail.send.uncertain.network", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, uncertain: true }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, "Gmail send outcome uncertain due to network/error", true, { receiptId }), 503);
     }
@@ -151,6 +155,7 @@ export function gmailRoutes(db: Database) {
     if (!res.ok) {
       const uncertain = res.status >= 500 || res.status === 429;
       await db.update(actionReceipts).set({ status: uncertain ? "uncertain" : "failed", evidence: { error: json?.error?.message ?? "send_failed", status: res.status, uncertain, accountId: input.accountId, to: input.to, subject: input.subject } }).where(eq(actionReceipts.id, receiptId));
+      await db.insert(auditLog).values({ id: uid("aud"), userId, ts: new Date(), actorType: "system", actorId: "helm-api", taskId: approval.taskId, action: uncertain ? "gmail.send.uncertain" : "gmail.send.failed", resourceType: "action_receipt", resourceId: receiptId, decision: "deny", reason: uncertain ? "provider_uncertain" : "provider_rejected", metadata: { idempotencyKey: input.idempotencyKey, status: res.status } });
       await emitFeedbackEvent(db, { userId, taskId: approval.taskId, runId: approval.runId, kind: "tool_failure", signal: "negative", severity: uncertain ? "error" : "warn", summary: uncertain ? "gmail.send.uncertain.provider" : "gmail.send.failed", payload: { actionKind: "gmail.send", receiptId, accountId: input.accountId, status: res.status, uncertain }, evidenceRefs: [{ type: "receipt", id: receiptId }] });
       return c.json(err(HELM_ERROR_CODES.DEPENDENCY_ERROR, json?.error?.message ?? "Gmail send failed", uncertain, { receiptId }), res.status as any);
     }
