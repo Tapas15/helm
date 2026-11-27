@@ -40,4 +40,14 @@ describe("PlaywrightBrowserExecutor.sendInput stale recovery", () => {
     expect(ex.discardSession).toHaveBeenCalledWith("s1");
     expect(ex.restoreSession).toHaveBeenCalledWith("s1");
   });
+
+  it("returns original stale error when restore cannot recover session", async () => {
+    const { ex, dir } = await makeExecutor(); dirs.push(dir);
+    ex.restoreSession = vi.fn(async () => null);
+    const res = await ex.sendInput("s1", { type: "click", x: 10, y: 20 });
+    expect(res.ok).toBe(false);
+    expect(String(res.error)).toContain("Target page, context or browser has been closed");
+    expect(ex.discardSession).toHaveBeenCalledWith("s1");
+    expect(ex.restoreSession).toHaveBeenCalledWith("s1");
+  });
 });
