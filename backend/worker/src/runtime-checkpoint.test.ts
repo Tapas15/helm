@@ -38,4 +38,11 @@ describe("runtime checkpoint", () => {
     expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.tool.deduped");
     expect(isTerminalCheckpoint(cp)).toBe(false);
   });
+
+  it("tracks tool.started boundary without recording completed tool ref", () => {
+    const cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.started", ts, trace, payload: { name: "browser_snapshot", args: { sessionId: "s1" }, argsKey: "{\"sessionId\":\"s1\"}" } } as any, 2);
+    expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.tool.started");
+    expect(cp.resumePlan?.completedToolRefs).toEqual([]);
+    expect(cp.resumePlan?.completedActionHashes).toEqual([]);
+  });
 });

@@ -258,7 +258,7 @@ async function* streamChat(input: AgentRuntimeInput, trace: Record<string, unkno
         messages.push({ role: "tool", tool_call_id: tc.id, name, content: result });
         continue;
       }
-      yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args } };
+      yield { type: "runtime.tool.started", ts: now(), trace: { ...trace, tool: name }, message: `Calling ${name}`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, argsKey: stableArgsKey(args) } };
       const result = await runTool(name, args);
       const argsKey = stableArgsKey(args);
       yield { type: "runtime.tool.completed", ts: now(), trace: { ...trace, tool: name }, message: `Tool ${name} completed`, payload: { name, args: { actionHash: typeof args?.actionHash === "string" ? args.actionHash : undefined, idempotencyKey: typeof args?.idempotencyKey === "string" ? args.idempotencyKey : undefined }, argsKey, result: result.slice(0, 2000) } };

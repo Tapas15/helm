@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { actionReceipts, approvals, auditLog, feedbackEvents, taskEvents, tasks } from "@helm/db";
 import { processTask } from "./index.js";
 
@@ -236,4 +236,31 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(db.insertedReceipts.some((r: any) => r.actionHash === "ah_ok" && r.status === "executed")).toBe(true);
     expect(task.status).toBe("succeeded");
   });
+});
+
+  it("does not re-execute side effect when crash occurred after tool.completed checkpoint before next model call", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 5, lastEventType: "runtime.tool.completed", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_click", eventSeq: 5, actionHash: "ah_click_1", idempotencyKey: "ik_click_1", argsKey: JSON.stringify({ selector: "#submit", sessionId: "s1" }) }], completedActionHashes: ["ah_click_1"] } };
+    let seenResumePlan: any;
+    let dispatched = false;
+    const { db, task } = makeDb({ checkpoint, taskStatus: "queued" });
+    const runtime = { run: async function* (input: any) {
+      seenResumePlan = input?.context?.runtimeResumePlan;
+      const { evaluateToolPolicy } = await import("./runtime.js");
+      const decision = evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#submit", approvalId: "apr1", actionHash: "ah_click_1", idempotencyKey: "ik_click_1" }, { approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah_click_1"], runtimeResumePlan: input?.context?.runtimeResumePlan, executedActionHashes: input?.context?.executedActionHashes });
+      if (decision.ok) { dispatched = true; }
+      else {
+        yield { type: "runtime.tool.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "Tool browser_click blocked", payload: { name: "browser_click", args: { actionHash: "ah_click_1", idempotencyKey: "ik_click_1" }, argsKey: JSON.stringify({ selector: "#submit", sessionId: "s1" }), result: JSON.stringify({ error: (decision as any).error }), policy: "deduped", actionHash: "ah_click_1", idempotencyKey: "ik_click_1" } };
+        yield { type: "runtime.tool.deduped", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "Tool browser_click deduped by resume plan", payload: { name: "browser_click", actionHash: "ah_click_1", idempotencyKey: "ik_click_1", argsKey: JSON.stringify({ selector: "#submit", sessionId: "s1" }), reason: "resume_plan_completed_action_hash" } };
+      }
+      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } };
+    } } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(dispatched).toBe(false);
+    expect(seenResumePlan?.completedActionHashes).toContain("ah_click_1");
+    expect(db.insertedReceipts).toHaveLength(0);
+    expect(db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resumed")).toBeTruthy();
+    expect(db.insertedEvents.find((e: any) => e.type === "runtime.tool.deduped")?.payload?.actionHash).toBe("ah_click_1");
+    expect(task.status).toBe("succeeded");
+  
 });

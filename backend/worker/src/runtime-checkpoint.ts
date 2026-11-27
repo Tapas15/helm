@@ -32,12 +32,12 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     lastEventSeq: seq,
     lastEventType: evt.type,
     updatedAt: evt.ts,
-    resumePlan: base.resumePlan ?? { version: 1, lastSafeBoundary: null, completedToolRefs: [] },
+    resumePlan: { completedActionHashes: [], ...(base.resumePlan ?? { version: 1 as const, lastSafeBoundary: null, completedToolRefs: [] }), version: 1 as const },
   };
   if (["runtime.planning", "runtime.tool.started", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted", "runtime.checkpoint.resumed"].includes(evt.type)) {
     next.resumePlan = { ...next.resumePlan!, lastSafeBoundary: evt.type };
   }
-  if (evt.type === "runtime.tool.started" || evt.type === "runtime.tool.completed" || evt.type === "runtime.tool.deduped") {
+  if (evt.type === "runtime.tool.completed" || evt.type === "runtime.tool.deduped") {
     const payload = (evt.payload as any) ?? {};
     const name = typeof payload?.name === "string" ? String(payload.name) : "unknown";
     const args = payload?.args && typeof payload.args === "object" ? payload.args : {};

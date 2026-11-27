@@ -72,6 +72,11 @@ describe("runtime helpers", () => {
     expect(result).toMatchObject({ ok: false, deduped: true });
     expect(String((result as any).error)).toContain("already completed for same args");
   });
+  it("blocks duplicate side-effect when resumePlan completedActionHashes contains actionHash", () => {
+    const result = evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#buy", approvalId: "apr", actionHash: "ah_done", idempotencyKey: "ik" }, { approvedActionKinds: ["external.high_risk"], approvedActionHashes: ["ah_done"], runtimeResumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [{ name: "browser_click", eventSeq: 3, actionHash: "ah_done" }], completedActionHashes: ["ah_done"] } });
+    expect(result).toMatchObject({ ok: false });
+    expect(String((result as any).error)).toContain("already completed; refusing duplicate side effect");
+  });
   it("denies duplicate side-effect when executedActionHashes contains actionHash", () => {
     const ctx = { executedActionHashes: ["ah_done"] };
     const r = evaluateToolPolicy("browser_click", { sessionId: "bs_1", selector: "#buy", approvalId: "apr_1", actionHash: "ah_done", idempotencyKey: "ik1" }, ctx);
