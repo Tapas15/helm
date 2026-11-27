@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { deriveRuntimeCheckpoint, isTerminalCheckpoint } from "./runtime-checkpoint.js";
+import { deriveRuntimeCheckpoint, isResumableInterruptedCheckpoint, isTerminalCheckpoint } from "./runtime-checkpoint.js";
 
 const ts = "2026-11-26T00:00:00.000Z";
 const trace = { taskId: "t1", runId: "r1" };
@@ -12,11 +12,12 @@ describe("runtime checkpoint", () => {
     expect(isTerminalCheckpoint(cp)).toBe(false);
   });
 
-  it("tracks failed/interrupted as terminal", () => {
+  it("tracks failed as terminal and interrupted as resumable", () => {
     const failed = deriveRuntimeCheckpoint(null, { type: "runtime.failed", ts, trace, payload: {} } as any, 1);
     expect(isTerminalCheckpoint(failed)).toBe(true);
     const interrupted = deriveRuntimeCheckpoint(null, { type: "runtime.interrupted", ts, trace, payload: {} } as any, 2);
-    expect(isTerminalCheckpoint(interrupted)).toBe(true);
+    expect(isTerminalCheckpoint(interrupted)).toBe(false);
+    expect(isResumableInterruptedCheckpoint(interrupted)).toBe(true);
   });
 
   it("captures approval request metadata and resume plan", () => {

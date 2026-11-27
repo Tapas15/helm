@@ -5,7 +5,7 @@ import type { AgentRuntimeEvent } from "@helm/shared";
 import { logger as log } from "./lib/logger.js";
 import { emitWorkerFeedbackEvent } from "./feedback.js";
 import { HelmNativeRuntime } from "./runtime.js";
-import { deriveRuntimeCheckpoint, isTerminalCheckpoint, type RuntimeCheckpoint } from "./runtime-checkpoint.js";
+import { deriveRuntimeCheckpoint, isResumableInterruptedCheckpoint, isTerminalCheckpoint, type RuntimeCheckpoint } from "./runtime-checkpoint.js";
 
 export type WorkerDeps = {
   db: ReturnType<typeof createDb>["db"];
@@ -82,7 +82,27 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
   const runtimeEvents: AgentRuntimeEvent[] = [];
   let deltaBuf = "";
   let lastDeltaFlush = 0;
-  if (checkpoint && isTerminalCheckpoint(checkpoint) && task.status === "queued") {
+  if (checkpoint && isResumableInterruptedCheckpoint(checkpoint) && task.status === "queued") {
+    const resumeEvt: AgentRuntimeEvent = {
+      type: "runtime.checkpoint.resumed",
+      ts: now().toISOString(),
+      trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" },
+      message: "Resumed from interrupted runtime checkpoint",
+      payload: { previousRunId: checkpoint.runId, lastEventType: checkpoint.lastEventType, statusHint: checkpoint.statusHint, lastApproval: checkpoint.lastApproval ?? null, resumePlan: checkpoint.resumePlan ?? null, resumedFrom: "interrupted" },
+    };
+    runtimeEvents.push(resumeEvt);
+    await insertEvent(db, task.id, task.userId, runId, resumeEvt.type, correlationId, task.id, { ...resumeEvt.payload, message: resumeEvt.message, ts: resumeEvt.ts, trace: resumeEvt.trace });
+    checkpoint = {
+      ...checkpoint,
+      runId,
+      taskId: task.id,
+      statusHint: "running",
+      updatedAt: now().toISOString(),
+      lastEventType: "runtime.checkpoint.resumed",
+      resumePlan: checkpoint.resumePlan ? { ...checkpoint.resumePlan, lastSafeBoundary: "runtime.checkpoint.resumed" } : { version: 1, lastSafeBoundary: "runtime.checkpoint.resumed", completedToolRefs: [], completedActionHashes: [] },
+    };
+    await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint interrupted-resume persist failed"));
+  } else if (checkpoint && isTerminalCheckpoint(checkpoint) && task.status === "queued") {
     taskLog.info({ event: "runtime.checkpoint.terminal_ignored", checkpoint }, "ignoring stale terminal checkpoint on queued task");
     checkpoint = null;
   }

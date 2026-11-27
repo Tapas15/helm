@@ -161,22 +161,17 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.checkpoint?.statusHint).toBe("interrupted");
   });
 
-  it("does not overwrite cancelled task and emits runtime.interrupted checkpoint when cancelled during runtime", async () => {
+  it("resumes queued task from interrupted checkpoint without terminal-ignored skip", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const { db, task } = makeDb();
-    let flipped = false;
-    const runtime = {
-      interrupt: async () => undefined,
-      run: async function* () {
-        yield { type: "runtime.planning", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "planning", payload: {} };
-        if (!flipped) { task.status = "cancelled"; flipped = true; }
-        yield { type: "runtime.response.delta", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "", payload: { delta: "hi" } };
-      },
-    } as any;
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 7, lastEventType: "runtime.interrupted", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "interrupted", resumePlan: { version: 1, lastSafeBoundary: "runtime.interrupted", completedToolRefs: [{ name: "browser_snapshot", eventSeq: 4, argsKey: JSON.stringify({ sessionId: "s1" }) }], completedActionHashes: [] } };
+    let seenResumePlan: any = undefined;
+    const { db, task } = makeDb({ checkpoint, taskStatus: "queued" });
+    const runtime = { run: async function* (input: any) { seenResumePlan = input?.context?.runtimeResumePlan; yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "done", payload: { status: "succeeded", output: "ok" } }; } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
-    expect(task.status).toBe("cancelled");
-    expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
-    expect(db.insertedEvents.find((e: any) => e.type === "runtime.interrupted")?.payload?.reason).toBe("task_cancelled");
-    expect(task.checkpoint?.statusHint).toBe("interrupted");
+    const resumed = db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.resumed");
+    expect(resumed?.payload?.resumedFrom).toBe("interrupted");
+    expect(seenResumePlan?.lastSafeBoundary).toBe("runtime.checkpoint.resumed");
+    expect(db.insertedEvents.find((e: any) => e.type === "runtime.checkpoint.terminal_ignored")).toBeFalsy();
+    expect(task.status).toBe("succeeded");
   });
 });

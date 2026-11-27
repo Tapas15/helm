@@ -72,5 +72,9 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
 }
 
 export function isTerminalCheckpoint(cp: RuntimeCheckpoint | null | undefined): boolean {
-  return !!cp && ["completed", "failed", "interrupted"].includes(cp.statusHint);
+  return !!cp && ["completed", "failed"].includes(cp.statusHint);
+}
+
+export function isResumableInterruptedCheckpoint(cp: RuntimeCheckpoint | null | undefined): boolean {
+  return !!cp && cp.statusHint === "interrupted";
 }

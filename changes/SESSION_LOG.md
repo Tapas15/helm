@@ -2282,3 +2282,8 @@ Append-only log of major work sessions. Do not rewrite history; append new entri
   - Regression tests assert interrupted event and checkpoint statusHint for paused/cancelled control. (`backend/worker/src/process-task.checkpoint.test.ts`)
   - Evidence: `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS 8/8; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
   - Status/docs: P2 94% (+1), overall 88.22% coding-only.
+- **P2 interrupted-checkpoint resume (local, coding-only)**:
+  - Interrupted checkpoints are resumable (not terminal-ignored) when a queued task is claimed after pause/control interruption; worker emits `runtime.checkpoint.resumed` with `resumedFrom=interrupted`, resets checkpoint to running boundary, preserves resumePlan. Completed/failed remain terminal-ignored. (`backend/worker/src/runtime-checkpoint.ts`, `backend/worker/src/index.ts`)
+  - Regression tests: checkpoint classification updated; process-task interrupted queued resume passes and does not emit terminal-ignored. (`backend/worker/src/runtime-checkpoint.test.ts`, `backend/worker/src/process-task.checkpoint.test.ts`)
+  - Evidence: `pnpm -C backend/worker exec vitest run src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose` PASS 13/13; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
+  - Status/docs: P2 95% (+1), overall 88.33% coding-only. Narrowed semantics; no full replay engine claimed.
