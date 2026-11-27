@@ -198,8 +198,8 @@ export function App() {
     if (token) wsUrl.searchParams.set("token", token);
     const ws = new WebSocket(wsUrl.toString());
     wsRef.current = ws; setStreamStatus("connecting");
-    ws.onopen = () => setStreamStatus("live");
-    ws.onmessage = (ev) => { try { const msg = JSON.parse(String(ev.data)); if (msg?.type === "frame" && typeof msg.data === "string") { setLiveFrame(`data:image/png;base64,${msg.data}`); setStreamStatus("live"); } } catch {} };
+    ws.onopen = () => { (window as any).__helmWs = ws; setStreamStatus("live"); };
+    ws.onmessage = (ev) => { try { const msg = JSON.parse(String(ev.data)); if (msg?.type === "frame" && typeof msg.data === "string") { setLiveFrame(`data:image/png;base64,${msg.data}`); setStreamStatus("live"); } if (msg?.type === "input.result") { (window as any).__helmLastInputResult = msg; } } catch {} };
     ws.onerror = () => setStreamStatus("offline");
     ws.onclose = () => setStreamStatus((s) => s === "live" ? "offline" : s);
     return () => { ws.close(); };

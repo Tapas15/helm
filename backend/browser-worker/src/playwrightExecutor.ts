@@ -129,10 +129,28 @@ export class PlaywrightBrowserExecutor implements BrowserExecutor {
     if (!s) return { ok: false, error: "session not found" };
     if (s.session.control.owner !== "user") return { ok: false, error: "takeover required for interactive control" };
     try {
-      if (input.type === "click") await s.page.mouse.click(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left" });
-      else if (input.type === "type") await s.page.keyboard.type(String(input.text ?? ""));
-      else if (input.type === "press") await s.page.keyboard.press(String(input.key ?? "Enter"));
-      else if (input.type === "scroll") await s.page.mouse.wheel(Number(input.deltaX ?? 0), Number(input.deltaY ?? 0));
+      const t = String(input.type ?? "");
+      const modifiers = Array.isArray(input.modifiers) ? input.modifiers.filter((m: unknown) => typeof m === "string") : [];
+      if (t === "click") await s.page.mouse.click(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left", clickCount: Math.max(1, Number(input.clickCount ?? 1)), delay: Math.max(0, Number(input.delay ?? 0)) });
+      else if (t === "dblclick") await s.page.mouse.dblclick(Number(input.x ?? 0), Number(input.y ?? 0), { button: input.button ?? "left" });
+      else if (t === "move" || t === "mousemove") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0));
+      else if (t === "mousedown") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.down({ button: input.button ?? "left" }));
+      else if (t === "mouseup") await s.page.mouse.move(Number(input.x ?? 0), Number(input.y ?? 0)).then(() => s.page.mouse.up({ button: input.button ?? "left" }));
+      else if (t === "drag") {
+        await s.page.mouse.move(Number(input.fromX ?? input.x ?? 0), Number(input.fromY ?? input.y ?? 0));
+        await s.page.mouse.down({ button: input.button ?? "left" });
+        await s.page.mouse.move(Number(input.toX ?? 0), Number(input.toY ?? 0), { steps: Math.max(1, Number(input.steps ?? 10)) });
+        await s.page.mouse.up({ button: input.button ?? "left" });
+      }
+      else if (t === "type") await s.page.keyboard.type(String(input.text ?? ""), { delay: Math.max(0, Number(input.delay ?? 0)) });
+      else if (t === "press") {
+        const key = String(input.key ?? "Enter");
+        const combo = modifiers.length ? `${modifiers.join("+")}+${key}` : key;
+        await s.page.keyboard.press(combo, { delay: Math.max(0, Number(input.delay ?? 0)) });
+      }
+      else if (t === "keydown") await s.page.keyboard.down(String(input.key ?? ""));
+      else if (t === "keyup") await s.page.keyboard.up(String(input.key ?? ""));
+      else if (t === "scroll" || t === "wheel") await s.page.mouse.wheel(Number(input.deltaX ?? 0), Number(input.deltaY ?? 0));
       else return { ok: false, error: "unsupported input type" };
       s.session.updatedAt = new Date().toISOString(); this.scheduleClose(sessionId); await persistState(this.stateDir, s);
       return { ok: true };
