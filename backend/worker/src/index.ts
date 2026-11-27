@@ -164,6 +164,9 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         },
       };
     }
+    if (checkpoint) {
+      await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resume merge persist failed"));
+    }
   }
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
     const approvedActionKinds = approvedRows.map((r) => r.actionKind);
