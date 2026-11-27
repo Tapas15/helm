@@ -156,16 +156,21 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
     const executedReceiptHashesRows = await db.select({ actionHash: actionReceipts.actionHash }).from(actionReceipts).where(and(eq(actionReceipts.taskId, task.id), eq(actionReceipts.userId, task.userId), eq(actionReceipts.status, "executed")));
     const executedReceiptHashes = Array.from(new Set(executedReceiptHashesRows.map((r) => String(r.actionHash)).filter(Boolean)));
     if (executedReceiptHashes.length > 0) {
-      checkpoint = {
-        ...checkpoint,
-        resumePlan: {
-          ...(checkpoint.resumePlan ?? { version: 1, lastSafeBoundary: checkpoint.lastEventType ?? "runtime.checkpoint.resumed", completedToolRefs: [], completedActionHashes: [] }),
-          completedActionHashes: Array.from(new Set([...(checkpoint.resumePlan?.completedActionHashes ?? []), ...executedReceiptHashes])).slice(-50),
-        },
+      const mergedResumePlan = {
+        ...(checkpoint?.resumePlan ?? { version: 1, lastSafeBoundary: checkpoint?.lastEventType ?? "runtime.checkpoint.resumed", completedToolRefs: [], completedActionHashes: [] }),
+        completedActionHashes: Array.from(new Set([...(checkpoint?.resumePlan?.completedActionHashes ?? []), ...executedReceiptHashes])).slice(-50),
       };
-    }
-    if (checkpoint) {
-      await persistCheckpoint(db, task, runId, { ...checkpoint, runId, taskId: task.id, updatedAt: now().toISOString() }).catch((err) => taskLog.warn({ err }, "checkpoint resume merge persist failed"));
+      const resumePlanChanged = JSON.stringify(mergedResumePlan.completedActionHashes ?? []) !== JSON.stringify(checkpoint?.resumePlan?.completedActionHashes ?? []);
+      checkpoint = {
+        ...(checkpoint ?? { version: 1, runId, taskId: task.id, lastEventSeq: 0, lastEventType: "runtime.checkpoint.resumed", updatedAt: now().toISOString(), statusHint: "running" as const }),
+        runId,
+        taskId: task.id,
+        updatedAt: now().toISOString(),
+        resumePlan: mergedResumePlan,
+      };
+      if (resumePlanChanged) {
+        await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint resume merge persist failed"));
+      }
     }
   }
     const approvedRows = await db.select().from(approvals).where(and(eq(approvals.taskId, task.id), eq(approvals.status, "approved")));
@@ -209,7 +214,7 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         if (deltaBuf) { await insertEvent(db, task.id, task.userId, runId, "runtime.response.delta", correlationId, task.id, { delta: deltaBuf, ts: evt.ts, trace: evt.trace }); deltaBuf = ""; }
         await insertEvent(db, task.id, task.userId, runId, evt.type, correlationId, task.id, { ...evt.payload, message: evt.message, ts: evt.ts, trace: evt.trace });
       }
-      if (["runtime.planning", "runtime.tool.completed", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
+      if (["runtime.planning", "runtime.tool.started", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted", "runtime.checkpoint.resumed"].includes(evt.type)) {
         await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
       }
       const nowMs = Date.now();

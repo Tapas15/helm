@@ -194,7 +194,6 @@ describe("processTask checkpoint resume/dedupe", () => {
     await processTask(task, { db, runtime, workerId: "w1" });
     expect(seen).toContain("ah_exec");
   });
-});
 
   it("merges executed receipt action hashes into resume plan after pending approval executed", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
@@ -206,13 +205,14 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(seen?.completedActionHashes).toContain("ah_exec");
     expect(task.status).toBe("succeeded");
   });
-  it("persists checkpoint when runtime yields no events and task control becomes paused", async () => {
+
+  it("persists merged executed receipt hashes before runtime emits events", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const { db, task } = makeDb({ taskStatus: "queued" });
-    task.status = "paused"; // simulate control flip observed at next control check boundary
-    const runtime = { run: async function* () { /* no events */ } } as any;
+    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.tool.completed", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [], completedActionHashes: [] } };
+    const { db, task } = makeDb({ checkpoint, taskStatus: "queued", receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", actionHash: "ah_exec", status: "executed" }] });
+    const runtime = { run: async function* () { throw new Error("boom_before_event"); } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
-    expect(task.status).toBe("paused");
-    // no terminal overwrite; checkpoint may remain null because no runtime event occurred, but process should exit cleanly
-    expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
+    expect(task.checkpoint?.resumePlan?.completedActionHashes).toContain("ah_exec");
+    expect(task.status).toBe("failed");
   });
+});
