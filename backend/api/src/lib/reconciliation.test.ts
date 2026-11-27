@@ -167,13 +167,22 @@ describe("reconcileUncertainReceipts (P5 DB-canonical, no-blind-retry)", () => {
     expect(state.receiptUpdates).toHaveLength(0);
   });
 
-  it("reconciles calendar delete as executed only when lookup proves absence", async () => {
-    state.receipts = [baseReceipt({ actionKind: "calendar.delete_event", evidence: { accountId: "cac_1", calendarId: "primary", eventId: "evt_1" } })];
-    lookupCalendarEventById.mockResolvedValueOnce({ ok: true, externalRef: "evt_1", matchedBy: "event_absent" });
+  it("reconciles calendar update as executed only when lookup proves provider state", async () => {
+    state.receipts = [baseReceipt({ actionKind: "calendar.update_event", evidence: { accountId: "cac_1", calendarId: "primary", eventId: "evt_1" } })];
+    lookupCalendarEventById.mockResolvedValueOnce({ ok: true, externalRef: "evt_1", matchedBy: "event_present" });
     const out = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
     expect(out.reconciled).toBe(1);
-    expect(lookupCalendarEventById).toHaveBeenCalledWith(db, expect.anything(), "usr_1", expect.anything(), false);
+    expect(lookupCalendarEventById).toHaveBeenCalledWith(db, expect.anything(), "usr_1", expect.anything(), true);
     expect(state.receipts[0].status).toBe("executed");
+  });
+
+  it("reconciles calendar create as executed when lookup finds matching event", async () => {
+    state.receipts = [baseReceipt({ actionKind: "calendar.create_event", evidence: { accountId: "cac_1", calendarId: "primary", summary: "Helm E2E", idempotencyKey: "idem_1" } })];
+    lookupCalendarCreate.mockResolvedValueOnce({ ok: true, externalRef: "evt_created", matchedBy: "privateExtendedProperty" });
+    const out = await reconcileUncertainReceipts(db as any, { olderThanMs: 0, limit: 10 });
+    expect(out.reconciled).toBe(1);
+    expect(state.receipts[0].status).toBe("executed");
+    expect(state.receipts[0].externalRef).toBe("evt_created");
   });
 
 
