@@ -2277,3 +2277,8 @@ Append-only log of major work sessions. Do not rewrite history; append new entri
   - Worker runtime emits `runtime.failed` `POLICY_DENIED` with `guardrail=sensitive_egress` when blocked; API runtime config/validate surface policy. (`backend/worker/src/runtime.ts`, `backend/api/src/routes/runtime.ts`)
   - Evidence: `pnpm -C packages/shared build` PASS; `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts --reporter=verbose` PASS 5/5; `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/hermes-runtime-adapter.test.ts --reporter=verbose` PASS 33/33; `pnpm -C backend/api exec tsc --noEmit --pretty false` PASS; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
   - Status/docs: P2 93% (+1), overall 88.11% coding-only. No real-provider/browser/connector/Hermes live evidence claimed.
+- **P2 control-interrupt checkpoint event (local, coding-only)**:
+  - Worker now emits/persists `runtime.interrupted` with `reason=task_paused|task_cancelled` when control status is observed mid-runtime; clears lease and preserves checkpoint statusHint interrupted. (`backend/worker/src/index.ts`)
+  - Regression tests assert interrupted event and checkpoint statusHint for paused/cancelled control. (`backend/worker/src/process-task.checkpoint.test.ts`)
+  - Evidence: `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS 8/8; `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS.
+  - Status/docs: P2 94% (+1), overall 88.22% coding-only.

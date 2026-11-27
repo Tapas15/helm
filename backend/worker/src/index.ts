@@ -176,8 +176,14 @@ export async function processTask(task: typeof tasks.$inferSelect, deps: WorkerD
         const [current] = await db.select({ status: tasks.status }).from(tasks).where(and(eq(tasks.id, task.id), eq(tasks.userId, task.userId))).limit(1);
         if (current?.status === "cancelled" || current?.status === "paused") {
           await runtime.interrupt?.(runId).catch(() => undefined);
+          const interruptEvt: AgentRuntimeEvent = { type: "runtime.interrupted", ts: now().toISOString(), trace: { taskId: task.id, runId, correlationId, userId: task.userId, agentId: "helm-native" }, message: `Runtime interrupted by task ${current.status}`, payload: { reason: `task_${current.status}`, status: current.status } };
+          runtimeEvents.push(interruptEvt);
+          const intSeq = await nextSequence(db, task.id);
+          checkpoint = deriveRuntimeCheckpoint(checkpoint, interruptEvt, intSeq);
+          await insertEvent(db, task.id, task.userId, runId, interruptEvt.type, correlationId, task.id, { ...interruptEvt.payload, message: interruptEvt.message, ts: interruptEvt.ts, trace: interruptEvt.trace });
+          await persistCheckpoint(db, task, runId, checkpoint).catch((err) => taskLog.warn({ err }, "checkpoint persist failed"));
+          await db.update(tasks).set({ leaseOwner: null, leaseUntil: null, updatedAt: now(), checkpoint: checkpoint as any, state: sql`jsonb_set(coalesce(${tasks.state}, '{}'::jsonb), '{runtimeCheckpoint}', ${JSON.stringify(checkpoint)}::jsonb)` }).where(and(eq(tasks.id, task.id), eq(tasks.leaseOwner, workerId)));
           taskLog.info({ event: "runtime.interrupt.requested", status: current.status }, "interrupt requested due to task control");
-          if (checkpoint) await persistCheckpoint(db, task, runId, checkpoint).catch(() => undefined);
           return;
         }
       }

@@ -156,5 +156,27 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.status).toBe("paused");
     expect(interruptedRunId).toBeTruthy();
     expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
+    const interrupted = db.insertedEvents.find((e: any) => e.type === "runtime.interrupted");
+    expect(interrupted?.payload?.reason).toBe("task_paused");
+    expect(task.checkpoint?.statusHint).toBe("interrupted");
+  });
+
+  it("does not overwrite cancelled task and emits runtime.interrupted checkpoint when cancelled during runtime", async () => {
+    process.env.HELM_FEEDBACK_ENABLED = "0";
+    const { db, task } = makeDb();
+    let flipped = false;
+    const runtime = {
+      interrupt: async () => undefined,
+      run: async function* () {
+        yield { type: "runtime.planning", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "planning", payload: {} };
+        if (!flipped) { task.status = "cancelled"; flipped = true; }
+        yield { type: "runtime.response.delta", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "", payload: { delta: "hi" } };
+      },
+    } as any;
+    await processTask(task, { db, runtime, workerId: "w1" });
+    expect(task.status).toBe("cancelled");
+    expect(db.insertedEvents.find((e: any) => e.type === "task.completed")).toBeFalsy();
+    expect(db.insertedEvents.find((e: any) => e.type === "runtime.interrupted")?.payload?.reason).toBe("task_cancelled");
+    expect(task.checkpoint?.statusHint).toBe("interrupted");
   });
 });
