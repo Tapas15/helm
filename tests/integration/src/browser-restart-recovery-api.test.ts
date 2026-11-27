@@ -145,5 +145,16 @@ async function api(base: string, path: string, init?: RequestInit, userId = "usr
     const shot = await api(apiBase, `/v1/browser/sessions/${sessionId}/screenshot`, { method: "POST", body: JSON.stringify({ fullPage: false }) });
     expect(shot.status).toBe(200);
     expect(shot.json?.ok).toBe(true);
+
+    const snap = await api(apiBase, `/v1/browser/sessions/${sessionId}/snapshot`, { method: "POST", body: JSON.stringify({}) });
+    expect(snap.status).toBe(200);
+    expect(snap.json?.ok).toBe(true);
+
+    const stream = await api(apiBase, `/v1/browser/sessions/${sessionId}/stream/status`);
+    expect(stream.status).toBe(200);
+    expect(stream.json?.ok).toBe(true);
+
+    const missing = await api(apiBase, `/v1/browser/sessions/bs_missing_${Date.now()}`);
+    expect(missing.status).toBe(404);
   }, 180000);
 });

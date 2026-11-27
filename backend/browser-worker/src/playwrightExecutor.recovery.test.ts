@@ -97,5 +97,14 @@ async function stopWorker(child: ChildProcessWithoutNullStreams | null) {
     const shot = await fetch(`${base}/v1/sessions/${sessionId}/screenshot`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ fullPage: false }) }).then(r => r.json() as any);
     expect(shot.ok).toBe(true);
     expect(shot.data?.artifact?.artifactId).toBeTruthy();
+
+    const snap = await fetch(`${base}/v1/sessions/${sessionId}/snapshot`, { method: "POST", headers: { authorization: `Bearer ${token}` } }).then(r => r.json() as any);
+    expect(snap.ok).toBe(true);
+
+    const status = await fetch(`${base}/v1/sessions/${sessionId}/stream/status`, { headers: { authorization: `Bearer ${token}` } }).then(r => r.json() as any);
+    expect(status.ok).toBe(true);
+
+    const missing = await fetch(`${base}/v1/sessions/bs_missing_${Date.now()}`, { headers: { authorization: `Bearer ${token}` } });
+    expect(missing.status).toBe(404);
   }, 120000);
 });
