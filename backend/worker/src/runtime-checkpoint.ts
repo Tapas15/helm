@@ -34,19 +34,22 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     updatedAt: evt.ts,
     resumePlan: base.resumePlan ?? { version: 1, lastSafeBoundary: null, completedToolRefs: [] },
   };
-  if (["runtime.planning", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted"].includes(evt.type)) {
+  if (["runtime.planning", "runtime.tool.started", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted", "runtime.checkpoint.resumed"].includes(evt.type)) {
     next.resumePlan = { ...next.resumePlan!, lastSafeBoundary: evt.type };
   }
-  if (evt.type === "runtime.tool.completed") {
+  if (evt.type === "runtime.tool.started" || evt.type === "runtime.tool.completed" || evt.type === "runtime.tool.deduped") {
     const payload = (evt.payload as any) ?? {};
     const name = typeof payload?.name === "string" ? String(payload.name) : "unknown";
     const args = payload?.args && typeof payload.args === "object" ? payload.args : {};
-    const actionHash = typeof args.actionHash === "string" && args.actionHash ? String(args.actionHash) : undefined;
-    const idempotencyKey = typeof args.idempotencyKey === "string" && args.idempotencyKey ? String(args.idempotencyKey) : undefined;
+    const actionHash = typeof args.actionHash === "string" && args.actionHash ? String(args.actionHash) : typeof payload?.actionHash === "string" && payload.actionHash ? String(payload.actionHash) : undefined;
+    const idempotencyKey = typeof args.idempotencyKey === "string" && args.idempotencyKey ? String(args.idempotencyKey) : typeof payload?.idempotencyKey === "string" && payload.idempotencyKey ? String(payload.idempotencyKey) : undefined;
     const argsKey = typeof payload.argsKey === "string" && payload.argsKey ? String(payload.argsKey) : (name.startsWith("browser_") ? (() => { try { const a = { ...(args as any) }; delete a.approvalId; delete a.actionHash; delete a.idempotencyKey; const keys = Object.keys(a).sort(); const out: any = {}; for (const k of keys) out[k] = a[k]; return JSON.stringify(out).slice(0, 500); } catch { return undefined; } })() : undefined);
-    const refs = [...(next.resumePlan?.completedToolRefs ?? []), { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}), ...(argsKey ? { argsKey } : {}) }].slice(-20);
-    const completedActionHashes = Array.from(new Set([...(next.resumePlan?.completedActionHashes ?? []), ...(actionHash ? [actionHash] : [])])).slice(-20);
-    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs, completedActionHashes };
+    const refs = [...(next.resumePlan?.completedToolRefs ?? [])];
+    const existingIdx = refs.findIndex((r) => r.name === name && r.eventSeq === seq);
+    const ref = { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}), ...(argsKey ? { argsKey } : {}) };
+    if (existingIdx >= 0) refs[existingIdx] = { ...refs[existingIdx], ...ref }; else refs.push(ref);
+    const completedActionHashes = Array.from(new Set([...(next.resumePlan?.completedActionHashes ?? []), ...(evt.type === "runtime.tool.completed" && actionHash ? [actionHash] : [])])).slice(-20);
+    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs.slice(-20), completedActionHashes };
   }
   if (evt.type === "runtime.completed") {
     const status = String((evt.payload as any)?.status ?? "succeeded");
