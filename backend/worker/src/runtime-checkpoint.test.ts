@@ -44,5 +44,13 @@ describe("runtime checkpoint", () => {
     expect(cp.resumePlan?.lastSafeBoundary).toBe("runtime.tool.started");
     expect(cp.resumePlan?.completedToolRefs).toEqual([]);
     expect(cp.resumePlan?.completedActionHashes).toEqual([]);
+    expect(cp.resumePlan?.inFlightToolRefs).toEqual([{ name: "browser_snapshot", eventSeq: 2, argsKey: "{\"sessionId\":\"s1\"}" }]);
+  });
+
+  it("clears in-flight tool ref when tool completes", () => {
+    let cp = deriveRuntimeCheckpoint(null, { type: "runtime.tool.started", ts, trace, payload: { name: "browser_click", args: { sessionId: "s1", selector: "#a", actionHash: "ah1", idempotencyKey: "ik1" }, argsKey: "{\"selector\":\"#a\",\"sessionId\":\"s1\"}" } } as any, 2);
+    cp = deriveRuntimeCheckpoint(cp, { type: "runtime.tool.completed", ts, trace, payload: { name: "browser_click", args: { actionHash: "ah1", idempotencyKey: "ik1" }, argsKey: "{\"selector\":\"#a\",\"sessionId\":\"s1\"}" } } as any, 3);
+    expect(cp.resumePlan?.inFlightToolRefs).toEqual([]);
+    expect(cp.resumePlan?.completedActionHashes).toContain("ah1");
   });
 });

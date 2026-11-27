@@ -4,6 +4,7 @@ export type RuntimeResumePlan = {
   version: 1;
   lastSafeBoundary: string | null;
   pendingApproval?: { actionHash: string; actionKind?: string; approvalId?: string };
+  inFlightToolRefs?: Array<{ name: string; eventSeq: number; actionHash?: string; idempotencyKey?: string; argsKey?: string }>;
   completedToolRefs: Array<{ name: string; eventSeq: number; actionHash?: string; idempotencyKey?: string; argsKey?: string }>;
   completedActionHashes?: string[];
 };
@@ -32,10 +33,23 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     lastEventSeq: seq,
     lastEventType: evt.type,
     updatedAt: evt.ts,
-    resumePlan: { completedActionHashes: [], ...(base.resumePlan ?? { version: 1 as const, lastSafeBoundary: null, completedToolRefs: [] }), version: 1 as const },
+    resumePlan: { completedActionHashes: [], inFlightToolRefs: [], ...(base.resumePlan ?? { version: 1 as const, lastSafeBoundary: null, completedToolRefs: [] }), version: 1 as const },
   };
   if (["runtime.planning", "runtime.tool.started", "runtime.tool.completed", "runtime.tool.deduped", "runtime.approval.requested", "runtime.takeover.requested", "runtime.completed", "runtime.failed", "runtime.interrupted", "runtime.checkpoint.resumed"].includes(evt.type)) {
     next.resumePlan = { ...next.resumePlan!, lastSafeBoundary: evt.type };
+  }
+  if (evt.type === "runtime.tool.started") {
+    const payload = (evt.payload as any) ?? {};
+    const name = typeof payload?.name === "string" ? String(payload.name) : "unknown";
+    const args = payload?.args && typeof payload.args === "object" ? payload.args : {};
+    const actionHash = typeof args.actionHash === "string" && args.actionHash ? String(args.actionHash) : typeof payload?.actionHash === "string" && payload.actionHash ? String(payload.actionHash) : undefined;
+    const idempotencyKey = typeof args.idempotencyKey === "string" && args.idempotencyKey ? String(args.idempotencyKey) : typeof payload?.idempotencyKey === "string" && payload.idempotencyKey ? String(payload.idempotencyKey) : undefined;
+    const argsKey = typeof payload.argsKey === "string" && payload.argsKey ? String(payload.argsKey) : (name.startsWith("browser_") ? (() => { try { const a = { ...(args as any) }; delete a.approvalId; delete a.actionHash; delete a.idempotencyKey; const keys = Object.keys(a).sort(); const out: any = {}; for (const k of keys) out[k] = a[k]; return JSON.stringify(out).slice(0, 500); } catch { return undefined; } })() : undefined);
+    const ref = { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}), ...(argsKey ? { argsKey } : {}) };
+    const refs = [...(next.resumePlan?.inFlightToolRefs ?? [])];
+    const existingIdx = refs.findIndex((r) => r.name === name && r.eventSeq === seq);
+    if (existingIdx >= 0) refs[existingIdx] = { ...refs[existingIdx], ...ref }; else refs.push(ref);
+    next.resumePlan = { ...next.resumePlan!, inFlightToolRefs: refs.slice(-20) };
   }
   if (evt.type === "runtime.tool.completed" || evt.type === "runtime.tool.deduped") {
     const payload = (evt.payload as any) ?? {};
@@ -49,7 +63,8 @@ export function deriveRuntimeCheckpoint(prev: RuntimeCheckpoint | null, evt: Age
     const ref = { name, eventSeq: seq, ...(actionHash ? { actionHash } : {}), ...(idempotencyKey ? { idempotencyKey } : {}), ...(argsKey ? { argsKey } : {}) };
     if (existingIdx >= 0) refs[existingIdx] = { ...refs[existingIdx], ...ref }; else refs.push(ref);
     const completedActionHashes = Array.from(new Set([...(next.resumePlan?.completedActionHashes ?? []), ...(evt.type === "runtime.tool.completed" && actionHash ? [actionHash] : [])])).slice(-20);
-    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs.slice(-20), completedActionHashes };
+    const inFlightToolRefs = (next.resumePlan?.inFlightToolRefs ?? []).filter((r) => !(r.name === name && (actionHash ? r.actionHash === actionHash : true) && (argsKey ? r.argsKey === argsKey : true)));
+    next.resumePlan = { ...next.resumePlan!, completedToolRefs: refs.slice(-20), completedActionHashes, inFlightToolRefs: inFlightToolRefs.slice(-20) };
   }
   if (evt.type === "runtime.completed") {
     const status = String((evt.payload as any)?.status ?? "succeeded");
