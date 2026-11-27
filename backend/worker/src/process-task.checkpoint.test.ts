@@ -38,13 +38,20 @@ function makeDb(opts?: { checkpoint?: any; approvals?: any[]; receipts?: any[]; 
     insertedEvents, insertedApprovals, insertedAudit, feedbackRows, insertedReceipts,
     select: () => ({ from: (table: unknown) => selectChain(table) }),
     insert: (table: unknown) => ({
-      values: async (v: any) => {
-        if (table === taskEvents) insertedEvents.push(v);
-        if (table === approvals) { insertedApprovals.push(v); approvalsRows.push(v); }
-        if (table === auditLog) insertedAudit.push(v);
-        if (table === feedbackEvents) feedbackRows.push(v);
-        if (table === actionReceipts) { insertedReceipts.push(v); receiptRows.push(v); }
-        return { onConflictDoNothing: async () => undefined, returning: async () => [v] };
+      values: (v: any) => {
+        const p = (async () => {
+          if (table === taskEvents) insertedEvents.push(v);
+          if (table === approvals) { insertedApprovals.push(v); approvalsRows.push(v); }
+          if (table === auditLog) insertedAudit.push(v);
+          if (table === feedbackEvents) feedbackRows.push(v);
+          if (table === actionReceipts) { insertedReceipts.push(v); receiptRows.push(v); }
+        })();
+        return {
+          onConflictDoNothing: async () => { await p; },
+          returning: async () => { await p; return [v]; },
+          catch: (fn: any) => p.catch(fn),
+          then: (resolve: any, reject: any) => p.then(resolve, reject),
+        };
       },
     }),
     update: () => ({ set: (v: any) => updateChain(v) }),
@@ -206,13 +213,28 @@ describe("processTask checkpoint resume/dedupe", () => {
     expect(task.status).toBe("succeeded");
   });
 
-  it("persists merged executed receipt hashes before runtime emits events", async () => {
+  it("persists waiting_approval checkpoint boundary before task status write", async () => {
     process.env.HELM_FEEDBACK_ENABLED = "0";
-    const checkpoint = { version: 1, runId: "run_old", taskId: "tsk_1", lastEventSeq: 2, lastEventType: "runtime.tool.completed", updatedAt: "2026-11-27T00:00:00.000Z", statusHint: "running", resumePlan: { version: 1, lastSafeBoundary: "runtime.tool.completed", completedToolRefs: [], completedActionHashes: [] } };
-    const { db, task } = makeDb({ checkpoint, taskStatus: "queued", receipts: [{ id: "rcpt_1", taskId: "tsk_1", userId: "u1", actionHash: "ah_exec", status: "executed" }] });
-    const runtime = { run: async function* () { throw new Error("boom_before_event"); } } as any;
+    const { db, task } = makeDb();
+    const origUpdate = db.update;
+    db.update = (table: unknown) => {
+      const chain = origUpdate(table);
+      return {
+        set: (v: any) => {
+          if (table === tasks && v?.status === "waiting_approval") {
+            expect(task.checkpoint?.statusHint).toBe("waiting_approval");
+            expect(task.checkpoint?.resumePlan?.pendingApproval?.actionHash).toBe("ah_wait");
+          }
+          return chain.set(v);
+        },
+      };
+    };
+    const runtime = { run: async function* () {
+      yield { type: "runtime.tool.proposed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "needs approval", payload: { approvalRequired: true, actionHash: "ah_wait", action: "external.high_risk" } };
+      yield { type: "runtime.completed", ts: new Date().toISOString(), trace: { taskId: task.id }, message: "waiting", payload: { status: "waiting_approval", output: "wait" } };
+    } } as any;
     await processTask(task, { db, runtime, workerId: "w1" });
-    expect(task.checkpoint?.resumePlan?.completedActionHashes).toContain("ah_exec");
-    expect(task.status).toBe("failed");
+    expect(task.status).toBe("waiting_approval");
+    expect(task.checkpoint?.resumePlan?.pendingApproval?.actionHash).toBe("ah_wait");
   });
 });
