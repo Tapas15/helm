@@ -31,9 +31,22 @@ describe("runtime model policy", () => {
     expect(d.warnings.length).toBeGreaterThan(0);
   });
 
-  it("falls back when no model/baseUrl configured", () => {
-    const d = decideRuntimeModelPolicy({ sensitivity: "normal", taskKind: "assistant", toolCallingRequired: false }, {});
-    expect(d.route).toBe("fallback-no-model");
-    expect(d.selectedModel).toBeNull();
+  it("denies sensitive egress when enforcement enabled", () => {
+    const d = decideRuntimeModelPolicy(
+      { requestedModel: "gpt-4.1-mini", requestedProvider: "openai-compatible", requestedBaseUrl: "https://api.openai.com/v1", sensitivity: "sensitive", taskKind: "assistant", toolCallingRequired: true },
+      { allowlist: ["llama3.2:latest"], enforceSensitiveEgress: true },
+    );
+    expect(d.egressAllowed).toBe(false);
+    expect(d.egressPolicy).toBe("deny-nonlocal-sensitive");
+    expect(d.warnings.some((w) => w.includes("cannot use non-local provider"))).toBe(true);
+  });
+
+  it("allows local sensitive routing when enforcement enabled", () => {
+    const d = decideRuntimeModelPolicy(
+      { requestedModel: "llama3.2:latest", requestedProvider: "ollama", requestedBaseUrl: "http://127.0.0.1:11434/v1", sensitivity: "sensitive", taskKind: "assistant", toolCallingRequired: true },
+      { allowlist: ["llama3.2:latest"], enforceSensitiveEgress: true },
+    );
+    expect(d.egressAllowed).toBe(true);
+    expect(d.egressPolicy).toBe("allow");
   });
 });

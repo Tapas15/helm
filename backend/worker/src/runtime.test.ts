@@ -50,6 +50,18 @@ describe("runtime helpers", () => {
     expect(cfg?.policy.route).toBe("override");
     expect(cfg?.policy.toolCapable).toBe(true);
   });
+  it("resolveModel blocks sensitive non-local egress when enforcement enabled", () => {
+    const prev = process.env.HELM_ENFORCE_SENSITIVE_EGRESS;
+    process.env.HELM_ENFORCE_SENSITIVE_EGRESS = "1";
+    try {
+      const cfg = resolveModel({ ...process.env, HELM_MODEL_TOOL_CAPABLE_ALLOWLIST: "llama3.2:latest" }, { model: "gpt-4.1-mini", provider: "openai-compatible", baseUrl: "https://api.openai.com/v1" }, { sensitivity: "sensitive", toolCallingRequired: true, taskKind: "assistant" });
+      expect(cfg?.policy.egressAllowed).toBe(false);
+      expect(cfg?.policy.egressPolicy).toBe("deny-nonlocal-sensitive");
+    } finally {
+      if (prev === undefined) delete process.env.HELM_ENFORCE_SENSITIVE_EGRESS; else process.env.HELM_ENFORCE_SENSITIVE_EGRESS = prev;
+    }
+  });
+
   it("enforces tool policy for unknown/high-risk browser tools", () => {
     expect(evaluateToolPolicy("unknown", {}, {})).toMatchObject({ ok: false });
     expect(evaluateToolPolicy("browser_click", { sessionId: "s1", selector: "#a" }, {})).toMatchObject({ ok: false });

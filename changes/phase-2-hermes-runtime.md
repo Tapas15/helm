@@ -14,6 +14,7 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - **Model/tool capability controls**: `HELM_MODEL_TOOL_CAPABLE_ALLOWLIST`, `isToolCapableModel()` warning/gating; browser tools gated by `shouldExposeBrowserTools()` and require `sessionId`.
 - **Runtime config/override**: Thread abstraction `RuntimeThreadMessage`/`input.thread`; model override with clamped timeout/maxTokens; `GET /v1/runtime/config`, `POST /v1/runtime/model-validate`.
 - **Interrupt/control safety (2026-11-27)**: `HelmNativeRuntime.interrupt(runId)` aborts active run; `streamChat` honors abort signal and emits `runtime.interrupted` (mapped to cancelled). Worker detects DB task `cancelled`/`paused` during runtime, requests interrupt, persists checkpoint, clears lease, and does not overwrite task control status with terminal runtime success/failure.
+- **Sensitive egress policy (2026-11-27)**: Shared runtime policy now returns `egressAllowed`/`egressPolicy`; when `HELM_ENFORCE_SENSITIVE_EGRESS=1`, sensitive tasks routed to non-local provider are denied fail-closed (`POLICY_DENIED`, `guardrail=sensitive_egress`) in worker runtime. API runtime config/validate surfaces the policy. Deterministic tests added.
 - **Tests/probes**: Worker tests PASS (runtime/checkpoint/process-task targeted suites; see Evidence). Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
 
 ## Checklist
@@ -36,6 +37,7 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [x] Hermes sidecar adapter contract skeleton (fail-closed, no Hermes code copied) + contract test (`hermes-runtime-adapter.ts/.test.ts`).
 - [x] Runtime checkpoint scaffolding + resume guard: worker derives/persists `runtimeCheckpoint` at safe boundaries; emits `runtime.checkpoint.resumed` + `runtime.checkpoint.resume_plan_applied` (counts); dedupes approval proposals by actionHash/executed receipt; persists bounded `resumePlan` with completed tool refs/action hashes/argsKey; runtime tool policy blocks duplicate side-effect `actionHash` and duplicate read-only same-args calls from resumePlan and emits `runtime.tool.deduped` resume-safe boundary; on resume, pending unresolved approval returns to `waiting_approval` without rerunning runtime, executed-receipt pending approval clears plan and continues safely. **Narrowed semantics: not full step-level replay engine.**
 - [x] Cooperative interrupt/control safety: `interrupt(runId)` aborts active runtime; worker checks DB for `cancelled`/`paused` during runtime, requests interrupt, persists checkpoint, clears lease, and does not overwrite control status with terminal runtime result. Regression tests cover cancelled and paused mid-runtime.
+- [x] Sensitive-egress enforcement gate: `HELM_ENFORCE_SENSITIVE_EGRESS=1` denies sensitive task routing to non-local provider (fail-closed `POLICY_DENIED`, `guardrail=sensitive_egress`); policy fields exposed in runtime config/validate and worker runtime events. Local sensitive routing remains allowed.
 - [x] Worker tests: `backend/worker/src/runtime.test.ts`, `runtime.behavior.test.ts`, `runtime.evals.test.ts`, `hermes-runtime-adapter.test.ts`, `runtime-checkpoint.test.ts`, `process-task.checkpoint.test.ts`, `process-task.feedback.test.ts` PASS.
 - [x] Ollama probes: `llama3.2:latest` PASS, `qwen2.5:latest` PASS; `qwen3.5:latest`/`qwen3:4b` timed out at 90s.
 
@@ -43,7 +45,7 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 - [ ] Live end-to-end runtime validation across real browser + connector flows. **Blocked:** needs real connector/browser env and live smoke.
 - [ ] Integration-driven behavior tweaks from real runs.
 - [ ] Production/model-provider behavior evidence.
-- [ ] Richer provider/model routing policy depth (cost-aware routing, persisted selection UX polish, enforced sensitive-egress policy gates). **Partially started:** shared policy decision + warnings wired.
+- [ ] Richer provider/model routing policy depth (cost-aware routing, persisted selection UX polish, broader sensitive-egress classification beyond explicit sensitivity flag). **Partially started:** shared policy decision + warnings + enforceable sensitive-egress gate wired.
 - [ ] Interrupt/resume/checkpoint semantics for long-running runs. **Partial:** cooperative interrupt + control-status non-overwrite + checkpoint persisted; pending-approval resume guard and dedupe exist; durable resume-from-checkpoint execution/replay semantics still not implemented.
 - [ ] Runtime evals depth: real tool-calling reliability, approval correctness/recovery under real providers/browser/connectors. **Partially started:** deterministic harness added.
 - [ ] Optional Hermes sidecar adapter live integration implementing same `AgentRuntime` contract against real Hermes runtime (no Hermes code copied). **Partially started:** fail-closed skeleton + contract test added.
@@ -67,8 +69,8 @@ Helm-owned agent runtime with Hermes-like capabilities. Implement Helm-native ru
 
 ## Evidence
 - `pnpm -C packages/shared build` PASS.
-- `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7).
-- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts --reporter=verbose` PASS (29/29, 2026-11-27 local).
+- `pnpm -C packages/shared exec vitest run src/runtime-policy.test.ts src/agent-runtime.test.ts --reporter=verbose` PASS (7/7; policy includes sensitive-egress enforcement cases).
+- `pnpm -C backend/worker exec vitest run src/runtime.test.ts src/runtime.behavior.test.ts src/runtime.evals.test.ts src/runtime-checkpoint.test.ts src/process-task.checkpoint.test.ts src/hermes-runtime-adapter.test.ts --reporter=verbose` PASS (33/33, 2026-11-27 local; includes sensitive-egress deny).
 - `pnpm -C backend/worker exec vitest run src/runtime.behavior.test.ts src/runtime.test.ts --reporter=verbose` PASS (13/13, 2026-11-27 local, interrupt behavior).
 - `pnpm -C backend/worker exec vitest run src/process-task.checkpoint.test.ts --reporter=verbose` PASS (7/7, 2026-11-27 local, includes paused/cancelled mid-runtime no-overwrite + interrupt request).
 - `pnpm -C backend/worker exec tsc --noEmit --pretty false` PASS (2026-11-27 local).

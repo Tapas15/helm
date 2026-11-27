@@ -21,7 +21,7 @@ export function resolveModel(env: NodeJS.ProcessEnv = process.env, override?: { 
     sensitivity: ctx.sensitivity ?? "normal",
     taskKind: ctx.taskKind ?? "assistant",
     toolCallingRequired: ctx.toolCallingRequired ?? false,
-  }, { defaultModel, defaultProvider, defaultBaseUrl: defaultBase, allowlist });
+  }, { defaultModel, defaultProvider, defaultBaseUrl: defaultBase, allowlist, enforceSensitiveEgress: env.HELM_ENFORCE_SENSITIVE_EGRESS === "1" });
   if (!policy.selectedModel || !policy.selectedBaseUrl) return null;
   const apiKey = override?.apiKey ?? env.HELM_MODEL_API_KEY ?? env.OPENAI_API_KEY ?? "";
   const timeoutMs = Math.max(5000, Number(override?.timeoutMs ?? env.HELM_MODEL_TIMEOUT_MS ?? 120000));
@@ -294,6 +294,10 @@ export class HelmNativeRuntime implements AgentRuntime {
       return;
     }
     if (model) {
+      if (!model.policy.egressAllowed) {
+        yield { type: "runtime.failed", ts: now(), trace, message: "Sensitive egress policy blocked model routing", payload: { code: "POLICY_DENIED", retryable: false, provider: model.provider, model: model.model, policy: model.policy, guardrail: "sensitive_egress" } };
+        return;
+      }
       if (toolsExposed && !isToolCapableModel(model)) {
         yield { type: "runtime.completed", ts: now(), trace, message: "Model not tool-capable allowlisted", payload: { status: "succeeded", output: `Configured model '${model.model}' is not in the local tool-capable allowlist. Set HELM_MODEL to an allowlisted tool-capable model (current allowlist: ${model.allowlist.join(", ")}) or update HELM_MODEL_TOOL_CAPABLE_ALLOWLIST after verifying tool-call reliability.` , provider: model.provider, model: model.model, guardrail: "tool_capability_allowlist", policy: model.policy } };
         return;

@@ -26,7 +26,7 @@ export function runtimeRoutes(_db: Database) {
     const defaultBaseUrl = process.env.HELM_MODEL_BASE_URL ?? process.env.OPENAI_BASE_URL ?? (process.env.OLLAMA_BASE_URL ? `${process.env.OLLAMA_BASE_URL}/v1` : null);
     const provider = process.env.HELM_MODEL_PROVIDER ?? (process.env.OLLAMA_BASE_URL || defaultBaseUrl?.includes("11434") ? "ollama" : "openai-compatible");
     const model = process.env.HELM_MODEL ?? process.env.OPENAI_MODEL ?? (process.env.OLLAMA_BASE_URL ? "llama3.2:latest" : null);
-    const policy = decideRuntimeModelPolicy({ sensitivity: "normal", taskKind: "assistant", toolCallingRequired: false }, { defaultModel: model, defaultProvider: provider, defaultBaseUrl, allowlist });
+    const policy = decideRuntimeModelPolicy({ sensitivity: "normal", taskKind: "assistant", toolCallingRequired: false }, { defaultModel: model, defaultProvider: provider, defaultBaseUrl, allowlist, enforceSensitiveEgress: process.env.HELM_ENFORCE_SENSITIVE_EGRESS === "1" });
     return c.json(redactValue({
       ok: true,
       runtime: {
@@ -56,7 +56,7 @@ export function runtimeRoutes(_db: Database) {
       sensitivity: override.sensitivity ?? "normal",
       taskKind: override.taskKind ?? "assistant",
       toolCallingRequired: override.toolCallingRequired ?? false,
-    }, { defaultModel, defaultProvider, defaultBaseUrl, allowlist });
+    }, { defaultModel, defaultProvider, defaultBaseUrl, allowlist, enforceSensitiveEgress: process.env.HELM_ENFORCE_SENSITIVE_EGRESS === "1" });
     return c.json(redactValue({
       ok: true,
       override: { ...override, provider: policy.selectedProvider ?? defaultProvider, model: policy.selectedModel ?? defaultModel },

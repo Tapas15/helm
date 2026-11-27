@@ -26,6 +26,8 @@ export const RuntimeModelPolicyDecision = z.object({
   sensitivity: RuntimeModelSensitivity,
   reasons: z.array(z.string()),
   warnings: z.array(z.string()),
+  egressAllowed: z.boolean(),
+  egressPolicy: z.enum(["allow", "deny-nonlocal-sensitive"]),
 });
 export type RuntimeModelPolicyDecision = z.infer<typeof RuntimeModelPolicyDecision>;
 
@@ -44,7 +46,7 @@ export function isLocalProvider(provider: string | null | undefined, baseUrl: st
 
 export function decideRuntimeModelPolicy(
   input: RuntimeModelPolicyInput,
-  env: { defaultModel?: string | null; defaultProvider?: string | null; defaultBaseUrl?: string | null; allowlist?: string[] },
+  env: { defaultModel?: string | null; defaultProvider?: string | null; defaultBaseUrl?: string | null; allowlist?: string[]; enforceSensitiveEgress?: boolean },
 ): RuntimeModelPolicyDecision {
   const allowlist = (env.allowlist ?? [...DEFAULT_TOOL_CAPABLE_ALLOWLIST]).map((s) => s.toLowerCase());
   const selectedModel = input.requestedModel ?? env.defaultModel ?? null;
@@ -64,16 +66,23 @@ export function decideRuntimeModelPolicy(
       sensitivity: input.sensitivity,
       reasons: ["No model/baseUrl configured; runtime will use deterministic fallback"],
       warnings: [],
+      egressAllowed: true,
+      egressPolicy: "allow",
     };
   }
 
   const route: RuntimeModelRoute = input.requestedModel ? "override" : "local-default";
   reasons.push(input.requestedModel ? "Using explicit model override" : "Using configured default model");
-  if (isLocalProvider(selectedProvider, selectedBaseUrl)) reasons.push("Local/provider-local endpoint selected");
+  const local = isLocalProvider(selectedProvider, selectedBaseUrl);
+  if (local) reasons.push("Local/provider-local endpoint selected");
   else reasons.push("Non-local provider endpoint selected");
 
-  if (input.sensitivity === "sensitive" && !isLocalProvider(selectedProvider, selectedBaseUrl)) {
-    warnings.push("Sensitive task routed to non-local provider; confirm policy allows external model egress");
+  const sensitiveNonLocal = input.sensitivity === "sensitive" && !local;
+  const denySensitiveEgress = sensitiveNonLocal && env.enforceSensitiveEgress === true;
+  if (sensitiveNonLocal) {
+    warnings.push(denySensitiveEgress
+      ? "Sensitive task cannot use non-local provider while sensitive egress enforcement is enabled"
+      : "Sensitive task routed to non-local provider; confirm policy allows external model egress");
   }
   if (input.taskKind === "browser" && !input.toolCallingRequired) {
     reasons.push("Browser task may require tool-capable model when tool calling is enabled");
@@ -88,5 +97,17 @@ export function decideRuntimeModelPolicy(
     warnings.push("Tool calling required but selected model is not tool-capable allowlisted");
   }
 
-  return { route, selectedModel, selectedProvider, selectedBaseUrl, toolCapable, allowlisted, sensitivity: input.sensitivity, reasons, warnings };
+  return {
+    route,
+    selectedModel,
+    selectedProvider,
+    selectedBaseUrl,
+    toolCapable,
+    allowlisted,
+    sensitivity: input.sensitivity,
+    reasons,
+    warnings,
+    egressAllowed: !denySensitiveEgress,
+    egressPolicy: denySensitiveEgress ? "deny-nonlocal-sensitive" : "allow",
+  };
 }
